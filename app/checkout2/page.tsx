@@ -1,27 +1,53 @@
-// import { getMembership } from "@/lib/evo-api";
-// import { useCheckoutFlow } from "@/hooks/useCheckoutFlow";
-import { getBranchAction, getMembershipAction } from "../actions/evoMember";
 import CheckoutClient from "@/components/checkout/CheckoutClient";
-import StepEmail from "@/components/checkout/StepEmail";
-import StepOTP from "@/components/checkout/StepOTP";
-import StepPayment from "@/components/checkout/StepPayment";
-import { getSession } from "@/lib/auth/session";
-import { useCheckoutStore } from "@/store/useCheckoutStore";
+import { getBranchAction, getMembershipAction } from "../actions/evoMember";
 
-export default async function CheckoutPage({ searchParams }: any) {
-  const searchParam = await searchParams;
-  // const { step } = useCheckoutFlow();
-  const session = await getSession();
-  const planId = await searchParam.planId;
-  if (!planId) return <div>Plan no encontrado</div>;
+interface SearchParams {
+  planId?: string;
+}
 
-  let plan: any = null,
-    branch: any = null;
+export default async function CheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const planId = params.planId;
+
+  if (!planId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            Plan no seleccionado
+          </h1>
+          <p className="text-gray-600 mb-2">
+            Serás redirigido en 5 segundos...
+          </p>
+          <p className="text-sm text-gray-400">
+            Si no redirecciona, haz clic en el botón
+          </p>
+          <a
+            href="https://station24.com.mx/unete"
+            className="inline-block mt-4 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Ir ahora
+          </a>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `setTimeout(function(){window.location.href='https://station24.com.mx/unete'},5000)`,
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  let plan: any = null;
+  let branch: any = null;
+
   try {
     const planResponse = await getMembershipAction(planId);
-
     if (planResponse?.list && planResponse.qtde > 0) {
-      debugger;
       plan = planResponse.list[0];
       const idBranch = plan.idBranch;
       const branchResponse = await getBranchAction(idBranch);
@@ -31,21 +57,38 @@ export default async function CheckoutPage({ searchParams }: any) {
         branchResponse?.branch &&
         Array.isArray(branchResponse.branch)
       ) {
-        // Por si la API devuelve { branch: [...] }
         branch = branchResponse.branch[0];
       }
-      // console.debug("🚀 ~ CheckoutPage ~ idBranch:", idBranch)
-
-      // console.debug("🚀 Sucursal obtenida:", branch[0]);
     }
-    // setLoading(true);
   } catch (err) {
     console.error(err);
-    // toast.error("Error API");
   }
-  // finally {
-  // setLoading(false);
-  // }
+
+  if (!plan) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            Plan no encontrado
+          </h1>
+          <p className="text-gray-600 mb-2">
+            Serás redirigido en 5 segundos...
+          </p>
+          <a
+            href="https://station24.com.mx/unete"
+            className="inline-block mt-4 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Ir ahora
+          </a>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `setTimeout(function(){window.location.href='https://station24.com.mx/unete'},5000)`,
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return <CheckoutClient plan={plan} branch={branch} />;
 }

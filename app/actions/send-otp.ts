@@ -86,7 +86,7 @@ export async function sendOTP(params: SendOTPParams): Promise<{
     const token = generateMagicToken();
     await saveMagicToken(userId, token);
 
-    const magicLink = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/magic-link?token=${token}`;
+    const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
 
     if (method === "whatsapp") {
       const sent = await sendOTPWhatsApp(prospect.phone, otp);

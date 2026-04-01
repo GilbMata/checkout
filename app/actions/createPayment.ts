@@ -37,13 +37,13 @@ export async function createPreference(params: CreatePreferenceParams) {
   }
 
   // URL del webhook para notificaciones
-  const notificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook`;
+  const notificationUrl = `${process.env.APP_URL}/api/payment/webhook`;
 
   // URLs de retorno - usar checkout2
   const backUrls = {
-    success: `${process.env.NEXT_PUBLIC_APP_URL}/checkout2/success`,
-    failure: `${process.env.NEXT_PUBLIC_APP_URL}/checkout2/failure`,
-    pending: `${process.env.NEXT_PUBLIC_APP_URL}/checkout2/pending`,
+    success: `${process.env.APP_URL}/checkout2/success`,
+    failure: `${process.env.APP_URL}/checkout2/failure`,
+    pending: `${process.env.APP_URL}/checkout2/pending`,
   };
 
   const preference = new Preference(mp);

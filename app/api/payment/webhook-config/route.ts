@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 async function getWebhookConfig() {
   try {
     // Obtener la URL del webhook actual
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook`;
+    const webhookUrl = `${process.env.APP_URL}/api/payment/webhook`;
 
     return Response.json({
       webhookUrl,
@@ -50,7 +50,7 @@ async function getWebhookConfig() {
 
 async function registerWebhook() {
   try {
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook`;
+    const webhookUrl = `${process.env.APP_URL}/api/payment/webhook`;
 
     // La URL del webhook debe estar registrada en el panel de MercadoPago
     // Esta función solo devuelve la URL que necesita配置uración
