@@ -1,0 +1,44 @@
+import type { Metadata } from "next";
+import { Poppins, Montserrat } from "next/font/google"; // Importamos Archivo para el look de gym
+import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
+// import { Toaster } from "sonner";
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans"
+})
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  weight: ['100', '400', '700'], // Specify weights
+  display: 'swap',
+});
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="es">
+      <body
+        className={
+          montserrat.className
+        }
+      >
+        {children}
+
+        <Toaster
+          position="top-center"
+          expand
+          closeButton
+          toastOptions={{
+            className:
+              "!border !border-orange-500 bg-zinc-900 text-white rounded-xl shadow-lg backdrop-blur-md",
+          }}
+        />
+      </body>
+    </html>
+  );
+}
