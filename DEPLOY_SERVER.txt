@@ -1,0 +1,116 @@
+===========================================
+=== DEPLOY STATION EN SERVIDOR DEBIAN ===
+===========================================
+
+1. SUBIR ARCHIVOS A GITHUB
+===========================
+git add .
+git commit -m "deploy: agregar webhook de automatico"
+git push origin main
+
+
+2. EN EL SERVIDOR - CONFIGURAR WEBHOOK
+========================================
+
+2.1 Subir archivos al servidor
+------------------------------
+Desde tu PC, copiar estos archivos al servidor:
+- deploy.sh
+- webhook.js
+
+Opcional: usar git clone directamente en el servidor:
+cd /var/www
+git clone https://github.com/GilbMata/checkout.git station
+
+2.2 Dar permisos al script
+--------------------------
+chmod +x /var/www/station/deploy.sh
+
+2.3 Editar webhook.js - Cambiar el secret
+-----------------------------------------
+nano /var/www/station/webhook.js
+
+En la linea 4, cambiar:
+const WEBHOOK_SECRET = 'tu_secret_aqui';
+
+Por un secret seguro, ej:
+const WEBHOOK_SECRET = 'MiPasswordSeguro123!';
+
+2.4 Instalar dependencias del webhook
+--------------------------------------
+cd /var/www/station
+npm install
+
+2.5 Ejecutar webhook en background
+-----------------------------------
+node webhook.js &
+
+Para que inicie automaticamente al boot, agregar a PM2:
+pm2 start /var/www/station/webhook.js --name "webhook"
+
+
+3. CONFIGURAR NGINX
+===================
+
+nano /etc/nginx/sites-available/station
+
+Agregar dentro del bloque server:
+
+location /deploy {
+    proxy_pass http://localhost:9000/deploy;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_cache_bypass $http_upgrade;
+}
+
+Luego reiniciar nginx:
+nginx -t
+systemctl reload nginx
+
+
+4. CONFIGURAR GITHUB WEBHOOK
+=============================
+
+1. Ir a: https://github.com/GilbMata/checkout/settings/hooks
+2. Click en "Add webhook"
+3. Configurar:
+   - Payload URL: https://TU-DOMINIO.com/deploy
+   - Content type: application/json
+   - Secret: El mismo que pusiste en webhook.js (paso 2.3)
+   - Which events: Just the push event
+   - Active: ✓
+4. Click "Add webhook"
+
+
+5. PROBAR EL DEPLOY
+===================
+
+Hacer un cambio en el codigo local y hacer push:
+git add .
+git commit -m "test deploy"
+git push origin main
+
+El servidor deberia actualizar automaticamente.
+
+
+6. COMANDOS UTILES
+==================
+
+Ver logs del webhook:
+pm2 logs webhook
+
+Ver logs del app:
+pm2 logs station
+
+Reiniciar manualmente:
+pm2 restart all
+
+Ver estado:
+pm2 status
+
+
+===========================================
+=== FIN DE INSTRUCCIONES ==================
+===========================================

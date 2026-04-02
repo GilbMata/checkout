@@ -56,3 +56,4 @@ logs/
 
 # agents
 AGENTS.md
+.opencode/

@@ -51,8 +51,18 @@ export async function createProspectAction(data: CreateProspectData) {
       .limit(1);
 
     return result[0];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating prospect:", error);
+    if (error?.message?.includes("UNIQUE constraint failed")) {
+      throw new Error(
+        "El correo electrónico ya está registrado con otro número",
+      );
+    }
+    if (error?.message?.includes("already exists")) {
+      throw new Error(
+        "El correo electrónico ya está registrado con otro número",
+      );
+    }
     throw new Error("No se pudo crear el prospecto");
   }
 }

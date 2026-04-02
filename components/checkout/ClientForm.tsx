@@ -102,24 +102,21 @@ export default function ClientForm({
     form.formState.errors,
   );
 
-  // useEffect(() => {
-  //   const value = watch("email");
+  useEffect(() => {
+    const value = watch("email");
+    if (!value) return;
+    const timeout = setTimeout(async () => {
+      const isValid = await form.trigger("email");
+      if (!isValid) return;
+      validateEmail(value);
+    }, 500);
 
-  //   if (!value) return;
+    return () => clearTimeout(timeout);
+  }, [watch("email")]);
 
-  //   const timeout = setTimeout(async () => {
-  //     const isValid = await form.trigger("email");
-  //     if (!isValid) return;
-
-  //     validateEmail(value);
-  //   }, 500);
-
-  //   return () => clearTimeout(timeout);
-  // }, [watch("email")]);
-
-  // useEffect(() => {
-  //   setFocus("phone");
-  // }, [setFocus]);
+  useEffect(() => {
+    setFocus("phone");
+  }, [setFocus]);
 
   useEffect(() => {
     const value = watch("phone");
@@ -172,43 +169,43 @@ export default function ClientForm({
 
       if (prospect) {
         console.debug("🚀 ~ Existe el prospecto");
-
+toast.warning(" El correo ya existe con otro número");
         // El prospecto existe - enviar OTP
-        await sendOTP({ prospectId: prospect.id });
-        setEmail(email);
-        setPhone(prospect.phone || "");
-        setProspectId(prospect.id);
-        setStep("otp");
+        // await sendOTP({ prospectId: prospect.id });
+        // setEmail(email);
+        // setPhone(prospect.phone || "");
+        // setProspectId(prospect.id);
+        // setStep("otp");
         return;
       }
 
-      const member = await getMemberAction(email);
+      // const member = await getMemberAction(email);
 
-      if (member) {
-        console.debug("🚀 ~ Existe el member");
-        // El miembro existe - crear prospecto y enviar OTP
-        const phoneNumber = member.phone || "";
-        const newProspect = await createProspectAction({
-          email: member.email || email,
-          curp: "",
-          firstName: member.firstName || "",
-          lastName: member.lastName || "",
-          genero: member.gender || "",
-          birthDate: member.birthDate || "",
-          areaCode: phoneNumber.slice(0, 3),
-          phone: phoneNumber.slice(3, phoneNumber.length),
-          planId: planId,
-        });
+      // if (member) {
+      //   console.debug("🚀 ~ Existe el member");
+      //   // El miembro existe - crear prospecto y enviar OTP
+      //   const phoneNumber = member.phone || "";
+      //   const newProspect = await createProspectAction({
+      //     email: member.email || email,
+      //     curp: "",
+      //     firstName: member.firstName || "",
+      //     lastName: member.lastName || "",
+      //     genero: member.gender || "",
+      //     birthDate: member.birthDate || "",
+      //     areaCode: phoneNumber.slice(0, 3),
+      //     phone: phoneNumber.slice(3, phoneNumber.length),
+      //     planId: planId,
+      //   });
 
         // Guardar prospectId en el store
-        setProspectId(newProspect.id);
+        // setProspectId(newProspect.id);
 
-        await sendOTP({ prospectId: newProspect.id });
-        setEmail(member.email || email);
-        setPhone(phoneNumber);
-        setStep("otp");
-        return;
-      }
+        // await sendOTP({ prospectId: newProspect.id });
+        // setEmail(member.email || email);
+        // setPhone(phoneNumber);
+        // setStep("otp");
+      //   return;
+      // }
 
       setEmailValid(true);
     } catch (err) {
@@ -297,10 +294,11 @@ export default function ClientForm({
       setPhone(phoneNumber);
       setStep("otp");
       toast.dismiss();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating prospect:", error);
       toast.dismiss();
-      toast.error("Error al registrar usuario");
+      const errorMessage = error?.message || "Error al registrar usuario";
+      toast.error(errorMessage);
     }
   };
 
@@ -576,6 +574,10 @@ export default function ClientForm({
                         <FloatingInput
                           label="Correo electrónico *"
                           type="email"
+                      // value={field.value || ""}
+                      //     onChange={(value?: string | undefined) =>
+                      //   field.onChange(value || "")
+                      // }
                           {...field}
                         />
                       </FormControl>
