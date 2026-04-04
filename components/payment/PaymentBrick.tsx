@@ -3,6 +3,7 @@
 import { getOrCreatePreference } from "@/app/actions/createPayment";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { initMercadoPago, Payment } from "@mercadopago/sdk-react";
+import { IPaymentFormData, IAdditionalCardFormData } from "@mercadopago/sdk-react/esm/bricks/payment/type";
 import { useEffect, useRef, useState } from "react";
 
 interface PaymentBrickProps {
@@ -171,21 +172,18 @@ export default function PaymentBrick({ planId }: PaymentBrickProps) {
             atm: "all",
             creditCard: "all",
             debitCard: "all",
-            mercadoPago: "all",
+            // mercadoPago: "all",
             prepaidCard: "all",
-            ticket: "all",
-            maxInstallments: 12,
+            // ticket: "all",
+            maxInstallments: 1,
           },
-        }}
-        onSubmit={async (formData) => {
-          console.log("Pago submetido:", formData);
-          return { status: "pending" };
         }}
         onReady={() => console.log("Payment Brick listo")}
         onError={(error) => {
           console.error("Error en Payment Brick:", error);
-        }}
-      />
+        } } onSubmit={function (param: IPaymentFormData, param2?: IAdditionalCardFormData | null): Promise<unknown> {
+          throw new Error("Function not implemented.");
+        } }      />
     </div>
   );
 }

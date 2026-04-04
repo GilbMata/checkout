@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  getMemberAction,
-  getMemberbyPhoneAction,
-} from "@/app/actions/evoMember";
+import { getMemberbyPhoneAction } from "@/app/actions/evoMember";
 import {
   createProspectAction,
   getProspectByEmailAction,
@@ -169,7 +166,7 @@ export default function ClientForm({
 
       if (prospect) {
         console.debug("🚀 ~ Existe el prospecto");
-toast.warning(" El correo ya existe con otro número");
+        toast.warning(" El correo ya existe con otro número");
         // El prospecto existe - enviar OTP
         // await sendOTP({ prospectId: prospect.id });
         // setEmail(email);
@@ -197,13 +194,13 @@ toast.warning(" El correo ya existe con otro número");
       //     planId: planId,
       //   });
 
-        // Guardar prospectId en el store
-        // setProspectId(newProspect.id);
+      // Guardar prospectId en el store
+      // setProspectId(newProspect.id);
 
-        // await sendOTP({ prospectId: newProspect.id });
-        // setEmail(member.email || email);
-        // setPhone(phoneNumber);
-        // setStep("otp");
+      // await sendOTP({ prospectId: newProspect.id });
+      // setEmail(member.email || email);
+      // setPhone(phoneNumber);
+      // setStep("otp");
       //   return;
       // }
 
@@ -513,23 +510,21 @@ toast.warning(" El correo ya existe con otro número");
                               disabled
                               className=" w-full  border-0 border-b-2 rounded-none"
                             >
-                              <FormControl>
-                                <Button
-                                  aria-readonly="true"
-                                  className={`w-full bg-transparent px-  outline-none transition-all rounded-none  text-left font-normal ${
-                                    !field.value && "text-muted-foreground"
-                                  }`}
-                                >
-                                  {field.value ? (
-                                    format(new Date(field.value), "PPP", {
-                                      locale: es,
-                                    })
-                                  ) : (
-                                    <span>Selecciona una fecha</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
+                              <div
+                                role="button"
+                                className={`w-full bg-transparent px-0 py-3 outline-none transition-all rounded-none text-left font-normal border-0 border-b-2 ${
+                                  !field.value && "text-muted-foreground"
+                                }`}
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "PPP", {
+                                    locale: es,
+                                  })
+                                ) : (
+                                  <span>Selecciona una fecha</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </div>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                               <Calendar
@@ -574,10 +569,10 @@ toast.warning(" El correo ya existe con otro número");
                         <FloatingInput
                           label="Correo electrónico *"
                           type="email"
-                      // value={field.value || ""}
-                      //     onChange={(value?: string | undefined) =>
-                      //   field.onChange(value || "")
-                      // }
+                          // value={field.value || ""}
+                          //     onChange={(value?: string | undefined) =>
+                          //   field.onChange(value || "")
+                          // }
                           {...field}
                         />
                       </FormControl>

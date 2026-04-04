@@ -75,12 +75,12 @@ export async function createPreference(params: CreatePreferenceParams) {
     payment_methods: {
       excluded_payment_methods: [],
       excluded_payment_types: [],
-      installments: 12, // Máximo cuotas
+      installments: 3, // Máximo cuotas
     },
     // URLs de retorno
     back_urls: backUrls,
     // Auto retornar cuando se apruebe - quitar por ahora para debug
-    // auto_return: "approved",
+    auto_return: "approved",
     // Webhook para notificaciones
     notification_url: notificationUrl,
     // Referencia externa (nuestra ID de prospecto)
@@ -91,10 +91,10 @@ export async function createPreference(params: CreatePreferenceParams) {
     binary_mode: false, // Permite pagos pendientes
   };
 
-  // console.debug(
-  // "🚀 ~ createPreference ~ preferenceBody:",
-  // JSON.stringify(preferenceBody, null, 2),
-  // );
+  console.debug(
+    "🚀 ~ createPreference ~ preferenceBody:",
+    JSON.stringify(preferenceBody, null, 2),
+  );
 
   // Crear el registro de pago pendiente en nuestra DB
   const paymentId = crypto.randomUUID();

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     console.log("🔔 Webhook MercadoPago recibido:", JSON.stringify(body));
 
     // Solo procesamos notificaciones de payments
-    if (body.type !== "payment") {
+    if (body.type !== "order") {
       console.log("Ignorando tipo de notificación:", body.type);
       return Response.json({ received: true, ignored: true });
     }
@@ -78,7 +78,7 @@ async function getPaymentDetails(paymentId: string) {
   try {
     // Usar el SDK de MercadoPago para obtener los detalles
     const response = await fetch(
-      `https://api.mercadopago.com/v1/payments/${paymentId}`,
+      `https://api.mercadopago.com/v1/orders/${paymentId}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
@@ -86,6 +86,7 @@ async function getPaymentDetails(paymentId: string) {
       },
     );
 
+    console.debug("🚀 ~ getPaymentDetails ~ response:", response);
     if (!response.ok) {
       console.error("Error fetching payment from MP:", response.status);
       return null;

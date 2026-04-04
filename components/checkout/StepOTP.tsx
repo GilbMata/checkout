@@ -38,6 +38,8 @@ export default function StepOTP() {
   };
 
   const handleVerify = (otp: string) => {
+    setStep("payment");
+
     if (otp.length !== 6) return;
     try {
       setLoading(true);
