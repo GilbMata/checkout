@@ -49,6 +49,7 @@ export default function CardPaymentBrick({
       // }[];4075595716483764
     };
   }
+  console.log("PLAN:", planData);
 
   // Mantener referencia actualizada del callback
   useEffect(() => {
@@ -103,6 +104,7 @@ export default function CardPaymentBrick({
         plan,
       } = cardPaymentData;
       amount = transaction_amount;
+      console.debug("🚀 ~ handleSubmit ~ amount:", amount);
       if (!token) {
         throw new Error("No se pudo generar el token de la tarjeta");
       }
@@ -124,8 +126,8 @@ export default function CardPaymentBrick({
           plan_id: planData,
         }),
       });
-      console.log("🚀 ~ handleSubmit ~ response:", response);
 
+      console.log("STATUS:", response.status);
       const result = await response.json();
       console.log("🚀 ~ handleSubmit ~ result:", result);
 
