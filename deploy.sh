@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /var/www/station
+cd /home/administrator/checkout
 
 # Pull latest code
 git pull origin main
@@ -12,9 +12,9 @@ npm install
 npm run build
 
 # Restart PM2
-pm2 restart station
+pm2 restart next-app
 
 # Save PM2 state
 pm2 save
 
-echo "Deployment completed at $(date)" >> /var/www/station/deploy.log
+echo "Deployment completed at $(date)" >> /home/administrator/checkout/deploy.log
