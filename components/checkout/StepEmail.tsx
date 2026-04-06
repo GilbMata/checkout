@@ -9,7 +9,7 @@ export default function StepEmail() {
   // const { setStep, setEmail } = useCheckoutFlow();
   const [email, setLocalEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const { setStep, setEmail, planId } = useCheckoutStore();
+  const { setStep, setEmail } = useCheckoutStore();
 
   const handleContinue = async () => {
     // setLoading(true);
@@ -28,7 +28,7 @@ export default function StepEmail() {
   return (
     <div className="">
       {/* <h2 className="text-xl font-semibold">Ingresa tu correo</h2> */}
-      <ClientForm planId={planId} />
+      <ClientForm />
 
       {/* <Button onClick={handleContinue} disabled={loading}>
         Continuar

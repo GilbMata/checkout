@@ -39,7 +39,6 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import "react-phone-number-input/style.css";
 // import "react-phone-input-2/lib/style.css";
 import { toast } from "sonner";
 import { Card, CardHeader } from "../ui/card";
@@ -51,20 +50,15 @@ import { CalendarIcon } from "lucide-react";
 import PhoneInput from "react-phone-number-input/react-hook-form";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-export default function ClientForm({
-  initialData,
-  planId,
-}: {
-  initialData?: any;
-  planId: any;
-}) {
+export default function ClientForm({ initialData }: { initialData?: any }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [emailValidating, setEmailValidating] = useState(false);
   const [emailValid, setEmailValid] = useState(false);
   const [phoneValid, setPhoneValid] = useState(false);
   const [showDisposableAlert, setShowDisposableAlert] = useState(false);
   // const [emailValid, setEmailValid] = useState(true);
-  const { setStep, setEmail, setPhone, setProspectId } = useCheckoutStore();
+  const { setStep, setEmail, setPhone, setProspectId, plan } =
+    useCheckoutStore();
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const [autoFilled, setAutoFilled] = useState(false);
@@ -244,7 +238,7 @@ export default function ClientForm({
           birthDate: member.birthDate || "",
           areaCode: phoneNumber.slice(0, 3),
           phone: phoneNumber.slice(3, phoneNumber.length),
-          planId: planId,
+          planId: String(plan?.idMembership),
         });
 
         // Guardar prospectId en el store
@@ -280,7 +274,7 @@ export default function ClientForm({
         birthDate: data.birthDate,
         areaCode: phoneNumber.slice(0, 3),
         phone: phoneNumber.slice(3, phoneNumber.length),
-        planId: planId,
+        planId: String(plan?.idMembership),
       });
 
       // Guardar prospectId en el store
