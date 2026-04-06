@@ -25,7 +25,7 @@ interface Props {
 
 // export default function StepOTP({ planId }: Props) {
 export default function StepOTP() {
-  const { setStep, email, planId, phone } = useCheckoutStore();
+  const { setStep, email, phone } = useCheckoutStore();
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const { seconds, isActive, reset } = useOtpTimer(60);
