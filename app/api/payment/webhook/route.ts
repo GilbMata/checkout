@@ -12,7 +12,8 @@ type MPPaymentStatus =
   | "cancelled" // Pago cancelado
   | "refunded" // Pago reembolsado
   | "in_process" // Pago en proceso de revisión
-  | "in_mediation"; // Pago en mediación
+  | "in_mediation" // Pago en mediación
+  | "failed"; // Pago en mediación
 
 interface WebhookData {
   type: string;
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as WebhookData;
     console.log("🔔 Webhook MercadoPago recibido:", JSON.stringify(body));
+    // return Response.json({ received: true });
 
     // Solo procesamos notificaciones de payments
     if (body.type !== "order") {
@@ -44,6 +46,7 @@ export async function POST(req: Request) {
 
     // Obtener detalles del pago desde MercadoPago
     const payment = await getPaymentDetails(paymentId);
+    console.debug("🚀 ~ POST ~ payment:", payment);
 
     if (!payment) {
       console.error("No se pudieron obtener detalles del pago:", paymentId);
@@ -58,7 +61,7 @@ export async function POST(req: Request) {
       status: payment.status,
       statusDetail: payment.status_detail,
       externalReference: payment.external_reference,
-      amount: payment.transaction_amount,
+      amount: payment.total_paid_amount,
     });
 
     // Procesar el pago según su estado
@@ -86,7 +89,6 @@ async function getPaymentDetails(paymentId: string) {
       },
     );
 
-    console.debug("🚀 ~ getPaymentDetails ~ response:", response);
     if (!response.ok) {
       console.error("Error fetching payment from MP:", response.status);
       return null;
@@ -112,7 +114,7 @@ async function processPaymentStatus(payment: any) {
     const prospect = await db
       .select()
       .from(prospects)
-      .where(eq(prospects.email, payment.payer.email))
+      .where(eq(prospects.phone, externalReference))
       .limit(1);
 
     if (prospect.length > 0) {
@@ -123,13 +125,13 @@ async function processPaymentStatus(payment: any) {
   // Guardar o actualizar el pago en nuestra base de datos
   const paymentRecord = {
     id: crypto.randomUUID(),
-    prospectId: prospectId || null,
+    prospectId: prospectId,
     mpPaymentId: String(payment.id),
-    mpPreferenceId: payment.preference_id || null,
+    mpPreferenceId: String(payment.id) || null,
     status: status,
     statusDetail: payment.status_detail || null,
-    transactionAmount: Math.round(payment.transaction_amount * 100), // Store in cents
-    currencyId: payment.currency_id || "MXN",
+    transactionAmount: payment.total_paid_amount, // Store in cents
+    currencyId: payment.currency || "MXN",
     paymentMethodId: payment.payment_method_id || null,
     paymentTypeId: payment.payment_type_id || null,
     installments: payment.installments || null,
@@ -138,8 +140,8 @@ async function processPaymentStatus(payment: any) {
     dateApproved: payment.date_approved
       ? new Date(payment.date_approved).getTime()
       : null,
-    dateCreated: payment.date_created
-      ? new Date(payment.date_created).getTime()
+    dateCreated: payment.created_date
+      ? new Date(payment.created_date).getTime()
       : null,
     createdAt: now,
     updatedAt: now,
@@ -149,7 +151,7 @@ async function processPaymentStatus(payment: any) {
   const existingPayment = await db
     .select()
     .from(payments)
-    .where(eq(payments.mpPaymentId, String(payment.id)))
+    .where(eq(payments.mpPreferenceId, String(payment.id)))
     .limit(1);
 
   if (existingPayment.length > 0) {
@@ -162,7 +164,7 @@ async function processPaymentStatus(payment: any) {
         dateApproved: paymentRecord.dateApproved,
         updatedAt: now,
       })
-      .where(eq(payments.mpPaymentId, String(payment.id)));
+      .where(eq(payments.mpPreferenceId, String(payment.id)));
 
     console.log("✅ Payment actualizado:", payment.id);
   } else {

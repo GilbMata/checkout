@@ -1,39 +1,59 @@
 import { useCheckoutStore } from "@/store/useCheckoutStore";
-import { StatusScreen } from "@mercadopago/sdk-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import CardPaymentBrick from "./CardPaymentBrick";
-interface StepPaymentProps {
-  planId: string;
-}
 
-// export default function StepPayment() {
-//   const { setStep, setEmail, planId } = useCheckoutStore();
-export default function StepPayment({ planId }: StepPaymentProps) {
-  const { setStep, setEmail, phone } = useCheckoutStore();
-  const [paymentResult, setPaymentResult] = useState<any>(null);
-  const [paymentSuccess, setpaymentSuccess] = useState<any>(null);
+export default function StepPayment() {
+  const router = useRouter();
 
-  const handlePaymentSuccess = (result: any) => {
-    setPaymentResult({
-      success: true,
-      message: `¡Pago aprobado! ID: ${result.payment_id}`,
-    });
+  const handleSuccess = (result: any) => {
+    console.log("✅ Pago aprobado:", result);
+    // Redirect a success page con payment_id
+    const paymentId = result.payment_id || result.id;
+    router.push(`/checkout/success?payment_id=${paymentId}`);
   };
 
-  const handlePaymentError = (error: any) => {
-    setPaymentResult({
-      success: false,
-      message: `Error: ${JSON.stringify(error)}`,
-    });
+  const handlePending = (result: any) => {
+    console.log("⏳ Pago pendiente:", result);
+    // Redirect a pending page
+    const paymentId = result.payment_id || result.id || result.preference_id;
+    const queryParams = paymentId ? `?payment_id=${paymentId}` : "";
+    router.push(`/checkout/pending${queryParams}`);
   };
-  const data = {
-    title: "Producto de ejemplo",
-    price: 1000,
-    quantity: 1,
-    phone: "3312486283",
-    email: "test@test.com",
-    description: "Descripción del producto",
+
+  const handleRejected = (result: any) => {
+    console.log("❌ Pago rechazado:", result);
+    // Redirect a failure page con status_detail
+    const paymentId = result.payment_id || result.id || result.preference_id;
+    const statusDetail = result.status_detail || result.error;
+
+    let queryParams = "";
+    if (paymentId && statusDetail) {
+      queryParams = `?payment_id=${paymentId}&status_detail=${encodeURIComponent(statusDetail)}`;
+    } else if (paymentId) {
+      queryParams = `?payment_id=${paymentId}`;
+    } else if (statusDetail) {
+      queryParams = `?status_detail=${encodeURIComponent(statusDetail)}`;
+    }
+
+    // router.push(`/checkout/failure${queryParams}`);
   };
+
+  const handleError = (error: any) => {
+    console.error("❌ Error en pago:", error);
+    // Redirect a failure page
+    const errorMsg = error?.toString() || "Error al procesar el pago";
+    router.push(
+      `/checkout/failure?status_detail=${encodeURIComponent(errorMsg)}`,
+    );
+  };
+
+  // Obtener datos del plan desde el store
+  const { plan } = useCheckoutStore();
+
+  const promo = Number(plan?.valuePromotionalPeriod ?? 0);
+  let amount = Number(plan?.value ?? 0);
+  amount = promo > 0 ? promo : amount;
+  const description = plan?.description ? plan?.description : plan?.displayName;
 
   return (
     <div className="space-y-4 max-w-lg min-w-md mx-auto">
@@ -43,46 +63,14 @@ export default function StepPayment({ planId }: StepPaymentProps) {
         </h1>
 
         <CardPaymentBrick
-          amount={1000}
-          description="Producto de ejemplo"
-          phone="3312486283"
-          onSuccess={(result) => {
-            setpaymentSuccess(result.success);
-            return (
-              <StatusScreen initialization={{ paymentId: result.payment_id }} />
-            );
-            setPaymentResult({
-              success: true,
-              message: `✅ Pago aprobado! ID: ${result.payment_id}`,
-            });
-          }}
-          onError={(error) => {
-            setPaymentResult({
-              success: false,
-              message: `❌ Error: ${JSON.stringify(error)}`,
-            });
-          }}
+          amount={Number(amount)}
+          description={description || "Plan station24"}
+          onSuccess={handleSuccess}
+          onError={handleError}
+          onPending={handlePending}
+          onRejected={handleRejected}
         />
-
-        {paymentResult && (
-          <div
-            className={`mt-4 p-4 rounded text-center ${
-              paymentResult.success
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
-          >
-            {paymentResult.message}
-          </div>
-        )}
       </main>
-      <h2 className="text-2xl text-orange-500 font-bold text-center">
-        Completa tu pago
-      </h2>
-
-      {/* <PaymentBrickW planId={planId} /> */}
-      {/* <PaymentBrick planId={planId} /> */}
-      {/* <PaymentBrick planId={planId} /> */}
     </div>
   );
 }

@@ -27,11 +27,11 @@ export default function CheckoutClient({
     );
   }
 
-  const { step, setPlanId } = useCheckoutStore();
+  const { step, setPlan } = useCheckoutStore();
 
   useEffect(() => {
     if (plan?.idMembership) {
-      setPlanId(plan.idMembership);
+      setPlan(plan);
     }
   }, [plan?.idMembership]);
 
@@ -75,9 +75,7 @@ export default function CheckoutClient({
         <div className="fle  p-6">
           {step === "email" && <StepEmail />}
           {step === "otp" && <StepOTP />}
-          {step === "payment" && (
-            <StepPayment planId={plan?.idMembership?.toString() || ""} />
-          )}
+          {step === "payment" && <StepPayment />}
         </div>
 
         {/* RIGHT */}

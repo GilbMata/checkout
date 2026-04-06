@@ -14,5 +14,5 @@ export async function GET(req: Request) {
 
   await createSession(user.id);
 
-  return redirect("/checkout2");
+  return redirect("/checkout");
 }

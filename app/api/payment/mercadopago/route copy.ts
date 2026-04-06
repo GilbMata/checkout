@@ -7,48 +7,52 @@ import { NextResponse } from "next/server";
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN!;
 
+// Tipos para el body de la solicitud
+interface PaymentRequestBody {
+  token: string;
+  amount: number;
+  description?: string;
+  payment_method_id: string;
+  installments?: number;
+  issuer_id?: string;
+  external_reference: string;
+  payer_email: string;
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body: PaymentRequestBody = await request.json();
+
+    console.log("🚀 ~ POST /api/payment/mercadopago ~ body:", body);
+
     // Validar campos requeridos
-    // const requiredFields = ["token", "amount", "payer"];
-    // for (const field of requiredFields) {
-    //   if (!body[field]) {
-    //     console.error(`❌ Campo faltante: ${field}`);
-    //     return NextResponse.json(
-    //       { success: false, error: `Campo faltante: ${field}` },
-    //       { status: 400 },
-    //     );
-    //   }
-    // }
+    const requiredFields = [
+      "token",
+      "amount",
+      "payer_email",
+      "external_reference",
+    ];
+    for (const field of requiredFields) {
+      if (!body[field as keyof PaymentRequestBody]) {
+        console.error(`❌ Campo faltante: ${field}`);
+        return NextResponse.json(
+          { success: false, error: `Campo faltante: ${field}` },
+          { status: 400 },
+        );
+      }
+    }
 
-    // console.log(
-    //   "✅ Validación pasada. Token:",
-    //   body.token.substring(0, 10) + "...",
-    // );
-
-    // let prospectId = "";
+    // Buscar el prospecto por phone o email
+    let prospectId = body.external_reference;
     const prospect = await db
       .select()
       .from(prospects)
-      .where(
-        eq(
-          prospects.phone,
-          body.prospectPhone.slice(3, body.prospectPhone.length),
-        ),
-      )
+      .where(eq(prospects.phone, body.external_reference))
       .limit(1);
 
-    if (!prospect) {
-      return NextResponse.json(
-        { success: false, erro: "no prospect" },
-        { status: 400 },
-      );
-      //  prospectId = prospect[0].id;
+    if (prospect.length > 0) {
+      prospectId = prospect[0].id;
     }
-
-    const prospectId = prospect[0].id;
-    const phone = prospect[0].phone.slice(1, prospect[0].phone.length);
 
     // Configurar el cliente de Mercado Pago
     const client = new MercadoPagoConfig({
@@ -58,14 +62,14 @@ export async function POST(request: Request) {
 
     const orderClient = new Order(client);
 
-    // Crear la orden
+    // Crear la orden con Checkout API via Orders
     const orderData = {
       body: {
         type: "online",
-        processing_mode: "automatic", // Procesamiento automático
+        processing_mode: "automatic",
         total_amount: String(body.amount),
-        external_reference: phone, //cambiar a curp
-        description: body.description,
+        external_reference: prospectId,
+        description: body.description || "Plan de membresía Station 24",
         transactions: {
           payments: [
             {
@@ -74,14 +78,13 @@ export async function POST(request: Request) {
                 id: body.payment_method_id,
                 type: "credit_card",
                 token: body.token,
-                installments: body.installments,
-                // statement_descriptor: 'Store name'
+                installments: Number(body.installments) || 1,
               },
             },
           ],
         },
         payer: {
-          email: body.payer_email, // Idealmente, el email del usuario logueado
+          email: body.payer_email,
         },
       },
       requestOptions: {
@@ -89,21 +92,20 @@ export async function POST(request: Request) {
       },
     };
 
+    console.log("🚀 ~ POST ~ orderData:", JSON.stringify(orderData, null, 2));
+
+    // Crear la orden en MercadoPago
     const order = await orderClient.create(orderData);
-    // console.log("🚀 ~ POST ~ order:", JSON.stringify(order));
+    console.log("🚀 ~ POST ~ order response:", order);
 
     // Determinar el estado del pago
     const orderStatus = order.status; // 'paid', 'pending', 'rejected', 'cancelled', etc.
     const statusDetail = order.status_detail;
-    const paymentMethodId =
-      order.transactions?.payments?.[0]?.payment_method?.id;
-    const transactionAmount = order.total_paid_amount;
-    const dateApproved = order.last_updated_date;
     const mpOrderId = order.id;
     const mpPaymentId = order.transactions?.payments?.[0]?.id;
 
     // Generar ID para nuestro registro
-    const paymentId = randomUUID();
+    const paymentId = crypto.randomUUID();
     const now = Date.now();
 
     // Mapeo de estados de Order a estados de Payment
@@ -134,26 +136,22 @@ export async function POST(request: Request) {
     }
 
     // Registrar el pago en la base de datos
-
-    // Registrar el pago en la base de datos
     await db.insert(payments).values({
       id: paymentId,
       prospectId: prospectId,
       mpPreferenceId: String(mpOrderId), // Usamos el order ID como referencia
-      status: "in_process",
-      // status: paymentStatus,
-      transactionAmount: Number(body.amount),
+      status: paymentStatus,
+      transactionAmount: Math.round(Number(body.amount) * 100), // Convertir a centavos
       currencyId: "MXN",
-      description: body.description,
+      description: body.description || "Plan de membresía Station 24",
       externalReference: prospectId,
       mpPaymentId: mpPaymentId ? String(mpPaymentId) : null,
       statusDetail: statusDetail || null,
       paymentMethodId: body.payment_method_id,
       paymentTypeId: "credit_card",
-      installments: Number(body.installments),
+      installments: Number(body.installments) || 1,
       createdAt: now,
       updatedAt: now,
-      planId: body.plan_id.id,
     });
 
     console.log("✅ Payment registered:", {
@@ -177,21 +175,13 @@ export async function POST(request: Request) {
         .where(eq(prospects.id, prospectId));
       console.log("✅ Prospect updated to member:", prospectId);
     }
-    // id: number;
-    //   status: "approved";
-    //   status_detail?: string;
-    //   payment_method_id?: string;
-    //   transaction_amount?: number;
-    //   date_approved?: string;
+
     // Responder según el estado
     if (isSuccess) {
       return NextResponse.json({
         success: true,
         status: "approved",
         status_detail: statusDetail,
-        payment_method_id: paymentMethodId,
-        transaction_amount: transactionAmount,
-        date_approved: dateApproved,
         order_id: mpOrderId,
         payment_id: mpPaymentId,
         paymentId: paymentId,
@@ -229,14 +219,21 @@ export async function POST(request: Request) {
       });
     }
   } catch (error: any) {
-    console.error("=== ERROR COMPLETO ===");
-    console.error("Mensaje:", error);
+    console.error("❌ Error completo:", error);
+
+    // Manejar errores específicos de MercadoPago
+    const errorMessage =
+      error?.cause?.body?.error || error?.message || "Error interno";
+    const errorStatus = error?.cause?.body?.status || 500;
+
     return NextResponse.json(
       {
         success: false,
-        error: error.cause?.body?.errors || error.message,
+        rejected: true,
+        error: errorMessage,
+        status_detail: errorMessage,
       },
-      { status: 400 },
+      { status: errorStatus > 399 ? errorStatus : 500 },
     );
   }
 }

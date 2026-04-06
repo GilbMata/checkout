@@ -39,11 +39,11 @@ export async function createPreference(params: CreatePreferenceParams) {
   // URL del webhook para notificaciones
   const notificationUrl = `${process.env.APP_URL}/api/payment/webhook`;
 
-  // URLs de retorno - usar checkout2
+  // URLs de retorno - usar checkout
   const backUrls = {
-    success: `${process.env.APP_URL}/checkout2/success`,
-    failure: `${process.env.APP_URL}/checkout2/failure`,
-    pending: `${process.env.APP_URL}/checkout2/pending`,
+    success: `${process.env.APP_URL}/checkout/success`,
+    failure: `${process.env.APP_URL}/checkout/failure`,
+    pending: `${process.env.APP_URL}/checkout/pending`,
   };
 
   const preference = new Preference(mp);
@@ -66,9 +66,9 @@ export async function createPreference(params: CreatePreferenceParams) {
       surname: lastName || "",
       phone: phone
         ? {
-          area_code: phone.slice(0, 2),
-          number: phone.slice(2),
-        }
+            area_code: phone.slice(0, 2),
+            number: phone.slice(2),
+          }
         : undefined,
     },
     // Configuración de payment

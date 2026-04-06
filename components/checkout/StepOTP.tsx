@@ -56,7 +56,7 @@ export default function StepOTP() {
 
         // 👉 aquí cambias step o redirect
         setStep("payment");
-        // window.location.href = "/checkout2";
+        // window.location.href = "/checkout";
       });
     } catch {
       toast.error("Error validando OTP");

@@ -17,6 +17,7 @@ export const magicLinks = sqliteTable("magic_links", {
 export const payments = sqliteTable("payments", {
   id: text("id").primaryKey(),
   prospectId: text("prospect_id"),
+  planId: text("plan_id"),
   mpPaymentId: text("mp_payment_id"),
   mpPreferenceId: text("mp_preference_id"),
   status: text("status"), // pending, approved, rejected, cancelled, refunded
