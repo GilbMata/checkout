@@ -48,29 +48,46 @@ export default function StepPayment() {
   };
 
   // Obtener datos del plan desde el store
-  const { plan } = useCheckoutStore();
-
+  const { prospect, plan } = useCheckoutStore();
+  if (!plan) {
+    throw new Error("Plan no encontrado");
+  }
+  if (!prospect) {
+    throw new Error("Prospect no encontrado");
+  }
   const promo = Number(plan?.valuePromotionalPeriod ?? 0);
-  let amount = Number(plan?.value ?? 0);
-  amount = promo > 0 ? promo : amount;
+  const price = Number(plan?.value ?? 0);
+  const amount = promo > 0 ? promo : price;
   const description = plan?.description ? plan?.description : plan?.displayName;
 
-  return (
-    <div className="space-y-4 max-w-lg min-w-md mx-auto">
-      <main className="container mx-auto p-8">
-        <h1 className="text-2xl font-bold mb-8 text-center">
-          Pagar con tarjeta
-        </h1>
+  const planData = {
+    id: String(plan?.idMembership),
+    description,
+    amount,
+    currency: "MXN",
+  };
+  const userData = {
+    phone: prospect?.phone,
+    email: prospect?.email,
+    curp: prospect?.curp,
+  };
 
-        <CardPaymentBrick
-          amount={Number(amount)}
-          description={description || "Plan station24"}
-          onSuccess={handleSuccess}
-          onError={handleError}
-          onPending={handlePending}
-          onRejected={handleRejected}
-        />
-      </main>
-    </div>
+  return (
+    // <div className="space-y-4 max-w-lg min-w-md mx-auto">
+    //   <main className="container mx-auto p-8">
+    //     <h1 className="text-2xl font-bold mb-8 text-center">
+    //       Pagar con tarjeta
+    //     </h1>
+
+    <CardPaymentBrick
+      planData={planData}
+      userData={userData}
+      onSuccess={handleSuccess}
+      onError={handleError}
+      onPending={handlePending}
+      onRejected={handleRejected}
+    />
+    //   </main>
+    // </div>
   );
 }

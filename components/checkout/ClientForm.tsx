@@ -39,7 +39,8 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-// import "react-phone-input-2/lib/style.css";
+// @ts-ignore
+import "react-phone-number-input/style.css";
 import { toast } from "sonner";
 import { Card, CardHeader } from "../ui/card";
 
@@ -48,8 +49,6 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import PhoneInput from "react-phone-number-input/react-hook-form";
-import { Calendar } from "../ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 export default function ClientForm({ initialData }: { initialData?: any }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [emailValidating, setEmailValidating] = useState(false);
@@ -88,10 +87,10 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
     formState,
   } = form;
   const { isDirty, dirtyFields } = formState;
-  console.debug(
-    "🚀 ~ ClientForm ~ form.formState.errors:",
-    form.formState.errors,
-  );
+  // console.log(
+  //   "🚀 ~ ClientForm ~ form.formState.errors:",
+  //   form.formState.errors,
+  // );
 
   useEffect(() => {
     const value = watch("email");
@@ -111,14 +110,14 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
 
   useEffect(() => {
     const value = watch("phone");
-    console.debug("🚀 ~ ClientForm ~ value:", value?.length);
+    // console.log("🚀 ~ ClientForm ~ value:", value?.length);
     // if (!value || value.length <= 11) return;
     const timeout = setTimeout(async () => {
       if (!dirtyFields?.phone) return;
       const isValid = await form.trigger("phone");
       if (!isValid) return;
       if (value) validatePhone(value);
-    }, 500);
+    }, 1000);
     clearErrors("phone");
     return () => clearTimeout(timeout);
   }, [watch("phone")]);
@@ -146,6 +145,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
 
     if (curp.length === 18) {
       const data = parseCURP(curp);
+      console.log("🚀 ~ handleCURPChange ~ data:", data);
       setValue("birthDate", data.birthDateString);
       setValue("genero", data.gender);
       setAutoFilled(true);
@@ -224,7 +224,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
       }
 
       const member = await getMemberbyPhoneAction(phone.slice(3, phone.length));
-      console.debug("🚀 ~ validatePhone ~ member:", member);
+      console.log("🚀 ~ validatePhone ~ member:", member);
 
       if (member) {
         // El miembro existe - crear prospecto y enviar OTP
@@ -295,7 +295,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
 
   return (
     // <Card className="px- md:px-6 lg:px-8 bg-[#1e1e1e] ">
-    <Card className="w-full max-w-xl mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
+    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
       <CardHeader className="space-y-4 px-6 pt-6">
         <div className="space-y-1">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
@@ -303,35 +303,23 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
           </h1>
 
           <p className="text-sm md:text-base text-zinc-400">
-            Completa tu registro para continuar con tu planId
+            Completa tu registro para continuar con tu plan
           </p>
         </div>
 
-        <div className="pt-2">
+        {/* <div className="pt-2">
           <p className="text-sm text-zinc-500">
             ¿Ya tienes cuenta?{" "}
             <button className="text-orange-400 hover:text-orange-300 font-medium transition-all hover:underline underline-offset-4">
               Iniciar sesión
             </button>
           </p>
-        </div>
+        </div> */}
       </CardHeader>
-      {/* <CardHeader className="m-2">
-        <h1 className="text-4xl text-white mb-2">
-          Registro
-        </h1>
-        <p className="text-white mb-10 text-xl">
-          ¿Tiene registro? Clic aquí para iniciar sesión.
-        </p>
-      </CardHeader> */}
-
-      {/* <ScrollArea className="h-125 overflow-y-auto w-full"> */}
       <FormProvider {...form}>
         <Form form={form} onSubmit={onSubmit}>
           <div className=" flex flex-col gap-3 px-8">
-            {/* <div className="flex flex-col space-y-4"> */}
-
-            {/* Phone - visible from start */}
+            {/* Phone */}
             <FormField
               control={control}
               name="phone"
@@ -437,7 +425,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
                   )}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="grid grid-cols- md:grid-cols-2 gap-4 md:gap-6">
                   {/* Genero */}
                   <FormField
                     control={control}
@@ -496,56 +484,26 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
                           <FormLabel className="">
                             <span>Fecha de nacimiento</span>
                           </FormLabel>
-                          <Popover
-                            open={calendarOpen}
-                            onOpenChange={setCalendarOpen}
+                          <div
+                            // role="button"
+                            className={`w-full bg-transparent px-0 py-1 outline-none transition-all rounded-none text-left font-normal border-0 border-b-2 flex  ${
+                              !field.value && "text-muted-foreground"
+                            }`}
                           >
-                            <PopoverTrigger
-                              disabled
-                              className=" w-full  border-0 border-b-2 rounded-none"
-                            >
-                              <div
-                                role="button"
-                                className={`w-full bg-transparent px-0 py-3 outline-none transition-all rounded-none text-left font-normal border-0 border-b-2 ${
-                                  !field.value && "text-muted-foreground"
-                                }`}
-                              >
-                                {field.value ? (
-                                  format(new Date(field.value), "PPP", {
-                                    locale: es,
-                                  })
-                                ) : (
-                                  <span>Selecciona una fecha</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </div>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={
-                                  field.value
-                                    ? new Date(field.value)
-                                    : undefined
-                                }
-                                onSelect={(date) => {
-                                  if (date) {
-                                    const normalized = new Date(
-                                      date.setHours(0, 0, 0, 0),
-                                    );
-                                    field.onChange(normalized.toISOString());
-                                    // field.onChange(date.toISOString().split("T")[0]); // guarda como YYYY-MM-DD
-                                    setCalendarOpen(false);
-                                  }
-                                }}
-                                disabled={(date) =>
-                                  date > new Date() ||
-                                  date < new Date("2005-01-01")
-                                }
-                                captionLayout="dropdown"
-                              />
-                            </PopoverContent>
-                          </Popover>
+                            {field.value ? (
+                              format(
+                                new Date(field.value + "T00:00:00"),
+                                "PPP",
+                                {
+                                  locale: es,
+                                },
+                              )
+                            ) : (
+                              <span>Selecciona una fecha</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </div>
+
                           <FormMessage />
                         </FormItem>
                       );

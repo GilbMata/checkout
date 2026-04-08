@@ -142,7 +142,7 @@ export async function POST(request: Request) {
       mpPreferenceId: String(mpOrderId), // Usamos el order ID como referencia
       status: "in_process",
       // status: paymentStatus,
-      transactionAmount: Number(body.amount),
+      transactionAmount: Number(body.amount) * 100,
       currencyId: "MXN",
       description: body.description,
       externalReference: prospectId,

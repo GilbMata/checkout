@@ -1,18 +1,19 @@
-import type { Metadata } from "next";
-import { Poppins, Montserrat } from "next/font/google"; // Importamos Archivo para el look de gym
-import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { Montserrat, Poppins } from "next/font/google";
+// @ts-ignore
+import "./globals.css";
+
 // import { Toaster } from "sonner";
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-sans"
-})
+  variable: "--font-sans",
+});
 
 const montserrat = Montserrat({
-  subsets: ['latin'],
-  weight: ['100', '400', '700'], // Specify weights
-  display: 'swap',
+  subsets: ["latin"],
+  weight: ["100", "400", "700"], // Specify weights
+  display: "swap",
 });
 
 export default function RootLayout({
@@ -22,11 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body
-        className={
-          montserrat.className
-        }
-      >
+      <body className={montserrat.className}>
         {children}
 
         <Toaster

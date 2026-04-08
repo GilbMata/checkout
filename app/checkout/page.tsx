@@ -15,14 +15,10 @@ export default async function CheckoutPage({
 
   if (!planId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center ">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            Plan no seleccionado
-          </h1>
-          <p className="text-gray-600 mb-2">
-            Serás redirigido en 5 segundos...
-          </p>
+          <h1 className="text-3xl font-bold mb-4">Plan no seleccionado</h1>
+          <p className=" mb-2">Serás redirigido en 5 segundos...</p>
           <p className="text-sm text-gray-400">
             Si no redirecciona, haz clic en el botón
           </p>
@@ -32,11 +28,11 @@ export default async function CheckoutPage({
           >
             Ir ahora
           </a>
-          <script
+          {/* <script
             dangerouslySetInnerHTML={{
               __html: `setTimeout(function(){window.location.href='https://station24.com.mx/unete'},5000)`,
             }}
-          />
+          /> */}
         </div>
       </div>
     );
@@ -64,6 +60,7 @@ export default async function CheckoutPage({
     console.error(err);
   }
 
+  console.debug("🚀 ~ CheckoutPage ~ plan:", plan);
   if (!plan) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

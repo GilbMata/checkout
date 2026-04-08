@@ -8,11 +8,14 @@ interface CheckoutState {
   phone: string;
   prospectId: string;
   plan: Membership | null;
+  prospect: Prospect | null;
 
   setStep: (step: Step) => void;
   setEmail: (email: string) => void;
   setPhone: (phone: string) => void;
   setPlan: (plan: Membership) => void;
+  setProspect: (prospect: Prospect) => void;
+  clearPlan: () => void;
   setProspectId: (prospectId: string) => void;
 }
 
@@ -21,15 +24,26 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   email: "",
   phone: "",
   prospectId: "",
+  prospect: null,
   plan: null,
   setStep: (step) => set({ step }),
   setEmail: (email) => set({ email }),
   setPhone: (phone) => set({ phone }),
+  setProspect: (prospect) => set({ prospect }),
   setProspectId: (prospectId) => set({ prospectId }),
-
   setPlan: (plan) => set({ plan }),
   clearPlan: () => set({ plan: null }),
 }));
+
+export interface Prospect {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  curp: string;
+  paymentPending: boolean;
+  isMember: boolean;
+}
 
 export interface Membership {
   idMembership: number;

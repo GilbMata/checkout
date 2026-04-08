@@ -1,13 +1,21 @@
 // app/components/CardPaymentBrick.tsx
 "use client";
 
-import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 import { useEffect, useRef, useState } from "react";
 
 interface CardPaymentBrickProps {
-  amount: number;
-  description: string;
+  planData: {
+    id: string;
+    description: string;
+    amount: number;
+    currency: string;
+  };
+  userData: {
+    phone: string;
+    email: string;
+    curp: string;
+  };
   onSuccess: (data: any) => void;
   onError: (error: any) => void;
   onPending?: (data: any) => void;
@@ -16,14 +24,13 @@ interface CardPaymentBrickProps {
 let globalInitDone = false;
 
 export default function CardPaymentBrick({
-  amount,
-  description,
+  userData: { phone, email, curp },
+  planData,
   onSuccess,
   onError,
   onPending,
   onRejected,
 }: CardPaymentBrickProps) {
-  const { email, phone, plan } = useCheckoutStore();
   const [processing, setProcessing] = useState(false);
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -31,37 +38,14 @@ export default function CardPaymentBrick({
   const initRef = useRef(false);
   const mountedRef = useRef(true);
   const onErrorRef = useRef(onError);
-
-  // const {idMembership, nameMembership} = plan
-  let planData = {};
-  if (plan) {
-    planData = {
-      id: plan.idMembership,
-      name: plan.nameMembership,
-      price: plan.valuePromotionalPeriod
-        ? plan.valuePromotionalPeriod
-        : plan.value,
-      currency: "MXN",
-      // interval?: string; // monthly, yearly
-      // activitiesGroups?: {
-      //   name: string;
-      //   activities: string[];
-      // }[];4075595716483764
-    };
-  }
-  console.log("PLAN:", planData);
-
-  // Mantener referencia actualizada del callback
-  useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
+  const planAmount = planData.amount;
 
   useEffect(() => {
     // Si ya está inicializado, marcar como listo inmediatamente
-    if (globalInitDone) {
-      setReady(true);
-      return;
-    }
+    // if (globalInitDone) {
+    //   setReady(true);
+    //   return;
+    // }
 
     const publicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY;
 
@@ -75,10 +59,10 @@ export default function CardPaymentBrick({
         console.log("✅ MP initialized");
       } catch (err) {
         console.error("❌ MP init error:", err);
-        if (mountedRef.current) {
-          setError("Error al cargar pagos");
-          onErrorRef.current("Error al cargar pagos");
-        }
+        // if (mountedRef.current) {
+        //   setError("Error al cargar pagos");
+        //   onErrorRef.current("Error al cargar pagos");
+        // }
       }
     }
   }, []);
@@ -101,10 +85,7 @@ export default function CardPaymentBrick({
         installments,
         payer,
         payment_method_id,
-        plan,
       } = cardPaymentData;
-      amount = transaction_amount;
-      console.debug("🚀 ~ handleSubmit ~ amount:", amount);
       if (!token) {
         throw new Error("No se pudo generar el token de la tarjeta");
       }
@@ -116,14 +97,15 @@ export default function CardPaymentBrick({
         },
         body: JSON.stringify({
           token,
-          amount,
-          description: description,
+          amount: transaction_amount,
+          currency: planData?.currency,
+          description: planData.description,
           payment_method_id,
           installments: Number(installments),
           issuer_id: issuer_id || undefined,
           prospectPhone: phone,
           payer_email: payer.email,
-          plan_id: planData,
+          plan_id: planData.id,
         }),
       });
 
@@ -165,14 +147,35 @@ export default function CardPaymentBrick({
   }
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full max-w-md mx-auto   border-2 border-orange-500 rounded-lg ">
       <CardPayment
         initialization={{
-          amount,
-          // payer: {
-          //   email: email || "",
-          // },
+          amount: planAmount,
+          payer: {
+            // email: email || "",
+            identification: {
+              type: "CURP",
+              number: curp,
+            },
+          },
         }}
+        customization={{
+          visual: {
+            hidePaymentButton: false,
+            style: {
+              theme: "dark",
+              customVariables: {
+                formBackgroundColor: "rgb(30, 30, 30)",
+                baseColor: "rgb(236, 97, 0)",
+                buttonTextColor: "white",
+                borderRadiusMedium: "10px",
+                borderRadiusLarge: "10px",
+                borderRadiusSmall: "10px",
+              },
+            },
+          },
+        }}
+        locale="es-MX"
         onSubmit={handleSubmit}
         onError={(err) => {
           console.error("Error del Brick:", err);
