@@ -7,67 +7,119 @@ const auth = Buffer.from(
 ).toString("base64");
 
 // Interfaz para el miembro raw de EVO
-interface EvoMemberRaw {
+type EvoMemberRaw = {
   idMember: number;
-  photo: string | null;
   firstName: string;
   lastName: string;
-  gender: string;
-  birthDate: string;
-  status: string;
-  contacts: Array<{
-    idPhone: number;
-    idMember: number;
-    idEmployee: number | null;
-    idProspect: number | null;
-    idProvider: number | null;
-    idContactType: number;
+  gender?: string;
+  birthDate?: string;
+  document?: string;
+  documentId?: string;
+
+  idBranch?: number;
+  branchName?: string;
+
+  accessBlocked?: boolean;
+  blockedReason?: string | null;
+
+  status?: string;
+  membershipStatus?: string;
+
+  contacts?: Array<{
     contactType: string;
-    ddi: string | null;
+    ddi?: string | null;
     description: string;
   }>;
-}
+
+  [key: string]: unknown;
+};
 
 // Interfaz para el miembro normalizado
-export interface EvoMember {
-  idMember: number;
+export interface EvoMemberNormalized {
+  email: string;
+  curp: string;
   firstName: string;
   lastName: string;
   gender: string;
   birthDate: string;
-  phone: string;
-  email: string;
+  areaCode: string;
+  phone?: string;
+  planId?: string | null;
+
+  idMember: number;
+  idBranch?: number;
+  branchName?: string;
+
+  accessBlocked: boolean;
+  blockedReason: string | null;
+
+  documentType: string;
+  documentNumber: string;
+  documentId: string;
+
+  status: string;
+  membershipStatus: string;
+
+  paymentPending: boolean;
 }
 
 // Normalizar datos del miembro de EVO
-function normalizeEvoMember(data: EvoMemberRaw): EvoMember {
+function normalizeEvoMember(data: EvoMemberRaw): EvoMemberNormalized {
   // Buscar teléfono en contacts
   const phoneContact = data.contacts?.find(
     (c) => c.contactType === "Cellphone",
   );
-  const phone = phoneContact
-    ? `${phoneContact.ddi || "52"}${phoneContact.description}`
-    : "";
+
+  const areaCode = phoneContact?.ddi || "52";
+  const phone = phoneContact?.description;
 
   // Buscar email en contacts
   const emailContact = data.contacts?.find((c) => c.contactType === "E-mail");
-  const email = emailContact?.description || "";
+  const email = (emailContact?.description || "").toLowerCase().trim();
 
   // Normalizar género
   const genderMap: Record<string, string> = {
     Male: "Masculino",
     Female: "Femenino",
   };
-  const gender = genderMap[data.gender] || data.gender;
+  const gender = data.gender ? genderMap[data.gender] || data.gender : "";
+
+  const birthDate = data.birthDate ? data.birthDate.split("T")[0] : "";
+
+  const documentNumber = data.document || "";
+  const documentId = data.documentId || "";
+  const documentType = data.document ? "CURP" : "";
 
   return {
-    idMember: data.idMember,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    gender,
-    birthDate: data.birthDate,
-    phone,
     email,
+    curp: documentNumber,
+
+    firstName: data.firstName?.trim(),
+    lastName: data.lastName?.trim(),
+
+    gender,
+    birthDate,
+
+    areaCode,
+    phone: phone || undefined,
+
+    planId: null, // luego lo llenas desde memberships
+
+    idMember: data.idMember,
+    idBranch: data.idBranch,
+    branchName: data.branchName,
+
+    accessBlocked: Boolean(data.accessBlocked),
+    blockedReason: data.blockedReason || null,
+
+    documentType,
+    documentNumber,
+    documentId,
+
+    status: data.status || "",
+    membershipStatus: data.membershipStatus || "",
+
+    paymentPending: true, // default lógica negocio
   };
 }
 

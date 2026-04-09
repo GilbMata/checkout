@@ -1,3 +1,4 @@
+import Header from "@/components/HeaderComp";
 import { Toaster } from "@/components/ui/sonner";
 import { Montserrat, Poppins } from "next/font/google";
 // @ts-ignore
@@ -23,7 +24,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={montserrat.className}>
+      <body
+        className={`${montserrat.className} bg-black  text-white  backdrop-blur-md`}
+      >
+        <Header />
         {children}
 
         <Toaster

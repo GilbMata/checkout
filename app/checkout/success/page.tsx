@@ -20,7 +20,7 @@ type Plan = {
   price: number;
   currency: string;
 };
-
+// http://localhost:3000/checkout/success?payment_id=PAY01KNMR4AM2AXYZ21HKWXJCACSQ
 export default async function SuccessPage({
   searchParams,
 }: {

@@ -6,17 +6,28 @@ import { assertNotDisposableEmail } from "@/lib/email/disposable-email";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
-interface CreateProspectData {
+type CreateProspectData = {
   email: string;
   curp: string;
   firstName: string;
   lastName: string;
-  genero?: string;
+  gender?: string;
   birthDate?: string;
   areaCode?: string;
   phone: string;
   planId?: string;
-}
+
+  idMember?: number;
+  idBranch?: number;
+  branchName?: string;
+  accessBlocked?: boolean;
+  blockedReason?: string | null;
+  documentType?: string;
+  documentNumber?: string;
+  documentId?: string;
+  status?: string;
+  membershipStatus?: string;
+};
 
 export async function createProspectAction(data: CreateProspectData) {
   try {
@@ -25,44 +36,52 @@ export async function createProspectAction(data: CreateProspectData) {
 
     const id = uuidv4();
     const now = Date.now();
+    const email = data.email.toLowerCase().trim();
+    const phone = data.phone.replace(/\D/g, "");
 
     await db.insert(prospects).values({
       id,
-      email: data.email,
+      email,
       curp: data.curp,
       firstName: data.firstName,
       lastName: data.lastName,
-      genero: data.genero || null,
+      gender: data.gender || null,
       birthDate: data.birthDate || null,
       areaCode: data.areaCode || null,
-      phone: data.phone,
-      planId: data.planId || null,
+      phone,
+      idMember: data.idMember ?? null,
+      idBranch: data.idBranch ?? null,
+      branchName: data.branchName ?? null,
+      accessBlocked: data.accessBlocked ?? false,
+      blockedReason: data.blockedReason ?? null,
+      documentType: data.documentType ?? "CURP",
+      documentNumber: data.documentNumber ?? data.curp,
+      documentId: data.documentId ?? null,
+      status: data.status ?? "prospect",
+      membershipStatus: data.membershipStatus ?? "pending",
       paymentPending: true,
-      isMember: false,
+      planId: data.planId || null,
       createdAt: now,
       updatedAt: now,
     });
 
     // Return the created prospect
-    const result = await db
+    const [result] = await db
       .select()
       .from(prospects)
       .where(eq(prospects.id, id))
       .limit(1);
 
-    return result[0];
+    return result;
   } catch (error: any) {
     console.error("Error creating prospect:", error);
-    if (error?.message?.includes("UNIQUE constraint failed")) {
-      throw new Error(
-        "El correo electrónico ya está registrado con otro número",
-      );
+    if (
+      error?.message?.includes("UNIQUE") ||
+      error?.message?.includes("already exists")
+    ) {
+      throw new Error("El correo electrónico ya está registrado");
     }
-    if (error?.message?.includes("already exists")) {
-      throw new Error(
-        "El correo electrónico ya está registrado con otro número",
-      );
-    }
+
     throw new Error("No se pudo crear el prospecto");
   }
 }
@@ -118,7 +137,6 @@ export async function updateProspectToMemberAction(id: string) {
       .update(prospects)
       .set({
         paymentPending: false,
-        isMember: true,
         updatedAt: Date.now(),
       })
       .where(eq(prospects.id, id));

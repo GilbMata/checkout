@@ -1,44 +1,41 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useCheckoutStore } from "@/store/useCheckoutStore";
+import { useState } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { useState } from "react";
+} from "../ui/card";
+import { DialogContent, DialogHeader } from "../ui/dialog";
 
-type Differential = {
-  title: string;
-  order: number;
-};
+// type Differential = {
+//   title: string;
+//   order: number;
+// };
 
-type Plan = {
-  displayName: string;
-  duration: number;
-  durationType: string;
-  value: number;
-  valuePromotionalPeriod: number;
-  differentials: Differential[];
-  activitiesGroups: Activity[];
-};
-type Activity = {
-  idActivity: number;
-  name: string;
-  photo: string;
-  color: string;
-  description: string;
-  showOnMobile: boolean;
-};
+// type Plan = {
+//   displayName: string;
+//   duration: number;
+//   durationType: string;
+//   value: number;
+//   valuePromotionalPeriod: number;
+//   differentials: Differential[];
+//   activitiesGroups: Activity[];
+// };
+// type Activity = {
+//   idActivity: number;
+//   name: string;
+//   photo: string;
+//   color: string;
+//   description: string;
+//   showOnMobile: boolean;
+// };
 
 const mockActivities = [
   {
@@ -79,14 +76,23 @@ const mockActivities = [
   },
 ];
 
-export default function PlanCheckout({ plan }: { plan: Plan }) {
+export default function PlanCheckout() {
   // plan = {
   //   ...plan,
   //   activitiesGroups: plan.activitiesGroups ?? mockActivities,
   // };
   const [coupon, setCoupon] = useState("");
-  //   const { displayName, durationType, value } = plan;
   const [open, setOpen] = useState(false);
+
+  const { plan } = useCheckoutStore();
+  // const [plan, setPlan] = useState<Membership | null>(null);
+  //   const { displayName, durationType, value } = plan;
+
+  // useEffect(() => {
+  //   setPlan(plan);
+  // }, [plan]);
+  if (!plan) return null;
+
   const sortedDifferentials = [...(plan.differentials || [])].sort(
     (a, b) => a.order - b.order,
   );
@@ -102,7 +108,6 @@ export default function PlanCheckout({ plan }: { plan: Plan }) {
     discount = plan.value - plan.valuePromotionalPeriod;
     value = plan.valuePromotionalPeriod;
   }
-
   return (
     <>
       <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">

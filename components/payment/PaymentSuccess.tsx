@@ -87,7 +87,7 @@ export default function PaymentSuccess({
 
           <div className="text-right">
             <p className="text-sm text-zinc-400">Monto</p>
-            <p className="text-xl font-bold text-[#ff5b00]">
+            <p className="text-xl font-bold ">
               {plan.price.toLocaleString("es-MX", {
                 style: "currency",
                 currency: plan.currency || "MXN",
@@ -103,13 +103,13 @@ export default function PaymentSuccess({
         <div className="space-y-3 text-sm">
           <div className="flex justify-between items-center">
             <span className="text-zinc-400">ID de orden</span>
-            <span className="font-medium text-[#ff5b00] bg-zinc-800 px-2 py-1 rounded text-xs">
+            <span className="font-medium  bg-zinc-800 px-2 py-1 rounded text-xs">
               {payment.order_id}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-zinc-400">ID de pago</span>
-            <span className="font-medium text-[#ff5b00] bg-zinc-800 px-2 py-1 rounded text-xs">
+            <span className="font-medium  bg-zinc-800 px-2 py-1 rounded text-xs">
               {payment.payment_id}
             </span>
           </div>
@@ -118,7 +118,7 @@ export default function PaymentSuccess({
             <div className="flex justify-between items-center">
               <span className="text-zinc-400">Método</span>
               <span className="font-medium text-white">
-                {payment.payment_method_id}
+                {payment.payment_method_id.toUpperCase()}
               </span>
             </div>
           )}
@@ -133,7 +133,7 @@ export default function PaymentSuccess({
           {email && (
             <div className="flex justify-between items-center">
               <span className="text-zinc-400">Email</span>
-              <span className="font-medium text-[#ff5b00]">{email}</span>
+              <span className="font-medium ">{email}</span>
             </div>
           )}
         </div>
@@ -164,9 +164,9 @@ export default function PaymentSuccess({
       {/* CTA */}
       <button
         onClick={() => continueUrl && (window.location.href = continueUrl)}
-        className="mt-6 w-full bg-[#ff5b00] text-white py-3.5 rounded-xl font-medium hover:bg-[#ff4d00] active:scale-[0.98] transition-all shadow-lg shadow-[#ff5b00]/25 hover:shadow-[#ff5b00]/40"
+        className="mt-6 w-md mx-auto bg-[#ff5b00] text-white py-3.5 rounded-xl font-medium hover:bg-[#ff4d00] active:scale-[0.98] transition-all shadow-lg shadow-[#ff5b00]/25 hover:shadow-[#ff5b00]/40"
       >
-        Ir al dashboard
+        Regresar
       </button>
     </div>
   );

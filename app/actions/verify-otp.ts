@@ -14,17 +14,14 @@ interface VerifyOTPParams {
 export async function verifyOTPAction(params: VerifyOTPParams) {
   try {
     const { phone, otp } = params;
-
     const user = await db
       .select()
       .from(prospects)
-      .where(eq(prospects.phone, phone.slice(3, phone.length)))
+      .where(eq(prospects.phone, phone))
       .limit(1);
-
     if (!user[0]) {
       return { valid: false, error: "Usuario no encontrado" };
     }
-
     const valid = await verifyOTP(user[0].id, otp);
 
     if (!valid) {

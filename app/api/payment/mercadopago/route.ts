@@ -51,18 +51,19 @@ export async function POST(request: Request) {
     const phone = prospect[0].phone.slice(1, prospect[0].phone.length);
 
     // Configurar el cliente de Mercado Pago
-    const client = new MercadoPagoConfig({
+    const mercadoPagoConfig = new MercadoPagoConfig({
       accessToken: MP_ACCESS_TOKEN,
       options: { timeout: 10000 },
     });
 
-    const orderClient = new Order(client);
+    const orderClient = new Order(mercadoPagoConfig);
+    const idempotencyKey = randomUUID();
 
     // Crear la orden
     const orderData = {
       body: {
         type: "online",
-        processing_mode: "automatic", // Procesamiento automático
+        processing_mode: "automatic",
         total_amount: String(body.amount),
         external_reference: phone, //cambiar a curp
         description: body.description,
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
         },
       },
       requestOptions: {
-        idempotencyKey: randomUUID(),
+        idempotencyKey,
       },
     };
 
@@ -101,6 +102,23 @@ export async function POST(request: Request) {
     const dateApproved = order.last_updated_date;
     const mpOrderId = order.id;
     const mpPaymentId = order.transactions?.payments?.[0]?.id;
+
+    (async () => {
+      try {
+        if (!mpOrderId) {
+          throw new Error("Order ID is missing");
+        }
+        const capturedOrder = await orderClient.capture({
+          id: mpOrderId,
+          requestOptions: {
+            idempotencyKey,
+          },
+        });
+        console.log("Order captured successfully:", capturedOrder);
+      } catch (error) {
+        console.error("Error capturing order:", error);
+      }
+    })();
 
     // Generar ID para nuestro registro
     const paymentId = randomUUID();

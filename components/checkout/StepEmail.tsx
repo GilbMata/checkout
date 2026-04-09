@@ -1,5 +1,3 @@
-"use client";
-
 import ClientForm from "./ClientForm";
 // import { useCheckoutFlow } from "@/hooks/useCheckoutFlow";
 import { useCheckoutStore } from "@/store/useCheckoutStore";

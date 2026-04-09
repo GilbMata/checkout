@@ -49,6 +49,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import PhoneInput from "react-phone-number-input/react-hook-form";
+
 export default function ClientForm({ initialData }: { initialData?: any }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [emailValidating, setEmailValidating] = useState(false);
@@ -56,8 +57,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
   const [phoneValid, setPhoneValid] = useState(false);
   const [showDisposableAlert, setShowDisposableAlert] = useState(false);
   // const [emailValid, setEmailValid] = useState(true);
-  const { setStep, setEmail, setPhone, setProspectId, plan } =
-    useCheckoutStore();
+  const { setStep, setEmail, setPhone, setProspect, plan } = useCheckoutStore();
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const [autoFilled, setAutoFilled] = useState(false);
@@ -208,43 +208,58 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
   };
 
   const validatePhone = async (phone: string) => {
+    console.log("🚀 ~ validatePhone ~ phone:", phone);
     try {
       toast.loading("Validando teléfono...");
+      //local
       const prospect = await getProspectByPhoneAction(phone);
+      console.log("🚀 ~ validatePhone ~ prospect:", prospect);
 
       if (prospect && prospect.id) {
-        await sendOTP({ prospectId: prospect.id });
-
-        setEmail(prospect.email);
-        setPhone(phone);
-        setProspectId(prospect.id);
+        await sendOTP({ prospectId: prospect.id })
+          .then((response) => {
+            console.log("🚀 ~ validatePhone ~ response:", response);
+          })
+          .catch((err) => {
+            console.error(err);
+            toast.error("Error API");
+          });
+        setProspect(prospect as any);
         setStep("otp");
         // setStep("payment");
         return;
       }
 
       const member = await getMemberbyPhoneAction(phone.slice(3, phone.length));
-      console.log("🚀 ~ validatePhone ~ member:", member);
-
+      // console.log("🚀 ~ validatePhone ~ member:", member);
       if (member) {
         // El miembro existe - crear prospecto y enviar OTP
         const phoneNumber = phone;
-        const newProspect = await createProspectAction({
+        const newCustomer = await createProspectAction({
           email: member.email || "",
-          curp: "",
+          curp: member.curp,
           firstName: member.firstName || "",
           lastName: member.lastName || "",
-          genero: member.gender || "",
+          gender: member.gender || "",
           birthDate: member.birthDate || "",
           areaCode: phoneNumber.slice(0, 3),
           phone: phoneNumber.slice(3, phoneNumber.length),
           planId: String(plan?.idMembership),
+
+          idMember: member.idMember,
+          idBranch: member.idBranch,
+          branchName: member.branchName,
+          accessBlocked: member.accessBlocked,
+          blockedReason: member.blockedReason,
+          documentType: member.documentType,
+          documentNumber: member.documentNumber,
+          documentId: member.documentId,
+          status: member.status,
+          membershipStatus: member.membershipStatus,
+          // paymentPending: member.paymentPending,
         });
 
-        // Guardar prospectId en el store
-        setProspectId(newProspect.id);
-
-        await sendOTP({ prospectId: newProspect.id });
+        await sendOTP({ prospectId: newCustomer.id });
 
         setEmail(member.email || "");
         setPhone(phoneNumber);
@@ -270,7 +285,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
         curp: data.curp,
         firstName: data.firstName,
         lastName: data.lastName,
-        genero: data.genero,
+        gender: data.genero,
         birthDate: data.birthDate,
         areaCode: phoneNumber.slice(0, 3),
         phone: phoneNumber.slice(3, phoneNumber.length),
@@ -278,7 +293,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
       });
 
       // Guardar prospectId en el store
-      setProspectId(prospect.id);
+      // setProspectId(prospect.id);
 
       await sendOTP({ prospectId: prospect.id });
       setEmail(data.email);

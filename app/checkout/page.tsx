@@ -60,7 +60,6 @@ export default async function CheckoutPage({
     console.error(err);
   }
 
-  console.debug("🚀 ~ CheckoutPage ~ plan:", plan);
   if (!plan) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

@@ -1,3 +1,5 @@
+"use client";
+
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { useRouter } from "next/navigation";
 import CardPaymentBrick from "./CardPaymentBrick";

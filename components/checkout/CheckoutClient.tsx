@@ -1,10 +1,7 @@
 "use client";
 
-import stationimg from "@/public/general-logotipo-05.png";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
-import Image from "next/image";
 import { useEffect } from "react";
-import PlanCheckout from "./PlanCheckout";
 import StepEmail from "./StepEmail";
 import StepOTP from "./StepOTP";
 import StepPayment from "./StepPayment";
@@ -27,11 +24,12 @@ export default function CheckoutClient({
     );
   }
 
-  const { step, setPlan } = useCheckoutStore();
+  const { step, setPlan, setBranch } = useCheckoutStore();
 
   useEffect(() => {
     if (plan?.idMembership) {
       setPlan(plan);
+      setBranch(branch);
     }
   }, [plan?.idMembership]);
 
@@ -42,33 +40,7 @@ export default function CheckoutClient({
   return (
     <div className="flex flex-col min-h-screen">
       {/* <Header plan={plan} /> */}
-      <header className="bg-blac shadow-md sticky top-0 z-50 backdrop-blur-md border- w-full">
-        <div className="max-w-7xl mx-auto px- sm:px- lg:px-">
-          <div className="flex items-center justify-around h-25">
-            {/* Logo */}
-            <div className="tracking-tighter">
-              <Image
-                src={stationimg}
-                alt="Station 24 Fitness"
-                className="h-7 w-auto object-contain"
-                priority
-              />
-            </div>
-
-            {/* Nombre de Sucursal */}
-            {branch?.name && (
-              <div className="flex flex-col items-end">
-                <span className="text-xs text-gray-400 uppercase tracking-widest font-bold">
-                  Sucursal
-                </span>
-                <span className="text-white text-2xl font-black uppercase tracking-tigh leading-none size-">
-                  {branch.name}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* <Header /> */}
 
       <main className="flex flex-1 flex-col md:flex-row overflow-hidden justify-center bg-black ">
         {/* LEFT */}
@@ -79,9 +51,8 @@ export default function CheckoutClient({
         </div>
 
         {/* RIGHT */}
-
         <div className="md:sticky md:top-0 h-screen p-6  ">
-          <PlanCheckout plan={plan} />
+          {/* <PlanCheckout /> */}
         </div>
       </main>
     </div>

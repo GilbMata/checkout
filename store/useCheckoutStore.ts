@@ -6,9 +6,9 @@ interface CheckoutState {
   step: Step;
   email: string;
   phone: string;
-  prospectId: string;
   plan: Membership | null;
   prospect: Prospect | null;
+  branch: Branch | null;
 
   setStep: (step: Step) => void;
   setEmail: (email: string) => void;
@@ -16,7 +16,7 @@ interface CheckoutState {
   setPlan: (plan: Membership) => void;
   setProspect: (prospect: Prospect) => void;
   clearPlan: () => void;
-  setProspectId: (prospectId: string) => void;
+  setBranch: (branch: Branch) => void;
 }
 
 export const useCheckoutStore = create<CheckoutState>((set) => ({
@@ -26,23 +26,28 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   prospectId: "",
   prospect: null,
   plan: null,
+  branch: null,
+  setBranch: (branch) => set({ branch }),
   setStep: (step) => set({ step }),
   setEmail: (email) => set({ email }),
   setPhone: (phone) => set({ phone }),
   setProspect: (prospect) => set({ prospect }),
-  setProspectId: (prospectId) => set({ prospectId }),
   setPlan: (plan) => set({ plan }),
   clearPlan: () => set({ plan: null }),
 }));
 
 export interface Prospect {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email: string;
   curp: string;
-  paymentPending: boolean;
-  isMember: boolean;
+  // paymentPending: string;
+  idMember: number;
+}
+export interface Branch {
+  name: string;
 }
 
 export interface Membership {
@@ -95,9 +100,12 @@ export interface Membership {
   installmentsPromotionalPeriod: number;
 
   activitiesGroups: {
-    idGroupActivity: number;
+    idActivity: number;
     name: string;
-    idBranch: number;
+    photo: string;
+    color: string;
+    description: string;
+    showOnMobile: boolean;
   }[];
 
   inactive: boolean;

@@ -9,12 +9,8 @@ import {
 } from "@/lib/auth/otp";
 import { db } from "@/lib/db/index";
 import { prospects } from "@/lib/db/schema";
-import { validateDisposableEmail } from "@/lib/email/disposable-email";
 import { sendOtpEmail } from "@/lib/otpsend/email/send-email";
-import { sendOTPWhatsApp } from "@/lib/otpsend/whatsapp-sender";
 import { eq } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
-import { email } from "zod";
 
 export type OTPMethod = "whatsapp" | "email";
 
@@ -29,8 +25,6 @@ export async function sendOTP(params: SendOTPParams): Promise<{
   method: OTPMethod;
   error?: string;
 }> {
-
-
   try {
     // Validate email is not from a disposable provider
     // const emailValidation = validateDisposableEmail(params.email);
@@ -44,11 +38,7 @@ export async function sendOTP(params: SendOTPParams): Promise<{
 
     const method = (process.env.OTP_DEFAULT_METHOD || "whatsapp") as OTPMethod;
     const otp = generateOTP();
-    console.debug("🚀 ~ sendOTP ~ otp:", otp)
-
-    // if (params.prospectId) {
-
-
+    console.log("🚀 ~ sendOTP ~ otp:", otp);
 
     let userId = params.prospectId;
 
@@ -60,25 +50,8 @@ export async function sendOTP(params: SendOTPParams): Promise<{
 
     const prospect = existingProspect[0];
     if (!prospect) {
-      return { success: false, method, error: "Prospecto no encontrado" };
+      return { success: false, method, error: "Cliente no encontrado" };
     }
-    // if (existingProspect.length > 0) {
-    //   userId = existingProspect[0].id;
-    // } else {
-    //   userId = uuidv4();
-    //   await db.insert(prospects).values({
-    //     id: userId,
-    //     email: params.email,
-    //     phone: params.phone,
-    //     curp: "",
-    //     firstName: "",
-    //     lastName: "",
-    //     paymentPending: true,
-    //     isMember: false,
-    //     createdAt: Date.now(),
-    //     updatedAt: Date.now(),
-    //   });
-    // }
 
     await clearOldOTP(userId);
     await saveOTP(userId, otp);
@@ -89,21 +62,17 @@ export async function sendOTP(params: SendOTPParams): Promise<{
     const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
 
     if (method === "whatsapp") {
-      const sent = await sendOTPWhatsApp(prospect.phone, otp);
-      if (!sent) {
-        console.error("Failed to send WhatsApp, falling back to email");
-        await sendOtpEmail(prospect.email, otp, magicLink);
-        return { success: true, method: "email" };
-      }
+      // const sent = await sendOTPWhatsApp(prospect.phone, otp);
+      // if (!sent) {
+      //   console.error("Failed to send WhatsApp, falling back to email");
+      //   await sendOtpEmail(prospect.email, otp, magicLink);
+      //   return { success: true, method: "email" };
+      // }
       return { success: true, method: "whatsapp" };
     } else {
       await sendOtpEmail(prospect.email, otp, magicLink);
       return { success: true, method: "email" };
     }
-    // }
-    //  else if (params.phone) {
-
-    // }
   } catch (error) {
     console.error("Error sending OTP:", error);
     return {
