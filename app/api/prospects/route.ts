@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       lastName,
       birthDate,
       email,
-      genero,
+      gender,
       areaCode,
       phone,
     } = validation.data;
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       lastName,
       birthDate,
       email,
-      genero,
+      gender,
       areaCode,
       phone: phone || "",
       planId,

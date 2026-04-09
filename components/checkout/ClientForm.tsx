@@ -69,7 +69,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
       curp: "",
       firstName: "",
       lastName: "",
-      genero: "",
+      gender: "",
       birthDate: "",
       email: "",
       phone: "",
@@ -147,7 +147,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
       const data = parseCURP(curp);
       console.log("🚀 ~ handleCURPChange ~ data:", data);
       setValue("birthDate", data.birthDateString);
-      setValue("genero", data.gender);
+      setValue("gender", data.gender);
       setAutoFilled(true);
       setTimeout(() => setAutoFilled(false), 1500);
     }
@@ -208,11 +208,12 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
   };
 
   const validatePhone = async (phone: string) => {
-    console.log("🚀 ~ validatePhone ~ phone:", phone);
+    const phoneNor = phone.slice(3, phone.length);
+    const phoneArea = phone.slice(0, 3);
     try {
       toast.loading("Validando teléfono...");
       //local
-      const prospect = await getProspectByPhoneAction(phone);
+      const prospect = await getProspectByPhoneAction(phoneNor);
       console.log("🚀 ~ validatePhone ~ prospect:", prospect);
 
       if (prospect && prospect.id) {
@@ -230,7 +231,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
         return;
       }
 
-      const member = await getMemberbyPhoneAction(phone.slice(3, phone.length));
+      const member = await getMemberbyPhoneAction(phoneNor);
       // console.log("🚀 ~ validatePhone ~ member:", member);
       if (member) {
         // El miembro existe - crear prospecto y enviar OTP
@@ -242,8 +243,8 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
           lastName: member.lastName || "",
           gender: member.gender || "",
           birthDate: member.birthDate || "",
-          areaCode: phoneNumber.slice(0, 3),
-          phone: phoneNumber.slice(3, phoneNumber.length),
+          areaCode: phoneArea,
+          phone: phoneNor,
           planId: String(plan?.idMembership),
 
           idMember: member.idMember,
@@ -258,11 +259,12 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
           membershipStatus: member.membershipStatus,
           // paymentPending: member.paymentPending,
         });
+        setProspect(newCustomer as any);
 
         await sendOTP({ prospectId: newCustomer.id });
 
-        setEmail(member.email || "");
-        setPhone(phoneNumber);
+        // setEmail(member.email || "");
+        // setPhone(phoneNumber);
         setStep("otp");
         return;
       }
@@ -285,7 +287,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
         curp: data.curp,
         firstName: data.firstName,
         lastName: data.lastName,
-        gender: data.genero,
+        gender: data.gender,
         birthDate: data.birthDate,
         areaCode: phoneNumber.slice(0, 3),
         phone: phoneNumber.slice(3, phoneNumber.length),
@@ -444,7 +446,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
                   {/* Genero */}
                   <FormField
                     control={control}
-                    name="genero"
+                    name="gender"
                     render={({ field, fieldState }) => (
                       <FormItem
                         className={cn(

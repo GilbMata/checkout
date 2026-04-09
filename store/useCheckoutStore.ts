@@ -9,6 +9,7 @@ interface CheckoutState {
   plan: Membership | null;
   prospect: Prospect | null;
   branch: Branch | null;
+  prospectId: string;
 
   setStep: (step: Step) => void;
   setEmail: (email: string) => void;
@@ -17,6 +18,7 @@ interface CheckoutState {
   setProspect: (prospect: Prospect) => void;
   clearPlan: () => void;
   setBranch: (branch: Branch) => void;
+  setProspectId: (id: string) => void;
 }
 
 export const useCheckoutStore = create<CheckoutState>((set) => ({
@@ -32,6 +34,7 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   setEmail: (email) => set({ email }),
   setPhone: (phone) => set({ phone }),
   setProspect: (prospect) => set({ prospect }),
+  setProspectId: (id) => set({ prospectId: id }),
   setPlan: (plan) => set({ plan }),
   clearPlan: () => set({ plan: null }),
 }));

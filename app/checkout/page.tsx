@@ -1,4 +1,5 @@
 import CheckoutClient from "@/components/checkout/CheckoutClient";
+import { getSession } from "@/lib/auth/session";
 import { getBranchAction, getMembershipAction } from "../actions/evoMember";
 
 interface SearchParams {
@@ -85,6 +86,10 @@ export default async function CheckoutPage({
       </div>
     );
   }
+  const session = await getSession();
+  console.log("🚀 ------------------------------------🚀");
+  console.log("🚀 ~ CheckoutPage ~ session:", session);
+  console.log("🚀 ------------------------------------🚀");
 
-  return <CheckoutClient plan={plan} branch={branch} />;
+  return <CheckoutClient plan={plan} branch={branch} session={session} />;
 }

@@ -33,7 +33,7 @@ export const registrationSchema = z.object({
     .string()
     .min(1, "El apellido es requerido")
     .max(20, "Apellido muy largo"),
-  genero: z.string().optional(),
+  gender: z.string().optional(),
   birthDate: z
     .string()
     .min(1, "La fecha de nacimiento es requerida")

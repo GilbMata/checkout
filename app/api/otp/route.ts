@@ -3,7 +3,7 @@ import { db } from "@/lib/db/index";
 import { otpRequests } from "@/lib/db/schema";
 import { generateOTP, sendOTPEmail } from "@/lib/email";
 import { otpSchema } from "@/lib/validations";
-import { eq, and, gt } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 async function verifyOTPCode(email: string, code: string): Promise<boolean> {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
             email: prospect.email,
             firstName: prospect.firstName,
             lastName: prospect.lastName,
-            isMember: prospect.isMember,
+            isMember: !!prospect.idMember,
           }
         : null,
     });

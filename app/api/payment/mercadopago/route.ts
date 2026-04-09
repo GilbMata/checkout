@@ -189,7 +189,6 @@ export async function POST(request: Request) {
         .update(prospects)
         .set({
           paymentPending: false,
-          isMember: true,
           updatedAt: now,
         })
         .where(eq(prospects.id, prospectId));

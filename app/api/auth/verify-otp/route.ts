@@ -23,7 +23,14 @@ export async function POST(req: Request) {
     if (!valid) {
       return Response.json({ valid: false });
     }
-    await createSession(userId);
+    // Crear sesión con los datos completos del usuario
+    await createSession({
+      id: user[0].id,
+      email: user[0].email,
+      firstName: user[0].firstName,
+      lastName: user[0].lastName,
+      phone: user[0].phone,
+    });
     return Response.json({ valid: true });
   } catch (error) {
     console.error(error);

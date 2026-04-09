@@ -179,7 +179,6 @@ async function processPaymentStatus(payment: any) {
       .update(prospects)
       .set({
         paymentPending: false,
-        isMember: true,
         updatedAt: now,
       })
       .where(eq(prospects.id, prospectId));

@@ -30,11 +30,12 @@ export default function StepOTP() {
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const { seconds, isActive, reset } = useOtpTimer(60);
+  // setStep("payment");
 
   const phone = prospect?.phone ?? "";
   const customerId = prospect?.id;
 
-  // ⏱ formatear tiempo
+  // formatear tiempo
   const formatTime = (s: number) => {
     const min = String(Math.floor(s / 60)).padStart(2, "0");
     const sec = String(s % 60).padStart(2, "0");

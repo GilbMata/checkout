@@ -1,5 +1,7 @@
+import CookieConsent from "@/components/CookieConsent";
 import Header from "@/components/HeaderComp";
 import { Toaster } from "@/components/ui/sonner";
+import { getSession } from "@/lib/auth/session";
 import { Montserrat, Poppins } from "next/font/google";
 // @ts-ignore
 import "./globals.css";
@@ -17,18 +19,21 @@ const montserrat = Montserrat({
   display: "swap",
 });
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await getSession();
+
   return (
     <html lang="es">
       <body
         className={`${montserrat.className} bg-black  text-white  backdrop-blur-md`}
       >
-        <Header />
+        <Header session={session as any} />
         {children}
+        <CookieConsent />
 
         <Toaster
           position="top-center"

@@ -91,7 +91,8 @@ export async function getProspectByPhoneAction(phone: string) {
     const result = await db
       .select()
       .from(prospects)
-      .where(eq(prospects.phone, phone.slice(3, phone.length)))
+      .where(eq(prospects.phone, phone))
+      // .where(eq(prospects.phone, phone.slice(3, phone.length)))
       .limit(1);
 
     return result.length > 0 ? result[0] : null;

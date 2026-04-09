@@ -10,6 +10,7 @@ import {
 import { db } from "@/lib/db/index";
 import { prospects } from "@/lib/db/schema";
 import { sendOtpEmail } from "@/lib/otpsend/email/send-email";
+import { sendOTPWhatsApp } from "@/lib/otpsend/whatsapp-sender";
 import { eq } from "drizzle-orm";
 
 export type OTPMethod = "whatsapp" | "email";
@@ -62,7 +63,7 @@ export async function sendOTP(params: SendOTPParams): Promise<{
     const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
 
     if (method === "whatsapp") {
-      // const sent = await sendOTPWhatsApp(prospect.phone, otp);
+      const sent = await sendOTPWhatsApp(prospect.phone, otp);
       // if (!sent) {
       //   console.error("Failed to send WhatsApp, falling back to email");
       //   await sendOtpEmail(prospect.email, otp, magicLink);

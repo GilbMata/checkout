@@ -12,7 +12,7 @@ export async function GET(req: Request) {
 
   if (!user) return redirect("/");
 
-  await createSession(user.id);
+  await createSession(user);
 
   return redirect("/checkout");
 }

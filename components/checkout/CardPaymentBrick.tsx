@@ -23,6 +23,47 @@ interface CardPaymentBrickProps {
 }
 let globalInitDone = false;
 
+// Skeleton loader para el Brick de pago - reproduce el tamaño real del componente
+function PaymentBrickSkeleton() {
+  return (
+    <div className="w-full max-w-md mx-auto border-2 border-orange-500/30 rounded-lg overflow-hidden bg-zinc-900">
+      {/* Header del formulario */}
+      <div className="bg-zinc-800/50 p-4 border-b border-zinc-700">
+        <div className="h-5 w-32 bg-zinc-700/50 rounded animate-pulse" />
+      </div>
+
+      {/* Campo número de tarjeta */}
+      <div className="p-4 space-y-2">
+        <div className="h-4 w-20 bg-zinc-700/50 rounded animate-pulse" />
+        <div className="h-12 w-full bg-zinc-800 rounded animate-pulse" />
+      </div>
+
+      {/* Campos de fecha y CVV */}
+      <div className="px-4 pb-4 grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <div className="h-4 w-16 bg-zinc-700/50 rounded animate-pulse" />
+          <div className="h-12 bg-zinc-800 rounded animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 w-12 bg-zinc-700/50 rounded animate-pulse" />
+          <div className="h-12 bg-zinc-800 rounded animate-pulse" />
+        </div>
+      </div>
+
+      {/* Campo nombre del titular */}
+      <div className="px-4 pb-4 space-y-2">
+        <div className="h-4 w-24 bg-zinc-700/50 rounded animate-pulse" />
+        <div className="h-12 w-full bg-zinc-800 rounded animate-pulse" />
+      </div>
+
+      {/* Botón de pagar */}
+      <div className="p-4">
+        <div className="h-12 w-full bg-orange-500/30 rounded animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
 export default function CardPaymentBrick({
   userData: { phone, email, curp },
   planData,
@@ -138,12 +179,7 @@ export default function CardPaymentBrick({
   }
 
   if (!ready) {
-    return (
-      <div className="p-8 text-center">
-        <div className="animate-spin h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto" />
-        <p className="mt-4 text-zinc-400">Cargando...</p>
-      </div>
-    );
+    return <PaymentBrickSkeleton />;
   }
 
   return (
