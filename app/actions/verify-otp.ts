@@ -14,9 +14,6 @@ interface VerifyOTPParams {
 export async function verifyOTPAction(params: VerifyOTPParams) {
   try {
     const { phone, otp } = params;
-    console.log("🚀 -----------------------------------🚀");
-    console.log("🚀 ~ verifyOTPAction ~ phone:", phone);
-    console.log("🚀 -----------------------------------🚀");
     const user = await db
       .select()
       .from(prospects)
@@ -26,6 +23,7 @@ export async function verifyOTPAction(params: VerifyOTPParams) {
       return { valid: false, error: "Usuario no encontrado" };
     }
     const valid = await verifyOTP(user[0].id, otp);
+    console.log("🚀 ~ valid:", valid);
 
     if (!valid) {
       return { valid: false, error: "Código inválido" };

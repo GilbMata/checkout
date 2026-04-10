@@ -48,6 +48,7 @@ export default function StepOTP() {
     setLoading(true);
     try {
       const data = await verifyOTPAction({ phone, otp });
+      console.log("🚀 ~ handleVerify ~ data:", data);
       if (!data.valid) {
         toast.error(data.error);
         return;
