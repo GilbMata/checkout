@@ -24,6 +24,7 @@ export default function StepPayment() {
 
   const handleRejected = (result: any) => {
     console.log("❌ Pago rechazado:", result);
+    return;
     // Redirect a failure page con status_detail
     const paymentId = result.payment_id || result.id || result.preference_id;
     const statusDetail = result.status_detail || result.error;
@@ -44,6 +45,7 @@ export default function StepPayment() {
     console.error("❌ Error en pago:", error);
     // Redirect a failure page
     const errorMsg = error?.toString() || "Error al procesar el pago";
+    return;
     router.push(
       `/checkout/failure?status_detail=${encodeURIComponent(errorMsg)}`,
     );
@@ -69,9 +71,11 @@ export default function StepPayment() {
     currency: "MXN",
   };
   const userData = {
-    phone: prospect?.phone,
+    phone: prospect.areaCode + prospect?.phone,
     email: prospect?.email,
     curp: prospect?.curp,
+    firstName: prospect?.firstName,
+    lastName: prospect?.lastName,
   };
 
   return (

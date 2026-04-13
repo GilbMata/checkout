@@ -37,7 +37,6 @@ export const payments = sqliteTable("payments", {
 
 export const prospects = sqliteTable("prospects", {
   id: text("id").primaryKey(),
-
   email: text("email").notNull().unique(),
   curp: text("curp").notNull(),
   firstName: text("first_name").notNull(),

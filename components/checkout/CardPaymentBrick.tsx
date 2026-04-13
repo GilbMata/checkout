@@ -15,6 +15,8 @@ interface CardPaymentBrickProps {
     phone: string;
     email: string;
     curp: string;
+    firstName: string;
+    lastName: string;
   };
   onSuccess: (data: any) => void;
   onError: (error: any) => void;
@@ -65,7 +67,7 @@ function PaymentBrickSkeleton() {
 }
 
 export default function CardPaymentBrick({
-  userData: { phone, email, curp },
+  userData: { phone, email, curp, firstName, lastName },
   planData,
   onSuccess,
   onError,
@@ -146,6 +148,8 @@ export default function CardPaymentBrick({
           issuer_id: issuer_id || undefined,
           prospectPhone: phone,
           payer_email: payer.email,
+          payer_first_name: firstName,
+          payer_last_name: lastName,
           plan_id: planData.id,
         }),
       });

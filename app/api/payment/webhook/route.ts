@@ -79,7 +79,7 @@ export async function POST(req: Request) {
 
 async function getPaymentDetails(paymentId: string) {
   try {
-    // Usar el SDK de MercadoPago para obtener los detalles
+    // Usar el SDK de MercadoPago para obtener los detallesh
     const response = await fetch(
       `https://api.mercadopago.com/v1/orders/${paymentId}`,
       {

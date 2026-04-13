@@ -294,12 +294,9 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
         planId: String(plan?.idMembership),
       });
 
-      // Guardar prospectId en el store
-      // setProspectId(prospect.id);
+      setProspect(prospect as any);
 
       await sendOTP({ prospectId: prospect.id });
-      setEmail(data.email);
-      setPhone(phoneNumber);
       setStep("otp");
       toast.dismiss();
     } catch (error: any) {

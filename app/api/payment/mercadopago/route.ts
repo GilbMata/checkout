@@ -65,8 +65,18 @@ export async function POST(request: Request) {
         type: "online",
         processing_mode: "automatic",
         total_amount: String(body.amount),
-        external_reference: phone, //cambiar a curp
+        external_reference: prospectId,
         description: body.description,
+        items: [
+          {
+            external_code: String(body.plan_id),
+            title: body.description,
+            description: body.description,
+            category_id: "gym_fitness",
+            quantity: 1,
+            unit_price: String(body.amount),
+          },
+        ],
         transactions: {
           payments: [
             {
@@ -76,13 +86,15 @@ export async function POST(request: Request) {
                 type: "credit_card",
                 token: body.token,
                 installments: body.installments,
-                // statement_descriptor: 'Store name'
+                statement_descriptor: "STATION24",
               },
             },
           ],
         },
         payer: {
-          email: body.payer_email, // Idealmente, el email del usuario logueado
+          email: body.payer_email,
+          first_name: body.payer_first_name,
+          last_name: body.payer_last_name,
         },
       },
       requestOptions: {
@@ -103,22 +115,23 @@ export async function POST(request: Request) {
     const mpOrderId = order.id;
     const mpPaymentId = order.transactions?.payments?.[0]?.id;
 
-    (async () => {
-      try {
-        if (!mpOrderId) {
-          throw new Error("Order ID is missing");
-        }
-        const capturedOrder = await orderClient.capture({
-          id: mpOrderId,
-          requestOptions: {
-            idempotencyKey,
-          },
-        });
-        console.log("Order captured successfully:", capturedOrder);
-      } catch (error) {
-        console.error("Error capturing order:", error);
-      }
-    })();
+    // Solo se captura en order manual
+    // (async () => {
+    //   try {
+    //     if (!mpOrderId) {
+    //       throw new Error("Order ID is missing");
+    //     }
+    //     const capturedOrder = await orderClient.capture({
+    //       id: mpOrderId,
+    //       requestOptions: {
+    //         idempotencyKey: randomUUID(),
+    //       },
+    //     });
+    //     console.log("Order captured successfully:", capturedOrder);
+    //   } catch (error) {
+    //     console.error("Error capturing order:", error);
+    //   }
+    // })();
 
     // Generar ID para nuestro registro
     const paymentId = randomUUID();
@@ -247,7 +260,7 @@ export async function POST(request: Request) {
     }
   } catch (error: any) {
     console.error("=== ERROR COMPLETO ===");
-    console.error("Mensaje:", error);
+    console.error("Mensaje:", JSON.stringify(error));
     return NextResponse.json(
       {
         success: false,

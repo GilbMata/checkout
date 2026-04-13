@@ -87,7 +87,7 @@ export default async function SuccessPage({
     <PaymentSuccess
       payment={paymentResult}
       plan={{
-        id: payment.planId || "1",
+        id: payment.planId || "",
         name: planName,
         price: planPrice,
         currency: payment.currencyId || "MXN",

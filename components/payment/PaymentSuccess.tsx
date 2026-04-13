@@ -39,6 +39,9 @@ export default function PaymentSuccess({
   continueUrl,
 }: Props) {
   const formattedDate = useMemo(() => {
+    console.log("🚀 -------------------------------------------------🚀");
+    console.log("🚀 ~ payment.date_approved:", payment.date_approved);
+    console.log("🚀 -------------------------------------------------🚀");
     if (!payment.date_approved) return null;
     return new Date(payment.date_approved).toLocaleString("es-MX");
   }, [payment.date_approved]);

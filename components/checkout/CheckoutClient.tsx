@@ -28,14 +28,11 @@ export default function CheckoutClient({
           setPlan(plan);
           setBranch(branch);
 
-          console.log("🚀 ~ init ~ session:", session);
           if (session) {
             const phone = session.phone;
-            console.log("🚀 ~ init ~ phone:", phone);
 
             if (phone) {
               const prospect = await getProspectByPhoneAction(phone);
-              console.log("🚀 ~ init ~ prospect:", prospect);
 
               setProspect(prospect as any);
               setStep("payment");

@@ -43,6 +43,7 @@ export interface Prospect {
   id: string;
   firstName: string;
   lastName: string;
+  areaCode: string;
   phone: string;
   email: string;
   curp: string;
