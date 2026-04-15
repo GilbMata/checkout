@@ -131,4 +131,10 @@ export interface Membership {
   externalSaleAvailable: boolean;
   acceptEnrollment: boolean;
   enrollmentRequired: boolean;
+
+  // Recurrence - viene de la configuración del plan en Evo/MP
+  // recurrenceInterval?: "weekly" | "monthly" | "bimonthly" | "yearly";
+
+  // MP Preapproval Plan ID para suscripciones con plan asociado
+  // mpPreapprovalPlanId?: string;
 }

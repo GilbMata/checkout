@@ -62,12 +62,17 @@ export default function StepPayment() {
   const price = Number(plan?.value ?? 0);
   const amount = promo > 0 ? promo : price;
   const description = plan?.description ? plan?.description : plan?.displayName;
+  console.log("🚀 ~ StepPayment ~ plan?.membershipType:", plan?.membershipType);
 
   const planData = {
     id: String(plan?.idMembership),
     description,
     amount,
     currency: "MXN",
+    recurrent: plan?.membershipType?.includes("recurrence") ? true : false, // Plans con recurrence son recurrentes
+    // recurrenceInterval: plan?.recurrenceInterval || "monthly",
+    // mpPreapprovalPlanId: plan?.mpPreapprovalPlanId,
+    membershipType: plan?.membershipType,
     displayName: plan?.displayName,
     branch: String(plan?.idBranch),
   };
