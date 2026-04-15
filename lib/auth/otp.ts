@@ -35,7 +35,6 @@ export async function verifyOTP(userId: string, otp: string) {
         gt(otpRequests.expiresAt, Date.now()),
       ),
     );
-  console.log("🚀 ~ verifyOTP ~ result:", result);
 
   return result.length > 0;
 }

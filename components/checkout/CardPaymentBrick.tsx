@@ -10,6 +10,7 @@ interface CardPaymentBrickProps {
     description: string;
     amount: number;
     currency: string;
+    recurrent: boolean;
   };
   userData: {
     phone: string;
@@ -82,6 +83,7 @@ export default function CardPaymentBrick({
   const mountedRef = useRef(true);
   const onErrorRef = useRef(onError);
   const planAmount = planData.amount;
+  // const recurrent = planData.membershipType;
 
   useEffect(() => {
     // Si ya está inicializado, marcar como listo inmediatamente
@@ -132,43 +134,84 @@ export default function CardPaymentBrick({
       if (!token) {
         throw new Error("No se pudo generar el token de la tarjeta");
       }
+      if (planData.recurrent) {
+        const response = await fetch("/api/payment/mercadopago/recurrent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token,
+            amount: transaction_amount,
+            currency: planData?.currency,
+            description: planData.description,
+            payment_method_id,
+            prospect_phone: phone,
+            payer_email: payer.email,
+            payer_first_name: firstName,
+            payer_last_name: lastName,
+            plan_id: planData.id,
+            recurrence_interval: "monthly",
+            identification_type: "CURP",
+            identification_number: curp,
+          }),
+        });
 
-      const response = await fetch("/api/payment/mercadopago", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token,
-          amount: transaction_amount,
-          currency: planData?.currency,
-          description: planData.description,
-          payment_method_id,
-          installments: Number(installments),
-          issuer_id: issuer_id || undefined,
-          prospectPhone: phone,
-          payer_email: payer.email,
-          payer_first_name: firstName,
-          payer_last_name: lastName,
-          plan_id: planData.id,
-        }),
-      });
-
-      console.log("STATUS:", response.status);
-      const result = await response.json();
-      console.log("🚀 ~ handleSubmit ~ result:", result);
-
-      if (result.success) {
-        setPaymentId(result);
-        onSuccess(result);
-      } else if (result.pending) {
-        setPaymentId(result.payment_id);
-        onPending?.(result);
-      } else if (result.rejected) {
-        onRejected?.(result);
-        onError(result.error || result.status_detail || "Pago rechazado");
+        console.log("STATUS (recurrent):", response.status);
+        const result = await response.json();
+        console.log("🚀 ~ handleSubmit ~ result (recurrent):", result);
+        if (result.success) {
+          setPaymentId(result);
+          onSuccess(result);
+        } else if (result.pending) {
+          setPaymentId(result.preapproval_id || result.payment_id);
+          onPending?.(result);
+        } else if (result.rejected) {
+          onRejected?.(result);
+          onError(
+            result.error || result.status_detail || "Pago recurrente rechazado",
+          );
+        } else {
+          onError(result.error || "Error en pago recurrente");
+        }
       } else {
-        onError(result.error || "Error");
+        const response = await fetch("/api/payment/mercadopago", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token,
+            amount: transaction_amount,
+            currency: planData?.currency,
+            description: planData.description,
+            payment_method_id,
+            installments: Number(installments),
+            issuer_id: issuer_id || undefined,
+            prospectPhone: phone,
+            payer_email: payer.email,
+            payer_first_name: firstName,
+            payer_last_name: lastName,
+            plan_id: planData.id,
+          }),
+        });
+
+        console.log("STATUS:", response.status);
+        const result = await response.json();
+        console.log("🚀 ~ handleSubmit ~ result:", result);
+
+        if (result.success) {
+          setPaymentId(result);
+          onSuccess(result);
+        } else if (result.pending) {
+          setPaymentId(result.payment_id);
+          onPending?.(result);
+        } else if (result.rejected) {
+          onRejected?.(result);
+          onError(result.error || result.status_detail || "Pago rechazado");
+        } else {
+          onError(result.error || "Error");
+        }
       }
     } catch (error: any) {
       console.error("Error en pago:", error);

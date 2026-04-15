@@ -78,3 +78,51 @@ export const emailValidationLogs = sqliteTable("email_validation_logs", {
   validationContext: text("validation_context"), // e.g., "checkout_registration", "prospect_update"
   createdAt: integer("created_at").notNull(),
 });
+
+/**
+ * Tabla de suscripciones / pagos recurrentes
+ *
+ * Data Classification: PII (payment data, customer info)
+ * Retention: Duration of membership + 2 years for legal/compliance
+ * Access: Finance & Admin only
+ */
+export const subscriptions = sqliteTable("subscriptions", {
+  id: text("id").primaryKey(), // UUID local
+  prospectId: text("prospect_id").notNull(), // FK a prospects
+
+  // IDs de MercadoPago
+  mpCustomerId: text("mp_customer_id"), // Customer ID en MP
+  mpCardId: text("mp_card_id"), // Card ID guardada en MP
+  mpPreapprovalId: text("mp_preapproval_id"), // Preapproval ID (suscripción)
+
+  // Info del plan
+  planId: text("plan_id").notNull(),
+  planDescription: text("plan_description"),
+  mpPreapprovalPlanId: text("mp_preapproval_plan_id"), // ID del plan en MP (para suscripciones con plan asociado)
+  recurrenceInterval: text("recurrence_interval"), // weekly, monthly, bimonthly, yearly
+
+  // Monto
+  transactionAmount: integer("transaction_amount"), // en centavos
+  currencyId: text("currency_id").default("MXN"),
+
+  // Fechas de facturación
+  startDate: integer("start_date"), // cuando inicia la suscripción
+  nextBillingDate: integer("next_billing_date"), // próximo cobro
+  lastBillingDate: integer("last_billing_date"), // último cobro realizado
+
+  // Estado de la suscripción
+  status: text("status").notNull(), // authorized, active, paused, cancelled, expired
+
+  // Datos del pagador
+  payerEmail: text("payer_email"),
+  payerFirstName: text("payer_first_name"),
+  payerLastName: text("payer_last_name"),
+
+  // Metadatos
+  externalReference: text("external_reference"), // referencia externa
+  description: text("description"),
+
+  // Timestamps
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
