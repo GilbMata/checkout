@@ -214,7 +214,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
       toast.loading("Validando teléfono...");
       //local
       const prospect = await getProspectByPhoneAction(phoneNor);
-      console.log("🚀 ~ validatePhone ~ prospect:", prospect);
+      // console.log("🚀 ~ validatePhone ~ prospect:", prospect);
 
       if (prospect && prospect.id) {
         await sendOTP({ prospectId: prospect.id })

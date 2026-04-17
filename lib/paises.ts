@@ -18,8 +18,6 @@ export const LATAM_COUNTRIES: Country[] = [
   { code: "+505", name: "Nicaragua", iso: "NI" },
   { code: "+506", name: "Costa Rica", iso: "CR" },
   { code: "+507", name: "Panamá", iso: "PA" },
-  { code: "+509", name: "Haití", iso: "HT" },
-  { code: "+591", name: "Bolivia", iso: "BO" },
   { code: "+592", name: "Guyana", iso: "GY" },
   { code: "+593", name: "Ecuador", iso: "EC" },
   { code: "+594", name: "Guayana Francesa", iso: "GF" },
@@ -32,7 +30,6 @@ export const LATAM_COUNTRIES: Country[] = [
   { code: "+501", name: "Belice", iso: "BZ" },
   { code: "+502", name: "Guatemala", iso: "GT" },
   { code: "+504", name: "Honduras", iso: "HN" },
-  { code: "+509", name: "Haití", iso: "HT" },
 ];
 
 export const DEFAULT_COUNTRY = LATAM_COUNTRIES[0];

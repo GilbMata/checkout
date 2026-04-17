@@ -1,9 +1,7 @@
 "use server";
 
-import { db } from "@/lib/db/index";
-import { payments } from "@/lib/db/schema";
+import { prisma } from "@/lib/db/index";
 import { mp } from "@/lib/mercadopago";
-import { eq } from "drizzle-orm";
 import { Preference } from "mercadopago";
 import { getMembershipAction } from "./evoMember";
 
@@ -18,11 +16,6 @@ interface CreatePreferenceParams {
 
 export async function createPreference(params: CreatePreferenceParams) {
   const { planId, prospectId, email, firstName, lastName, phone } = params;
-
-  // console.debug(
-  // "🚀 ~ createPreference ~ params:",
-  // JSON.stringify({ planId, prospectId, email, firstName, lastName, phone }),
-  // );
 
   // Obtener datos del plan desde EVO
   const planResponse = await getMembershipAction(planId);
@@ -79,7 +72,7 @@ export async function createPreference(params: CreatePreferenceParams) {
     },
     // URLs de retorno
     back_urls: backUrls,
-    // Auto retornar cuando se apruebe - quitar por ahora para debug
+    // Auto retornar cuando se apruebe
     auto_return: "approved",
     // Webhook para notificaciones
     notification_url: notificationUrl,
@@ -97,26 +90,23 @@ export async function createPreference(params: CreatePreferenceParams) {
   );
 
   // Crear el registro de pago pendiente en nuestra DB
-  const paymentId = crypto.randomUUID();
-  const now = Date.now();
+  const transactionAmount = Math.round(plan.valuePromotionalPeriod * 100);
 
-  await db.insert(payments).values({
-    id: paymentId,
-    prospectId: prospectId,
-    mpPreferenceId: null, // Se actualizará cuando MP devuelva el preference ID
-    status: "pending",
-    transactionAmount: Math.round(plan.valuePromotionalPeriod * 100),
-    currencyId: "MXN",
-    description: plan.displayName,
-    externalReference: prospectId, // Usamos prospectId como referencia externa
-    createdAt: now,
-    updatedAt: now,
+  const payment = await prisma.payments.create({
+    data: {
+      prospectId,
+      mpPreferenceId: null, // Se actualizará cuando MP devuelva el preference ID
+      status: "pending",
+      transactionAmount,
+      currencyId: "MXN",
+      description: plan.displayName,
+      externalReference: prospectId,
+    },
   });
 
   const response = await preference.create({
     body: preferenceBody,
   });
-  // console.debug("🚀 ~ createPreference ~ response:", response);
 
   // Verificar que la respuesta sea válida
   if (!response || !response.id) {
@@ -125,62 +115,50 @@ export async function createPreference(params: CreatePreferenceParams) {
       response,
     );
     // Eliminar el registro de pago que creamos
-    await db.delete(payments).where(eq(payments.id, paymentId));
+    await prisma.payments.delete({
+      where: { id: payment.id },
+    });
     throw new Error("Error al crear la preferencia de pago en MercadoPago");
   }
 
   // Actualizar el registro con el preference ID de MP
-  await db
-    .update(payments)
-    .set({
+  await prisma.payments.update({
+    where: { id: payment.id },
+    data: {
       mpPreferenceId: response.id,
-      updatedAt: Date.now(),
-    })
-    .where(eq(payments.id, paymentId));
+    },
+  });
 
   return {
     preferenceId: response.id,
     initPoint: response.init_point,
     sandboxInitPoint: response.sandbox_init_point,
-    paymentId,
-    amount: plan.valuePromotionalPeriod, // Devolver el amount
+    paymentId: payment.id,
+    amount: plan.valuePromotionalPeriod,
   };
 }
 
 export async function getOrCreatePreference(params: CreatePreferenceParams) {
   // Verificar si ya existe un payment pendiente para este prospecto
-  const existingPayment = await db
-    .select()
-    .from(payments)
-    .where(eq(payments.prospectId, params.prospectId))
-    .limit(1);
+  const existingPayment = await prisma.payments.findFirst({
+    where: {
+      prospectId: params.prospectId,
+      status: { in: ["pending", "in_process"] },
+    },
+  });
 
   // Si existe y está pendiente, devolver el preference existente
-  if (existingPayment.length > 0) {
-    const payment = existingPayment[0];
-    // console.debug("🚀 ~ getOrCreatePreference ~ payment:", payment);
-
-    // Si ya fue aprobado, rejected o cancelado, crear uno nuevo
-    if (!["pending", "in_process"].includes(payment.status || "")) {
-      // console.debug("🚀 ~ getOrCreatePreference ~ no pending - creating new:");
-      return createPreference(params);
-    }
-
+  if (existingPayment) {
     // Si el payment existe pero no tiene mpPreferenceId (falló la creación anterior), crear nuevo
-    if (!payment.mpPreferenceId) {
-      // console.debug(
-      // "🚀 ~ getOrCreatePreference ~ no mpPreferenceId - creating new:",
-      // );
+    if (!existingPayment.mpPreferenceId) {
       return createPreference(params);
     }
-
-    // console.debug("🚀 ~ getOrCreatePreference ~ using existing:");
 
     // Devolver los datos existentes
     return {
-      preferenceId: payment.mpPreferenceId,
-      paymentId: payment.id,
-      amount: (payment.transactionAmount || 0) / 100, // Convertir de centavos a pesos
+      preferenceId: existingPayment.mpPreferenceId,
+      paymentId: existingPayment.id,
+      amount: (existingPayment.transactionAmount || 0) / 100,
     };
   }
 

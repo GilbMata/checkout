@@ -2,9 +2,7 @@
 
 import { verifyOTP } from "@/lib/auth/otp";
 import { createSession } from "@/lib/auth/session";
-import { db } from "@/lib/db/index";
-import { prospects } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { prisma } from "@/lib/db/index";
 
 interface VerifyOTPParams {
   phone: string;
@@ -14,22 +12,22 @@ interface VerifyOTPParams {
 export async function verifyOTPAction(params: VerifyOTPParams) {
   try {
     const { phone, otp } = params;
-    const user = await db
-      .select()
-      .from(prospects)
-      .where(eq(prospects.phone, phone))
-      .limit(1);
-    if (!user[0]) {
+
+    const user = await prisma.prospects.findFirst({
+      where: { phone },
+    });
+
+    if (!user) {
       return { valid: false, error: "Usuario no encontrado" };
     }
-    const valid = await verifyOTP(user[0].id, otp);
-    console.log("🚀 ~ valid:", valid);
+
+    const valid = await verifyOTP(user.id, otp);
 
     if (!valid) {
       return { valid: false, error: "Código inválido" };
     }
 
-    await createSession(user[0]);
+    await createSession(user);
     return { valid: true };
   } catch (error) {
     console.error("Error verifying OTP:", error);

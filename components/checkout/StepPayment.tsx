@@ -24,7 +24,6 @@ export default function StepPayment() {
 
   const handleRejected = (result: any) => {
     console.log("❌ Pago rechazado:", result);
-    return;
     // Redirect a failure page con status_detail
     const paymentId = result.payment_id || result.id || result.preference_id;
     const statusDetail = result.status_detail || result.error;
@@ -38,7 +37,7 @@ export default function StepPayment() {
       queryParams = `?status_detail=${encodeURIComponent(statusDetail)}`;
     }
 
-    // router.push(`/checkout/failure${queryParams}`);
+    router.push(`/checkout/failure${queryParams}`);
   };
 
   const handleError = (error: any) => {
@@ -69,6 +68,8 @@ export default function StepPayment() {
     description,
     amount,
     currency: "MXN",
+    displayName: plan?.displayName,
+    branch: String(plan?.idBranch),
   };
   const userData = {
     phone: prospect.areaCode + prospect?.phone,

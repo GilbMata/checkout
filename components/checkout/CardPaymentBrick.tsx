@@ -10,6 +10,8 @@ interface CardPaymentBrickProps {
     description: string;
     amount: number;
     currency: string;
+    displayName: string;
+    branch: string;
   };
   userData: {
     phone: string;
@@ -28,7 +30,7 @@ let globalInitDone = false;
 // Skeleton loader para el Brick de pago - reproduce el tamaño real del componente
 function PaymentBrickSkeleton() {
   return (
-    <div className="w-full max-w-md mx-auto border-2 border-orange-500/30 rounded-lg overflow-hidden bg-zinc-900">
+    <div className=" max-w-md mx-auto w-md border-2 border-orange-500/30 rounded-lg overflow-hidden bg-zinc-900">
       {/* Header del formulario */}
       <div className="bg-zinc-800/50 p-4 border-b border-zinc-700">
         <div className="h-5 w-32 bg-zinc-700/50 rounded animate-pulse" />
@@ -102,10 +104,6 @@ export default function CardPaymentBrick({
         console.log("✅ MP initialized");
       } catch (err) {
         console.error("❌ MP init error:", err);
-        // if (mountedRef.current) {
-        //   setError("Error al cargar pagos");
-        //   onErrorRef.current("Error al cargar pagos");
-        // }
       }
     }
   }, []);
@@ -117,7 +115,8 @@ export default function CardPaymentBrick({
     };
   }, []);
 
-  const handleSubmit = async (cardPaymentData: any) => {
+  const handleSubmit = async (cardPaymentData: any, additionalData?: any) => {
+    // console.log("🚀 ~ handleSubmit ~ additionalData:", additionalData);
     setProcessing(true);
     // console.log("Datos completos recibidos:", cardPaymentData);
     try {
@@ -129,6 +128,12 @@ export default function CardPaymentBrick({
         payer,
         payment_method_id,
       } = cardPaymentData;
+
+      // Extraer información adicional de la tarjeta
+      const cardLastFour = additionalData.lastFourDigits || null;
+      const cardholderName = additionalData.cardholderName || null;
+      const paymentTypeId = additionalData?.paymentTypeId;
+
       if (!token) {
         throw new Error("No se pudo generar el token de la tarjeta");
       }
@@ -143,7 +148,9 @@ export default function CardPaymentBrick({
           amount: transaction_amount,
           currency: planData?.currency,
           description: planData.description,
+          displayName: planData.displayName,
           payment_method_id,
+          payment_type: paymentTypeId,
           installments: Number(installments),
           issuer_id: issuer_id || undefined,
           prospectPhone: phone,
@@ -151,12 +158,16 @@ export default function CardPaymentBrick({
           payer_first_name: firstName,
           payer_last_name: lastName,
           plan_id: planData.id,
+          external_reference: planData.branch,
+          card_last_four: cardLastFour,
+          cardholder_name: cardholderName,
         }),
       });
 
       console.log("STATUS:", response.status);
       const result = await response.json();
       console.log("🚀 ~ handleSubmit ~ result:", result);
+      console.log("🚀 ~ handleSubmit ~ result:", result.rejected);
 
       if (result.success) {
         setPaymentId(result);
@@ -200,6 +211,10 @@ export default function CardPaymentBrick({
           },
         }}
         customization={{
+          paymentMethods: {
+            minInstallments: 1,
+            maxInstallments: 6,
+          },
           visual: {
             hidePaymentButton: false,
             style: {

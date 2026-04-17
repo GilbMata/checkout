@@ -7,7 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "drizzle": "npx drizzle-kit push"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -16,6 +23,7 @@
     "@isdisposable/js": "^1.0.6",
     "@libsql/client": "^0.17.2",
     "@mercadopago/sdk-react": "^1.0.7",
+    "@prisma/client": "^6.8.2",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@react-input/mask": "^2.0.4",
@@ -28,6 +36,7 @@
     "input-otp": "^1.4.2",
     "ioredis": "^5.10.1",
     "jose": "^6.2.2",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.577.0",
     "mercadopago": "^2.12.0",
     "next": "16.1.6",
@@ -49,21 +58,27 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "babel-plugin-react-compiler": "1.0.0",
-    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "jsdom": "^29.0.2",
     "prettier": "^3.8.1",
     "prettier-plugin-organize-imports": "^4.3.0",
     "prettier-plugin-tailwindcss": "^0.7.2",
+    "prisma": "^6.8.2",
     "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.4"
   },
   "prettier": {
     "plugins": [

@@ -1,6 +1,4 @@
-import { db } from "@/lib/db/index";
-import { payments, prospects } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { prisma } from "@/lib/db/index";
 import { Clock } from "lucide-react";
 
 type Plan = {
@@ -18,29 +16,22 @@ export default async function PendingPage({
   const params = await searchParams;
   const paymentId = params.payment_id;
 
-  // Obtener payment de la base de datos
+  // Obtener payment de la base de datos usando Prisma
   let payment = null;
   let email: string | undefined;
   let planName = "Plan Station24";
   let planPrice = 0;
 
   if (paymentId) {
-    const paymentData = await db
-      .select()
-      .from(payments)
-      .where(eq(payments.mpPaymentId, paymentId))
-      .limit(1);
-
-    payment = paymentData[0];
+    payment = await prisma.payments.findFirst({
+      where: { mpPaymentId: paymentId },
+    });
 
     if (payment?.prospectId) {
-      const prospectData = await db
-        .select()
-        .from(prospects)
-        .where(eq(prospects.id, payment.prospectId))
-        .limit(1);
-
-      email = prospectData[0]?.email;
+      const prospect = await prisma.prospects.findUnique({
+        where: { id: payment.prospectId },
+      });
+      email = prospect?.email;
     }
 
     if (payment) {

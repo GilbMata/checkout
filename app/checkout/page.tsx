@@ -87,7 +87,7 @@ export default async function CheckoutPage({
     );
   }
   const session = await getSession();
-  console.log("🚀 ~ CheckoutPage ~ session:", session);
+  // console.log("🚀 ~ CheckoutPage ~ session:", session);
 
   return <CheckoutClient plan={plan} branch={branch} session={session} />;
 }

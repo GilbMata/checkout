@@ -44,6 +44,10 @@ export default function StepOTP() {
 
   const handleVerify = async (otp: string) => {
     if (loading) return;
+    if (!customerId) {
+      toast.error("Error: no se pudo obtener el ID");
+      return;
+    }
     if (otp.length !== 6) return;
     setLoading(true);
     try {
@@ -51,10 +55,6 @@ export default function StepOTP() {
       console.log("🚀 ~ handleVerify ~ data:", data);
       if (!data.valid) {
         toast.error(data.error);
-        return;
-      }
-      if (!customerId) {
-        toast.error("Error: no se pudo obtener el ID");
         return;
       }
       toast.success("Acceso correcto");

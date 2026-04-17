@@ -1,8 +1,13 @@
-import { drizzle } from "drizzle-orm/libsql";
-import { createClient } from "@libsql/client";
+// Database client - Migrated to Prisma with PostgreSQL
+// Install dependencies: npm install prisma @prisma/client && npx prisma generate
 
-const client = createClient({
-    url: "file:./sqlite.db",
-});
+export { prisma } from "./prisma";
 
-export const db = drizzle(client);
+// Type exports for Prisma
+export type {
+  EmailValidationLogs,
+  MagicLinks,
+  OtpRequests,
+  Payments,
+  Prospects,
+} from "@prisma/client";

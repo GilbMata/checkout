@@ -7,11 +7,8 @@ import {
   saveMagicToken,
   saveOTP,
 } from "@/lib/auth/otp";
-import { db } from "@/lib/db/index";
-import { prospects } from "@/lib/db/schema";
+import { prisma } from "@/lib/db/index";
 import { sendOtpEmail } from "@/lib/otpsend/email/send-email";
-import { sendOTPWhatsApp } from "@/lib/otpsend/whatsapp-sender";
-import { eq } from "drizzle-orm";
 
 export type OTPMethod = "whatsapp" | "email";
 
@@ -27,29 +24,16 @@ export async function sendOTP(params: SendOTPParams): Promise<{
   error?: string;
 }> {
   try {
-    // Validate email is not from a disposable provider
-    // const emailValidation = validateDisposableEmail(params.email);
-    // if (emailValidation.isDisposable) {
-    //   return {
-    //     success: false,
-    //     method: (process.env.OTP_DEFAULT_METHOD || "whatsapp") as OTPMethod,
-    //     error: emailValidation.message,
-    //   };
-    // }
-
     const method = (process.env.OTP_DEFAULT_METHOD || "whatsapp") as OTPMethod;
     const otp = generateOTP();
     console.log("🚀 ~ sendOTP ~ otp:", otp);
 
     let userId = params.prospectId;
 
-    const existingProspect = await db
-      .select()
-      .from(prospects)
-      .where(eq(prospects.id, userId))
-      .limit(1);
+    const prospect = await prisma.prospects.findUnique({
+      where: { id: userId },
+    });
 
-    const prospect = existingProspect[0];
     if (!prospect) {
       return { success: false, method, error: "Cliente no encontrado" };
     }
@@ -63,12 +47,7 @@ export async function sendOTP(params: SendOTPParams): Promise<{
     const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
 
     if (method === "whatsapp") {
-      const sent = await sendOTPWhatsApp(prospect.phone, otp);
-      // if (!sent) {
-      //   console.error("Failed to send WhatsApp, falling back to email");
-      //   await sendOtpEmail(prospect.email, otp, magicLink);
-      //   return { success: true, method: "email" };
-      // }
+      // const sent = await sendOTPWhatsApp(prospect.phone, otp);
       return { success: true, method: "whatsapp" };
     } else {
       await sendOtpEmail(prospect.email, otp, magicLink);

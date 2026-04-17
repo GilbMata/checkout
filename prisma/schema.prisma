@@ -1,0 +1,131 @@
+// Station 24 Fitness - Prisma Schema for PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// Prospects Table - Members/Prospects
+// ==========================================
+model Prospects {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique
+  curp            String   @unique
+  firstName       String   @map("first_name")
+  lastName        String   @map("last_name")
+  gender          String?
+  birthDate       DateTime? @map("birth_date") @db.Timestamptz
+  areaCode        String?  @map("area_code")
+  phone           String   @unique
+  planId          String?  @map("plan_id")
+  idMember        Int?     @map("id_member")
+  idBranch        Int?     @map("id_branch")
+  branchName      String?  @map("branch_name")
+  accessBlocked   Boolean  @default(false) @map("access_blocked")
+  blockedReason   String?  @map("blocked_reason")
+  documentType    String   @default("CURP") @map("document_type")
+  documentNumber  String?  @map("document_number")
+  documentId      String?  @map("document_id")
+  status          String?  @default("prospect")
+  membershipStatus String?  @default("pending") @map("membership_status")
+  paymentPending  Boolean  @default(true) @map("payment_pending")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  otpRequests    OtpRequests[]
+  magicLinks     MagicLinks[]
+  payments       Payments[]
+
+  @@map("prospects")
+}
+
+// ==========================================
+// OTP Requests Table
+// ==========================================
+model OtpRequests {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  otp       String
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  prospect  Prospects @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("otp_requests")
+}
+
+// ==========================================
+// Magic Links Table
+// ==========================================
+model MagicLinks {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  prospect  Prospects @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("magic_links")
+}
+
+// ==========================================
+// Payments Table
+// ==========================================
+model Payments {
+  id                String   @id @default(uuid()) @db.Uuid
+  prospectId        String?  @map("prospect_id") @db.Uuid
+  planId            String?  @map("plan_id")
+  mpPaymentId       String?  @map("mp_payment_id")
+  mpPreferenceId    String?  @map("mp_preference_id")
+  status            String   @default("pending")
+  statusDetail      String?  @map("status_detail")
+  transactionAmount Int?     @map("transaction_amount")
+  currencyId        String   @default("MXN") @map("currency_id")
+  paymentMethodId   String?  @map("payment_method_id")
+  paymentTypeId     String?  @map("payment_type_id")
+  installments      Int?
+  description       String?
+  externalReference String?  @map("external_reference")
+  cardLastFour     String?  @map("card_last_four")
+  cardholderName   String?  @map("cardholder_name")
+  dateApproved      DateTime? @map("date_approved") @db.Timestamptz
+  dateCreated       DateTime? @map("date_created") @db.Timestamptz
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  prospect  Prospects? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  @@index([prospectId])
+  @@index([mpPreferenceId])
+  @@index([mpPaymentId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ==========================================
+// Email Validation Logs Table
+// ==========================================
+model EmailValidationLogs {
+  id                String   @id @default(uuid()) @db.Uuid
+  email             String
+  domain            String
+  isDisposable      Boolean  @map("is_disposable")
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  validationContext String?  @map("validation_context")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([email])
+  @@index([domain])
+  @@index([createdAt(sort: Desc)])
+  @@map("email_validation_logs")
+}

@@ -7,14 +7,12 @@
  * to the database for fraud/spam analysis.
  */
 
-import { db } from "@/lib/db/index";
-import { emailValidationLogs } from "@/lib/db/schema";
+import { prisma } from "@/lib/db/index";
 import {
   validateEmail,
   type EmailValidationResult,
 } from "@/lib/email-validation";
 import { headers } from "next/headers";
-import { v4 as uuidv4 } from "uuid";
 
 export type ValidateEmailActionResult = EmailValidationResult;
 
@@ -76,18 +74,15 @@ async function logValidationAttempt(
   // Extract user agent
   const userAgent = headersList.get("user-agent") ?? "unknown";
 
-  const id = uuidv4();
-  const now = Date.now();
-
-  await db.insert(emailValidationLogs).values({
-    id,
-    email: result.email,
-    domain: result.domain,
-    isDisposable: result.isDisposable,
-    ipAddress,
-    userAgent,
-    validationContext: context,
-    createdAt: now,
+  await prisma.emailValidationLogs.create({
+    data: {
+      email: result.email,
+      domain: result.domain,
+      isDisposable: result.isDisposable,
+      ipAddress,
+      userAgent,
+      validationContext: context ?? null,
+    },
   });
 }
 
