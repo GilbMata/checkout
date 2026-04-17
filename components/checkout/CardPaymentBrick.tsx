@@ -10,8 +10,6 @@ interface CardPaymentBrickProps {
     description: string;
     amount: number;
     currency: string;
-    displayName: string;
-    branch: string;
     recurrent: boolean;
   };
   userData: {
@@ -39,6 +37,7 @@ export default function CardPaymentBrick({
   const [error, setError] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const planAmount = planData.amount;
+  // const recurrent = planData.membershipType;
 
   const handleSubmit = async (cardPaymentData: any, additionalData?: any) => {
     // console.log("🚀 ~ handleSubmit ~ additionalData:", additionalData);

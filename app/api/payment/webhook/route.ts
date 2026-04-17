@@ -1,6 +1,6 @@
 "use server";
 
-import { db, prisma } from "@/lib/db/index";
+import { db } from "@/lib/db/index";
 import { prospects, subscriptions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
