@@ -1,8 +1,8 @@
 // app/components/CardPaymentBrick.tsx
 "use client";
 
-import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
-import { useEffect, useRef, useState } from "react";
+import { CardPayment } from "@mercadopago/sdk-react";
+import { useState } from "react";
 
 interface CardPaymentBrickProps {
   planData: {
@@ -25,48 +25,6 @@ interface CardPaymentBrickProps {
   onPending?: (data: any) => void;
   onRejected?: (data: any) => void;
 }
-let globalInitDone = false;
-
-// Skeleton loader para el Brick de pago - reproduce el tamaño real del componente
-function PaymentBrickSkeleton() {
-  return (
-    <div className=" max-w-md mx-auto w-md border-2 border-orange-500/30 rounded-lg overflow-hidden bg-zinc-900">
-      {/* Header del formulario */}
-      <div className="bg-zinc-800/50 p-4 border-b border-zinc-700">
-        <div className="h-5 w-32 bg-zinc-700/50 rounded animate-pulse" />
-      </div>
-
-      {/* Campo número de tarjeta */}
-      <div className="p-4 space-y-2">
-        <div className="h-4 w-20 bg-zinc-700/50 rounded animate-pulse" />
-        <div className="h-12 w-full bg-zinc-800 rounded animate-pulse" />
-      </div>
-
-      {/* Campos de fecha y CVV */}
-      <div className="px-4 pb-4 grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <div className="h-4 w-16 bg-zinc-700/50 rounded animate-pulse" />
-          <div className="h-12 bg-zinc-800 rounded animate-pulse" />
-        </div>
-        <div className="space-y-2">
-          <div className="h-4 w-12 bg-zinc-700/50 rounded animate-pulse" />
-          <div className="h-12 bg-zinc-800 rounded animate-pulse" />
-        </div>
-      </div>
-
-      {/* Campo nombre del titular */}
-      <div className="px-4 pb-4 space-y-2">
-        <div className="h-4 w-24 bg-zinc-700/50 rounded animate-pulse" />
-        <div className="h-12 w-full bg-zinc-800 rounded animate-pulse" />
-      </div>
-
-      {/* Botón de pagar */}
-      <div className="p-4">
-        <div className="h-12 w-full bg-orange-500/30 rounded animate-pulse" />
-      </div>
-    </div>
-  );
-}
 
 export default function CardPaymentBrick({
   userData: { phone, email, curp, firstName, lastName },
@@ -77,43 +35,9 @@ export default function CardPaymentBrick({
   onRejected,
 }: CardPaymentBrickProps) {
   const [processing, setProcessing] = useState(false);
-  const [paymentId, setPaymentId] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const initRef = useRef(false);
-  const mountedRef = useRef(true);
-  const onErrorRef = useRef(onError);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
   const planAmount = planData.amount;
-
-  useEffect(() => {
-    // Si ya está inicializado, marcar como listo inmediatamente
-    // if (globalInitDone) {
-    //   setReady(true);
-    //   return;
-    // }
-
-    const publicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY;
-
-    if (publicKey && !globalInitDone) {
-      try {
-        initMercadoPago(publicKey, {
-          locale: "es-MX",
-        });
-        globalInitDone = true;
-        setReady(true);
-        console.log("✅ MP initialized");
-      } catch (err) {
-        console.error("❌ MP init error:", err);
-      }
-    }
-  }, []);
-
-  // Cleanup en unmount
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   const handleSubmit = async (cardPaymentData: any, additionalData?: any) => {
     // console.log("🚀 ~ handleSubmit ~ additionalData:", additionalData);
@@ -193,12 +117,8 @@ export default function CardPaymentBrick({
     return <div className="p-4 text-center text-red-600">{error}</div>;
   }
 
-  if (!ready) {
-    return <PaymentBrickSkeleton />;
-  }
-
   return (
-    <div className="w-full max-w-md mx-auto   border-2 border-orange-500 rounded-lg ">
+    <div className="w-full max-w-md border-2 border-orange-500 rounded-lg ">
       <CardPayment
         initialization={{
           amount: planAmount,
@@ -236,7 +156,7 @@ export default function CardPaymentBrick({
           console.error("Error del Brick:", err);
           onError(err.message || "Error en el formulario de pago");
         }}
-        onReady={() => console.log("CardPaymentBrick listo")}
+        // onReady={() => setBrickReady(true)}
       />
 
       {processing && (

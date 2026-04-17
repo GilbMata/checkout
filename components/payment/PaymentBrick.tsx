@@ -3,7 +3,10 @@
 import { getOrCreatePreference } from "@/app/actions/createPayment";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { initMercadoPago, Payment } from "@mercadopago/sdk-react";
-import { IPaymentFormData, IAdditionalCardFormData } from "@mercadopago/sdk-react/esm/bricks/payment/type";
+import {
+  IAdditionalCardFormData,
+  IPaymentFormData,
+} from "@mercadopago/sdk-react/esm/bricks/payment/type";
 import { useEffect, useRef, useState } from "react";
 
 interface PaymentBrickProps {
@@ -54,16 +57,12 @@ export default function PaymentBrick({ planId }: PaymentBrickProps) {
     amount: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  const initKey = useRef(Math.random().toString(36).substring(7));
   const [renderKey, setRenderKey] = useState(0);
-  const loaded = useRef(false);
 
-  // Solo renderizar en cliente para evitar hydration mismatch
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const [ready, setReady] = useState(false); // 👈 un solo flag de "todo listo"
+  const [error, setError] = useState<string | null>(null);
+  const loaded = useRef(false);
 
   useEffect(() => {
     // Usar variable global para evitar inicialización múltiple
@@ -74,44 +73,21 @@ export default function PaymentBrick({ planId }: PaymentBrickProps) {
   }, []);
 
   useEffect(() => {
-    console.debug("🚀 ~ PaymentBrick ~ useEffect:", {
-      prospectId,
-      planId,
-      email,
-      loaded: loaded.current,
-    });
-
-    // Solo cargar cuando tengamos los datos necesarios y no se haya cargado antes
-    if (!prospectId || !planId || !email || loaded.current) {
-      console.debug("🚀 ~ PaymentBrick ~ skip:", {
-        reason:
-          !prospectId || !planId || !email ? "missing data" : "already loaded",
-      });
-      return;
-    }
-
+    if (!prospectId || !planId || !email || loaded.current) return;
     loaded.current = true;
-    console.debug("🚀 ~ PaymentBrick ~ loading preference...");
 
     async function loadPreference() {
-      // Doble verificación dentro de la función async
       if (!prospectId || !planId || !email) {
         setError("Faltan datos para iniciar el pago");
-        setLoading(false);
         return;
       }
-
       try {
-        setLoading(true);
         const result = await getOrCreatePreference({
           planId,
           prospectId,
           email,
           phone: phone || undefined,
         });
-        console.debug("🚀 ~ loadPreference ~ result:", result);
-
-        // Obtener el amount de la respuesta
         setPreferenceData({
           preferenceId: result.preferenceId || "",
           amount: result.amount || 0,
@@ -119,18 +95,15 @@ export default function PaymentBrick({ planId }: PaymentBrickProps) {
       } catch (err) {
         console.error("Error creating preference:", err);
         setError("Error al inicializar el pago");
-      } finally {
-        setLoading(false);
       }
     }
-
     loadPreference();
-  }, [prospectId, planId, email]); // Se ejecuta cuando cambian estos valores
+  }, [prospectId, planId, email]);
 
-  // Loading state durante SSR o cliente-side hydration - mostrar skeleton
-  if (!isMounted || loading) {
-    return <PaymentSkeleton />;
-  }
+  // // Loading state durante SSR o cliente-side hydration - mostrar skeleton
+  // if (!isMounted || loading) {
+  //   return <PaymentSkeleton />;
+  // }
 
   if (error || !preferenceData?.preferenceId) {
     return (
@@ -148,42 +121,59 @@ export default function PaymentBrick({ planId }: PaymentBrickProps) {
 
   // El Payment Brick usa una key única para evitar duplicados
   return (
-    <div key={renderKey}>
-      <Payment
-        initialization={{
-          preferenceId: preferenceData.preferenceId,
-          amount: preferenceData.amount,
-          payer: {
-            email: email,
-          },
-        }}
-        customization={{
-          visual: {
-            style: {
-              theme: "dark",
-              customVariables: {
-                formBackgroundColor: "rgb(30, 30, 30)",
-                baseColor: "rgb(236, 97, 0)",
-                buttonTextColor: "white",
+    <div className="relative">
+      {!ready && (
+        <div className="absolute inset-0 z-10">
+          <PaymentSkeleton />
+        </div>
+      )}
+
+      {/* El brick se renderiza siempre pero invisible hasta estar listo */}
+      <div className={ready ? "opacity-100" : "opacity-0"}>
+        {preferenceData?.preferenceId && (
+          <Payment
+            initialization={{
+              preferenceId: preferenceData.preferenceId,
+              amount: preferenceData.amount,
+              payer: {
+                email: email,
               },
-            },
-          },
-          paymentMethods: {
-            atm: "all",
-            creditCard: "all",
-            debitCard: "all",
-            // mercadoPago: "all",
-            prepaidCard: "all",
-            // ticket: "all",
-            maxInstallments: 1,
-          },
-        }}
-        onReady={() => console.log("Payment Brick listo")}
-        onError={(error) => {
-          console.error("Error en Payment Brick:", error);
-        } } onSubmit={function (param: IPaymentFormData, param2?: IAdditionalCardFormData | null): Promise<unknown> {
-          throw new Error("Function not implemented.");
-        } }      />
+            }}
+            customization={{
+              visual: {
+                style: {
+                  theme: "dark",
+                  customVariables: {
+                    formBackgroundColor: "rgb(30, 30, 30)",
+                    baseColor: "rgb(236, 97, 0)",
+                    buttonTextColor: "white",
+                  },
+                },
+              },
+              paymentMethods: {
+                atm: "all",
+                creditCard: "all",
+                debitCard: "all",
+                // mercadoPago: "all",
+                prepaidCard: "all",
+                // ticket: "all",
+                maxInstallments: 1,
+              },
+            }}
+            onReady={() => setReady(true)} // 👈 aquí desaparece el skeleton
+            onError={(error) => {
+              console.error("Error en Payment Brick:", error);
+              setError("Error al cargar el formulario de pago");
+            }}
+            onSubmit={function (
+              param: IPaymentFormData,
+              param2?: IAdditionalCardFormData | null,
+            ): Promise<unknown> {
+              throw new Error("Function not implemented.");
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

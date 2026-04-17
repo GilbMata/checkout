@@ -11,6 +11,7 @@ import {
   Receipt,
   RefreshCw,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type PaymentData = {
@@ -31,8 +32,9 @@ interface Props {
 }
 
 export default function PaymentFailure({ payment, email }: Props) {
+  console.log("🚀 ~ PaymentFailure ~ payment:", payment);
   const [copiedId, setCopiedId] = useState(false);
-
+  const router = useRouter();
   // Get friendly error message
   const getErrorMessage = (detail?: string) => {
     if (!detail) return "El pago fue rechazado";
@@ -61,7 +63,7 @@ export default function PaymentFailure({ payment, email }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-linear-to-br from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute top-20 left-20 w-72 h-72 bg-red-500/20 rounded-full blur-3xl" />
@@ -92,7 +94,7 @@ export default function PaymentFailure({ payment, email }: Props) {
               style={{ animationDelay: "0.5s", animationDuration: "2s" }}
             />
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-2xl shadow-red-500/30">
+              <div className="w-24 h-24 rounded-full bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center shadow-2xl shadow-red-500/30">
                 <AlertCircle
                   className="w-14 h-14 text-white"
                   strokeWidth={2.5}
@@ -110,13 +112,13 @@ export default function PaymentFailure({ payment, email }: Props) {
         {/* Main Card */}
         <Card className="bg-zinc-900/80 backdrop-blur-xl border-zinc-800 shadow-2xl overflow-hidden">
           {/* Red top border gradient */}
-          <div className="h-1 bg-gradient-to-r from-red-500 via-red-400 to-red-600" />
+          <div className="h-1 bg-linear-to-r from-red-500 via-red-400 to-red-600" />
 
           <CardContent className="p-6 space-y-6">
             {/* Error Info */}
             <div className="flex items-center justify-between p-4 bg-red-500/10 rounded-xl border border-red-500/20">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-lg bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center">
                   <AlertCircle className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -143,7 +145,7 @@ export default function PaymentFailure({ payment, email }: Props) {
                     <div>
                       <p className="text-xs text-zinc-500">Orden</p>
                       <p className="text-sm text-zinc-300 font-mono">
-                        {payment.order_id.slice(0, 12)}...
+                        {payment.order_id}
                       </p>
                     </div>
                   </div>
@@ -156,7 +158,7 @@ export default function PaymentFailure({ payment, email }: Props) {
                       <div>
                         <p className="text-xs text-zinc-500">Pago ID</p>
                         <p className="text-sm text-zinc-300 font-mono">
-                          {displayPaymentId.slice(0, 12)}...
+                          {displayPaymentId}
                         </p>
                       </div>
                     </div>
@@ -200,8 +202,9 @@ export default function PaymentFailure({ payment, email }: Props) {
             {/* Action Buttons */}
             <div className="pt-4 space-y-3">
               <Button
-                onClick={() => (window.location.href = "/checkout")}
-                className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                onClick={() => router.back()}
+                // onClick={() => (window.location.href = "/checkout")}
+                className="w-full h-12 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Intentar nuevamente

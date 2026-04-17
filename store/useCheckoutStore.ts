@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type Step = "email" | "otp" | "payment";
+type Step = "email" | "otp" | "payment" | "";
 
 interface CheckoutState {
   step: Step;
@@ -22,7 +22,7 @@ interface CheckoutState {
 }
 
 export const useCheckoutStore = create<CheckoutState>((set) => ({
-  step: "email",
+  step: "",
   email: "",
   phone: "",
   prospectId: "",
