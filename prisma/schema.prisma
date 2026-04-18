@@ -40,6 +40,7 @@ model Prospects {
   otpRequests    OtpRequests[]
   magicLinks     MagicLinks[]
   payments       Payments[]
+  subscriptions Subscriptions[]
 
   @@map("prospects")
 }
@@ -128,4 +129,39 @@ model EmailValidationLogs {
   @@index([domain])
   @@index([createdAt(sort: Desc)])
   @@map("email_validation_logs")
+}
+
+// ==========================================
+// Subscriptions Table - Recurring payments
+// ==========================================
+model Subscriptions {
+  id                    String   @id @default(uuid()) @db.Uuid
+  prospectId            String   @map("prospect_id") @db.Uuid
+  planId                String   @map("plan_id")
+  planDescription       String?  @map("plan_description")
+  mpCustomerId          String?  @map("mp_customer_id")
+  mpCardId              String?  @map("mp_card_id")
+  mpPreapprovalId       String?  @map("mp_preapproval_id")
+  mpPreapprovalPlanId   String?  @map("mp_preapproval_plan_id")
+  recurrenceInterval    String?  @map("recurrence_interval")
+  transactionAmount    Int?      @map("transaction_amount")
+  currencyId           String   @default("MXN") @map("currency_id")
+  startDate             DateTime? @map("start_date") @db.Timestamptz
+  nextBillingDate      DateTime? @map("next_billing_date") @db.Timestamptz
+  lastBillingDate     DateTime? @map("last_billing_date") @db.Timestamptz
+  status               String   @default("pending")
+  payerEmail           String?  @map("payer_email")
+  payerFirstName      String?  @map("payer_first_name")
+  payerLastName       String?  @map("payer_last_name")
+  externalReference  String?  @map("external_reference")
+  description         String?
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  prospect  Prospects @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+  @@index([mpPreapprovalId])
+  @@index([status])
+  @@map("subscriptions")
 }

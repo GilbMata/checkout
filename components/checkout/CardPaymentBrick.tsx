@@ -158,7 +158,7 @@ export default function CardPaymentBrick({
         initialization={{
           amount: planAmount,
           payer: {
-            // email: email || "",
+            email: email || "",
             identification: {
               type: "CURP",
               number: curp,

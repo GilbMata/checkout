@@ -1,8 +1,4 @@
-"use server";
-
-import { db } from "@/lib/db/index";
-import { prospects, subscriptions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { prisma } from "@/lib/db/prisma";
 
 // Estado del pago en MercadoPago
 type MPPaymentStatus =
@@ -222,29 +218,24 @@ async function processPreapprovalWebhook(
   });
 
   // Buscar la suscripción en nuestra DB
-  const existingSubscription = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.mpPreapprovalId, preapprovalId))
-    .limit(1);
+  const existingSubscription = await prisma.subscriptions.findFirst({
+    where: { mpPreapprovalId: preapprovalId },
+  });
 
-  const now = Date.now();
+  const now = new Date();
   const prospectId = preapproval.external_reference;
 
-  if (existingSubscription.length > 0) {
+  if (existingSubscription) {
     // Actualizar suscripción existente
-    const sub = existingSubscription[0];
-
-    await db
-      .update(subscriptions)
-      .set({
+    await prisma.subscriptions.update({
+      where: { id: existingSubscription.id },
+      data: {
         status: mapMPPreapprovalStatus(preapproval.status),
         nextBillingDate: preapproval.next_payment_date
-          ? new Date(preapproval.next_payment_date).getTime()
-          : sub.nextBillingDate,
-        updatedAt: now,
-      })
-      .where(eq(subscriptions.mpPreapprovalId, preapprovalId));
+          ? new Date(preapproval.next_payment_date)
+          : existingSubscription.nextBillingDate,
+      },
+    });
 
     console.log(
       "✅ Suscripción actualizada:",
@@ -295,27 +286,25 @@ async function processPreapprovalStatus(
       case "authorized":
       case "active":
         // Suscripción activa - miembro puede acceder
-        await db
-          .update(prospects)
-          .set({
+        await prisma.prospects.update({
+          where: { id: prospectId },
+          data: {
             paymentPending: false,
-            updatedAt: now,
-          })
-          .where(eq(prospects.id, prospectId));
+          },
+        });
         console.log("✅ Miembro activado por suscripción:", prospectId);
         break;
 
       case "cancelled":
       case "expired":
         // Suscripción cancelada/expirada - bloquear acceso
-        await db
-          .update(prospects)
-          .set({
+        await prisma.prospects.update({
+          where: { id: prospectId },
+          data: {
             paymentPending: true,
             blockedReason: `Suscripción ${status}`,
-            updatedAt: now,
-          })
-          .where(eq(prospects.id, prospectId));
+          },
+        });
         console.log("⛔ Acceso bloqueado por suscripción:", status);
         break;
 

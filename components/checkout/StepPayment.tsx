@@ -62,6 +62,11 @@ export default function StepPayment() {
   const price = Number(plan?.value ?? 0);
   const amount = promo > 0 ? promo : price;
   const description = plan?.description ? plan?.description : plan?.displayName;
+  const email =
+    process.env.NODE_ENV === "development"
+      ? "test_user_mx@testuser.com"
+      : prospect?.email;
+  console.log("🚀 ~ StepPayment ~ email:", email);
   console.log("🚀 ~ StepPayment ~ plan?.membershipType:", plan?.membershipType);
 
   const planData = {
@@ -78,7 +83,7 @@ export default function StepPayment() {
   };
   const userData = {
     phone: prospect.areaCode + prospect?.phone,
-    email: prospect?.email,
+    email: email,
     curp: prospect?.curp,
     firstName: prospect?.firstName,
     lastName: prospect?.lastName,
