@@ -154,13 +154,8 @@ export default async function SuccessPage({
 
   return (
     <PaymentSuccess
-      payment={
-        paymentResult || {
-          payment_id: preapprovalId || "",
-          order_id: preapprovalId || "",
-          status: "approved",
-        }
-      }
+      payment={paymentResult || undefined}
+      subscription={subscriptionResult || undefined}
       plan={{
         id: "",
         name: planName,

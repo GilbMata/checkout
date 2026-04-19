@@ -109,6 +109,9 @@ export default function CardPaymentBrick({
 }: CardPaymentBrickProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
+  const title = planData.recurrent
+    ? "Pago recurrente de tu Membresía. Tarjetas de crédito y débito "
+    : "Pago anual de tu Membresía. Tarjetas de crédito y débito";
 
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
@@ -281,6 +284,9 @@ export default function CardPaymentBrick({
             maxInstallments: 6,
           },
           visual: {
+            texts: {
+              formTitle: title,
+            },
             hidePaymentMethodIcon: false,
             style: {
               theme: "dark",
