@@ -7,11 +7,17 @@ import CardPaymentBrick from "./CardPaymentBrick";
 export default function StepPayment() {
   const router = useRouter();
 
-  const handleSuccess = (result: any) => {
+  const handleSuccess = (result: { preapproval_id?: string; payment_id?: string }) => {
     console.log("✅ Pago aprobado:", result);
-    // Redirect a success page con payment_id
-    const paymentId = result.payment_id || result.id;
-    router.push(`/checkout/success?payment_id=${paymentId}`);
+    // Redirect a success - para pagos recurrentes (preapproval) o one-time (payment)
+    if (result.preapproval_id) {
+      router.push(`/checkout/success?preapproval_id=${result.preapproval_id}`);
+    } else if (result.payment_id) {
+      router.push(`/checkout/success?payment_id=${result.payment_id}`);
+    } else {
+      // Fallback - redirect to home if no ID
+      router.push("https://station24.com.mx/");
+    }
   };
 
   const handlePending = (result: any) => {
@@ -44,7 +50,6 @@ export default function StepPayment() {
     console.error("❌ Error en pago:", error);
     // Redirect a failure page
     const errorMsg = error?.toString() || "Error al procesar el pago";
-    return;
     router.push(
       `/checkout/failure?status_detail=${encodeURIComponent(errorMsg)}`,
     );

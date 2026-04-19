@@ -22,6 +22,7 @@ export const recurrentPaymentSchema = z.object({
 
   // ID del método de pago usado
   payment_method_id: z.string().min(1, "Método de pago requerido"),
+  cardholder_name: z.string().optional(),
 
   // Email del pagador
   payer_email: z
@@ -57,6 +58,10 @@ export const recurrentPaymentSchema = z.object({
 
   // ID del plan de suscripción de MercadoPago (para suscripciones con plan asociado)
   mp_preapproval_plan_id: z.string().optional(),
+
+  // Referencia externa Número de sucursal.
+  external_reference: z.string().optional(),
+  card_last_four: z.string().optional(),
 });
 
 export type RecurrentPaymentInput = z.infer<typeof recurrentPaymentSchema>;
@@ -74,6 +79,7 @@ export const recurrentPaymentResponseSchema = z.object({
   pending: z.boolean().optional(),
   rejected: z.boolean().optional(),
   status_detail: z.string().optional(),
+  start_date: z.string().optional(),
 });
 
 export type RecurrentPaymentResponse = z.infer<

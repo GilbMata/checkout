@@ -10,15 +10,55 @@ datasource db {
 }
 
 // ==========================================
+// Enums for type-safe status fields
+// ==========================================
+
+enum MembershipStatus {
+  prospect
+  member
+  inactive
+}
+
+enum PaymentStatus {
+  pending
+  approved
+  rejected
+  refunded
+  cancelled
+}
+
+enum SubscriptionStatus {
+  pending
+  active
+  paused
+  cancelled
+  expired
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum DocumentType {
+  CURP
+  INE
+  PASSPORT
+  RFC
+}
+
+// ==========================================
 // Prospects Table - Members/Prospects
 // ==========================================
+
 model Prospects {
   id              String   @id @default(uuid()) @db.Uuid
   email           String   @unique
   curp            String   @unique
   firstName       String   @map("first_name")
   lastName        String   @map("last_name")
-  gender          String?
+  gender          Gender?
   birthDate       DateTime? @map("birth_date") @db.Timestamptz
   areaCode        String?  @map("area_code")
   phone           String   @unique
@@ -28,26 +68,30 @@ model Prospects {
   branchName      String?  @map("branch_name")
   accessBlocked   Boolean  @default(false) @map("access_blocked")
   blockedReason   String?  @map("blocked_reason")
-  documentType    String   @default("CURP") @map("document_type")
+  documentType    DocumentType @default(CURP) @map("document_type")
   documentNumber  String?  @map("document_number")
   documentId      String?  @map("document_id")
-  status          String?  @default("prospect")
-  membershipStatus String?  @default("pending") @map("membership_status")
+  status          MembershipStatus @default(prospect) @map("status")
+  membershipStatus String?  @map("membership_status")
   paymentPending  Boolean  @default(true) @map("payment_pending")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   otpRequests    OtpRequests[]
-  magicLinks     MagicLinks[]
-  payments       Payments[]
+  magicLinks    MagicLinks[]
+  payments      Payments[]
   subscriptions Subscriptions[]
 
+  @@index([status])
+  @@index([membershipStatus])
+  @@index([planId])
   @@map("prospects")
 }
 
 // ==========================================
 // OTP Requests Table
 // ==========================================
+
 model OtpRequests {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @map("user_id") @db.Uuid
@@ -57,7 +101,6 @@ model OtpRequests {
 
   prospect  Prospects @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@index([userId, createdAt(sort: Desc)])
   @@map("otp_requests")
 }
@@ -65,6 +108,7 @@ model OtpRequests {
 // ==========================================
 // Magic Links Table
 // ==========================================
+
 model MagicLinks {
   id        String   @id @default(uuid()) @db.Uuid
   token     String   @unique
@@ -81,19 +125,20 @@ model MagicLinks {
 // ==========================================
 // Payments Table
 // ==========================================
+
 model Payments {
   id                String   @id @default(uuid()) @db.Uuid
   prospectId        String?  @map("prospect_id") @db.Uuid
   planId            String?  @map("plan_id")
   mpPaymentId       String?  @map("mp_payment_id")
   mpPreferenceId    String?  @map("mp_preference_id")
-  status            String   @default("pending")
+  status            PaymentStatus @default(pending) @map("status")
   statusDetail      String?  @map("status_detail")
-  transactionAmount Int?     @map("transaction_amount")
+  transactionAmount BigInt?  @map("transaction_amount")
   currencyId        String   @default("MXN") @map("currency_id")
   paymentMethodId   String?  @map("payment_method_id")
   paymentTypeId     String?  @map("payment_type_id")
-  installments      Int?
+  installments      Int?     @map("installments")
   description       String?
   externalReference String?  @map("external_reference")
   cardLastFour     String?  @map("card_last_four")
@@ -101,7 +146,7 @@ model Payments {
   dateApproved      DateTime? @map("date_approved") @db.Timestamptz
   dateCreated       DateTime? @map("date_created") @db.Timestamptz
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   prospect  Prospects? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
 
@@ -109,12 +154,14 @@ model Payments {
   @@index([mpPreferenceId])
   @@index([mpPaymentId])
   @@index([status])
+  @@index([dateCreated(sort: Desc)])
   @@map("payments")
 }
 
 // ==========================================
 // Email Validation Logs Table
 // ==========================================
+
 model EmailValidationLogs {
   id                String   @id @default(uuid()) @db.Uuid
   email             String
@@ -134,6 +181,7 @@ model EmailValidationLogs {
 // ==========================================
 // Subscriptions Table - Recurring payments
 // ==========================================
+
 model Subscriptions {
   id                    String   @id @default(uuid()) @db.Uuid
   prospectId            String   @map("prospect_id") @db.Uuid
@@ -141,15 +189,15 @@ model Subscriptions {
   planDescription       String?  @map("plan_description")
   mpCustomerId          String?  @map("mp_customer_id")
   mpCardId              String?  @map("mp_card_id")
-  mpPreapprovalId       String?  @map("mp_preapproval_id")
-  mpPreapprovalPlanId   String?  @map("mp_preapproval_plan_id")
-  recurrenceInterval    String?  @map("recurrence_interval")
-  transactionAmount    Int?      @map("transaction_amount")
+  mpPreapprovalId      String?  @map("mp_preapproval_id")
+  mpPreapprovalPlanId  String?  @map("mp_preapproval_plan_id")
+  recurrenceInterval   String?  @map("recurrence_interval")
+  transactionAmount   BigInt?  @map("transaction_amount")
   currencyId           String   @default("MXN") @map("currency_id")
-  startDate             DateTime? @map("start_date") @db.Timestamptz
-  nextBillingDate      DateTime? @map("next_billing_date") @db.Timestamptz
+  startDate            DateTime? @map("start_date") @db.Timestamptz
+  nextBillingDate     DateTime? @map("next_billing_date") @db.Timestamptz
   lastBillingDate     DateTime? @map("last_billing_date") @db.Timestamptz
-  status               String   @default("pending")
+  status               SubscriptionStatus @default(pending) @map("status")
   payerEmail           String?  @map("payer_email")
   payerFirstName      String?  @map("payer_first_name")
   payerLastName       String?  @map("payer_last_name")
@@ -163,5 +211,6 @@ model Subscriptions {
   @@index([prospectId])
   @@index([mpPreapprovalId])
   @@index([status])
+  @@index([nextBillingDate])
   @@map("subscriptions")
 }

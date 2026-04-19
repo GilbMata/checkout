@@ -1,18 +1,16 @@
 "use server";
 
-import { db } from "@/lib/db/index";
-import { prospects, subscriptions } from "@/lib/db/schema";
+import prisma from "@/lib/db/prisma";
 import {
   recurrentPaymentSchema,
   type RecurrentPaymentInput,
 } from "@/validations/paymentSchema";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
 import {
   Customer,
-  CustomerCard,
   MercadoPagoConfig,
   PreApproval,
+  PreApprovalPlan,
 } from "mercadopago";
 import { NextResponse } from "next/server";
 
@@ -59,11 +57,10 @@ export async function POST(request: Request) {
       : data.payer_email.split("@")[0]; // Fallback
     console.log("🚀 ~ POST ~ phone:", phone);
 
-    const prospectResult = await db
-      .select()
-      .from(prospects)
-      .where(eq(prospects.phone, phone.slice(2, phone.length)))
-      .limit(1);
+    const prospectResult = await prisma.prospects.findMany({
+      where: { phone: { equals: phone.slice(2, phone.length) } },
+      take: 1,
+    });
 
     if (!prospectResult.length) {
       return NextResponse.json(
@@ -75,6 +72,7 @@ export async function POST(request: Request) {
     const prospect = prospectResult[0];
     const prospectId = prospect.id;
     console.log("✅ Prospecto encontrado:", prospectId);
+
     // 3. Crear o buscar cliente en MercadoPago
     const customerClient = new Customer(mpConfig);
     let mpCustomerId: string | null = null;
@@ -94,65 +92,112 @@ export async function POST(request: Request) {
     }
 
     // Crear cliente si no existe
-    if (!mpCustomerId) {
-      const idempotencyKey = randomUUID();
-      try {
-        const newCustomer = await customerClient.create({
-          body: {
-            email: data.payer_email,
-            first_name: data.payer_first_name,
-            last_name: data.payer_last_name,
-            identification: {
-              type: "CURP",
-              number: data.identification_number || prospect.curp,
-            },
-          },
-          requestOptions: { idempotencyKey },
-        });
-        mpCustomerId = newCustomer.id || null;
-        console.log("✅ Cliente creado en MP:", mpCustomerId);
-      } catch (createError: any) {
-        console.error("❌ Error creando cliente MP:", createError);
-        // Continuar sin customer ID - aún podemos crear suscripción directa
-      }
-    }
+    // if (!mpCustomerId) {
+    //   const idempotencyKey = randomUUID();
+    //   try {
+    //     const newCustomer = await customerClient.create({
+    //       body: {
+    //         email: data.payer_email,
+    //         first_name: data.payer_first_name,
+    //         last_name: data.payer_last_name,
+    //         identification: {
+    //           type: "CURP",
+    //           number: data.identification_number || prospect.curp,
+    //         },
+    //       },
+    //       requestOptions: { idempotencyKey },
+    //     });
+    //     mpCustomerId = newCustomer.id || null;
+    //     console.log("✅ Cliente creado en MP:", mpCustomerId);
+    //   } catch (createError: any) {
+    //     console.error("❌ Error creando cliente MP:", createError);
+    //     // Continuar sin customer ID - aún podemos crear suscripción directa
+    //   }
+    // }
 
     // 4. Guardar tarjeta en el cliente (opcional pero recomendado)
     let mpCardId: string | null = null;
-    if (mpCustomerId) {
-      try {
-        const cardClient = new CustomerCard(mpConfig);
-        const cardIdempotencyKey = randomUUID();
+    // if (mpCustomerId) {
+    //   try {
+    //     const cardClient = new CustomerCard(mpConfig);
+    //     const cardIdempotencyKey = randomUUID();
 
-        const card = await cardClient.create({
-          customerId: mpCustomerId,
-          body: { token: data.token },
-          requestOptions: { idempotencyKey: cardIdempotencyKey },
-        });
-        mpCardId = card.id || null;
-        console.log("✅ Tarjeta guardada en MP:", mpCardId);
-      } catch (cardError: any) {
-        console.log("⚠️ No se pudo guardar la tarjeta:", cardError.message);
-        // No es blocking - la suscripción puede usar el token directamente
-      }
-    }
+    //     const card = await cardClient.create({
+    //       customerId: mpCustomerId,
+    //       body: { token: data.token },
+    //       requestOptions: { idempotencyKey: cardIdempotencyKey },
+    //     });
+    //     mpCardId = card.id || null;
+    //     console.log("✅ Tarjeta guardada en MP:", mpCardId);
+    //   } catch (cardError: any) {
+    //     console.log("⚠️ No se pudo guardar la tarjeta:", cardError.message);
+    //     // No es blocking - la suscripción puede usar el token directamente
+    //   }
+    // }
 
     // 5. Crear suscripción (Preapproval) - el paso principal
     const preapprovalClient = new PreApproval(mpConfig);
     const preapprovalIdempotencyKey = randomUUID();
 
     // Calcular fecha de inicio y próximo cobro
-    const startDate = new Date();
+    const startDate = new Date(Date.now() + 2 * 60 * 1000);
+    // startDate.setMinutes(startDate.getMinutes() + 2);
+    // segundos y milisegundos en 0
+    startDate.setSeconds(0);
+    startDate.setMilliseconds(0);
     const nextBillingDate = calculateNextBillingDate(
       startDate,
       data.recurrence_interval,
     );
-    const startDateM = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // +5 min de margen
+    const startDateMp = startDate.toISOString();
+    // const startDateMp = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // +5 min de margen
     // Mapear interval a formato de MercadoPago
     const frequencyType = mapRecurrenceToMP(data.recurrence_interval);
 
     // Determinar si usamos plan asociado o no
-    const usePlanAssociation = !!data.mp_preapproval_plan_id;
+    const usePlanAssociation = !!data.plan_id;
+
+    // Buscar si existe el plan asociado
+    let mpPlanId: string | null = null;
+    try {
+      const preApprovalPlan = new PreApprovalPlan(mpConfig);
+      const existingPlan = await preApprovalPlan.search({
+        options: {
+          status: "active",
+          q: data.plan_id,
+        },
+      });
+      if (existingPlan.results && existingPlan.results.length > 0) {
+        mpPlanId = existingPlan.results[0].id || null;
+        console.log("🔄 Plan existente encontrado:", mpPlanId);
+      }
+    } catch (searchError) {
+      console.log("⚠️ No se encontró plan existente, se creará uno nuevo");
+    }
+
+    // Si no existe intentar crearlo
+    if (!mpPlanId) {
+      const idempotencyKey = randomUUID();
+      try {
+        const preApprovalPlan = new PreApprovalPlan(mpConfig);
+        const newPlan = await preApprovalPlan.create({
+          body: {
+            back_url: "https://station24.com.mx/",
+            reason: data.plan_id,
+            auto_recurring: {
+              currency_id: data.currency,
+              transaction_amount: data.amount,
+              frequency: 1,
+              frequency_type: frequencyType,
+            },
+          },
+        });
+        mpPlanId = newPlan.id || null;
+        console.log("✅ Plan creado en MP:", mpPlanId);
+      } catch (createError: any) {
+        console.error("❌ Error creando plan MP:", createError);
+      }
+    }
 
     // try {
     //   const preApprovalPlan = new PreApprovalPlan(mpConfig);
@@ -184,9 +229,9 @@ export async function POST(request: Request) {
       // Suscripción con plan asociado - usar preapproval_plan_id
       preapprovalData = {
         body: {
-          preapproval_plan_id: data.mp_preapproval_plan_id,
+          preapproval_plan_id: mpPlanId,
           reason: `Suscripción Station 24 - ${data.description}`,
-          external_reference: prospectId,
+          external_reference: data.external_reference,
           payer_email: data.payer_email,
           card_token_id: data.token,
           status: "authorized", // Siempre authorized con plan asociado
@@ -194,8 +239,9 @@ export async function POST(request: Request) {
         requestOptions: { idempotencyKey: preapprovalIdempotencyKey },
       };
       console.log("📤 Creando suscripción con plan asociado:", {
-        preapproval_plan_id: data.mp_preapproval_plan_id,
+        preapproval_plan_id: mpPlanId,
         reason: preapprovalData.body.reason,
+        payer: preapprovalData.body.payer_email,
       });
     } else {
       // Suscripción sin plan asociado - crear con auto_recurring
@@ -209,14 +255,14 @@ export async function POST(request: Request) {
           auto_recurring: {
             frequency: 1,
             frequency_type: frequencyType,
-            start_date: startDate.toISOString(),
+            start_date: startDateMp,
             end_date: new Date(
               startDate.getTime() + 365 * 24 * 60 * 60 * 1000,
             ).toISOString(), // 1 año de duración máxima
             transaction_amount: Number(data.amount),
             currency_id: data.currency,
           },
-          back_url: "https://station24.com.mx/unete",
+          back_url: "https://station24.com.mx/",
           status: "authorized", // Siempre authorized sin plan asociado
         },
         requestOptions: { idempotencyKey: preapprovalIdempotencyKey },
@@ -229,52 +275,52 @@ export async function POST(request: Request) {
     }
 
     const preapproval = await preapprovalClient.create(preapprovalData);
-    // console.log("🚀 ~ POST ~ preapproval:", preapproval);
+    console.log("🚀 ~ POST ~ preapproval:", preapproval);
     console.log("✅ Preapproval creado:", preapproval.id, preapproval.status);
 
     // 6. Guardar suscripción en nuestra base de datos
     const subscriptionId = randomUUID();
     const now = Date.now();
 
-    await db.insert(subscriptions).values({
-      id: subscriptionId,
-      prospectId: prospectId,
+    await prisma.subscriptions.create({
+      data: {
+        id: subscriptionId,
+        prospectId: prospectId,
 
-      // MP IDs
-      mpCustomerId: mpCustomerId,
-      mpCardId: mpCardId,
-      mpPreapprovalId: preapproval.id || null,
+        // MP IDs
+        mpCustomerId: mpCustomerId,
+        mpCardId: mpCardId,
+        mpPreapprovalId: preapproval.id || null,
 
-      // Plan info
-      planId: data.plan_id,
-      planDescription: data.description,
-      mpPreapprovalPlanId: data.mp_preapproval_plan_id || null,
-      recurrenceInterval: data.recurrence_interval,
+        // Plan info
+        planId: data.plan_id,
+        planDescription: data.description,
+        mpPreapprovalPlanId: mpPlanId || null,
+        recurrenceInterval: data.recurrence_interval,
 
-      // Amount
-      transactionAmount: Math.round(Number(data.amount) * 100), // Convertir a centavos
-      currencyId: data.currency,
+        // Amount
+        transactionAmount: Math.round(Number(data.amount) * 100), // Convertir a centavos
+        currencyId: preapproval.auto_recurring?.currency_id,
 
-      // Billing dates
-      startDate: now,
-      nextBillingDate: nextBillingDate.getTime(),
-      lastBillingDate: null,
+        // Billing dates
+        startDate: preapproval.auto_recurring?.start_date
+          ? new Date(preapproval.auto_recurring.start_date)
+          : startDate,
+        nextBillingDate: preapproval.next_payment_date,
+        lastBillingDate: null,
 
-      // Status - mapear status de MP al nuestro
-      status: mapPreapprovalStatus(preapproval.status),
+        // Status - mapear status de MP al nuestro
+        status: mapPreapprovalStatus(preapproval.status),
 
-      // Payer info
-      payerEmail: data.payer_email,
-      payerFirstName: data.payer_first_name,
-      payerLastName: data.payer_last_name,
+        // Payer info
+        payerEmail: data.payer_email,
+        payerFirstName: data.payer_first_name,
+        payerLastName: data.payer_last_name,
 
-      // Metadata
-      externalReference: prospectId,
-      description: data.description,
-
-      // Timestamps
-      createdAt: now,
-      updatedAt: now,
+        // Metadata
+        externalReference: preapproval.external_reference,
+        description: data.description,
+      },
     });
 
     console.log("✅ Suscripción guardada en DB:", subscriptionId);
@@ -284,13 +330,10 @@ export async function POST(request: Request) {
       preapproval.status === "authorized" ||
       preapproval.status === "active"
     ) {
-      await db
-        .update(prospects)
-        .set({
-          paymentPending: false,
-          updatedAt: now,
-        })
-        .where(eq(prospects.id, prospectId));
+      await prisma.prospects.update({
+        where: { id: prospectId },
+        data: { paymentPending: false },
+      });
       console.log("✅ Prospecto actualizado a miembro:", prospectId);
     }
 
@@ -335,7 +378,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("=== ERROR EN PAGO RECURRENTE ===");
     console.error("Mensaje:", error.message);
-    // console.error("Cause:", error.cause);
+    // console.error("Cause:", error);
 
     // Manejar errores específicos de MercadoPago
     const mpError = parseMPError(error);
@@ -412,13 +455,10 @@ export async function DELETE(request: Request) {
     // Actualizar en nuestra DB
     if (subscriptionId) {
       const now = Date.now();
-      await db
-        .update(subscriptions)
-        .set({
-          status: "cancelled",
-          updatedAt: now,
-        })
-        .where(eq(subscriptions.id, subscriptionId));
+      await prisma.subscriptions.update({
+        where: { id: subscriptionId },
+        data: { status: "cancelled" },
+      });
     }
 
     return NextResponse.json({
