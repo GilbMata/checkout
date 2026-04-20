@@ -21,6 +21,7 @@ enum MembershipStatus {
 
 enum PaymentStatus {
   pending
+  in_process
   approved
   rejected
   refunded
