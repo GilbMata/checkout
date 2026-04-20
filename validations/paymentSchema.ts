@@ -98,3 +98,69 @@ export const subscriptionWebhookSchema = z.object({
 });
 
 export type SubscriptionWebhookData = z.infer<typeof subscriptionWebhookSchema>;
+
+export const orderPaymentSchema = z.object({
+  // Token de la tarjeta tokenizada por MercadoPago
+  token: z.string().min(1, "Token de tarjeta requerido"),
+
+  // Monto del pago (en la moneda especificada)
+  amount: z
+    .number()
+    .positive("El monto debe ser mayor a 0")
+    .max(999999, "Monto excede el límite permitido"),
+
+  // Moneda (default: MXN para México)
+  currency: z.string().default("MXN"),
+
+  // Descripción del plan/suscripción
+  description: z.string().min(1, "Descripción requerida"),
+
+  // Nombre del plan/suscripción
+  displayName: z.string().min(1, "displayName requerido"),
+
+  // ID del método de pago usado
+  payment_method_id: z.string().min(1, "Método de pago requerido"),
+
+  // Tipo de método de pago usado
+  payment_type: z.string().min(1, "Método de pago requerido"),
+
+  //
+  installments: z.number().optional(),
+
+  cardholder_name: z.string().optional(),
+
+  // Email del pagador
+  payer_email: z
+    .string()
+    .email("Email válido requerido")
+    .or(
+      z
+        .string()
+        .length(0)
+        .transform(() => ""),
+    ),
+
+  // Nombre del pagador
+  payer_first_name: z.string().min(1, "Nombre requerido"),
+
+  // Apellido del pagador
+  payer_last_name: z.string().min(1, "Apellido requerido"),
+
+  // ID del plan desde el frontend
+  plan_id: z.string().min(1, "ID de plan requerido"),
+
+  // Teléfono del prospecto (para buscar en DB)
+  prospect_phone: z.string().optional(),
+
+  //(default: CURP)
+  identification_type: z.string().default("CURP"),
+
+  // (CURP del usuario)
+  identification_number: z.string().optional(),
+
+  // Referencia externa Número de sucursal.
+  external_reference: z.string().optional(),
+  card_last_four: z.string().optional(),
+});
+
+export type orderPaymentInput = z.infer<typeof orderPaymentSchema>;

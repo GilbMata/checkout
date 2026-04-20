@@ -30,7 +30,6 @@ export async function POST(request: Request) {
   try {
     // 1. Parsear y validar el body
     const body = (await request.json()) as RecurrentPaymentInput;
-    console.log("🚀 ~ POST ~ body:", body);
     const validation = recurrentPaymentSchema.safeParse(body);
     if (!validation.success) {
       console.error("❌ Validación fallida:", validation.error.issues);
@@ -378,7 +377,6 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("=== ERROR EN PAGO RECURRENTE ===");
     console.error("Mensaje:", error.message);
-    // console.error("Cause:", error);
 
     // Manejar errores específicos de MercadoPago
     const mpError = parseMPError(error);

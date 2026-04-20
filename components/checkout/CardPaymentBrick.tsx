@@ -67,6 +67,7 @@ interface CardPaymentBrickProps {
   onError: (error: string) => void;
   onPending?: (data: PaymentResponse) => void;
   onRejected?: (data: PaymentResponse) => void;
+  onProcessingChange?: (isProcessing: boolean) => void;
 }
 
 // ============================================================================
@@ -106,9 +107,10 @@ export default function CardPaymentBrick({
   onError,
   onPending,
   onRejected,
+  onProcessingChange,
 }: CardPaymentBrickProps) {
-  const [isProcessing, setIsProcessing] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
+  console.log("🚀 ~ CardPaymentBrick ~ planData:", planData);
   const title = planData.recurrent
     ? "Pago recurrente de tu Membresía. Tarjetas de crédito y débito "
     : "Pago anual de tu Membresía. Tarjetas de crédito y débito";
@@ -119,13 +121,16 @@ export default function CardPaymentBrick({
       const message = error instanceof Error ? error.message : fallbackMessage;
       setInternalError(message);
       onError(message);
+      // Notify parent that processing ended
+      onProcessingChange?.(false);
     },
-    [onError],
+    [onError, onProcessingChange],
   );
 
   const handleSubmit = useCallback(
     async (cardPaymentData: unknown, additionalData?: unknown) => {
-      setIsProcessing(true);
+      // Notify parent that processing started - THIS IS THE KEY TO AVOID RE-RENDER
+      onProcessingChange?.(true);
       setInternalError(null);
 
       try {
@@ -169,6 +174,7 @@ export default function CardPaymentBrick({
           external_reference: planData.branch,
           card_last_four: cardLastFour,
           cardholder_name: cardholderName,
+          prospect_phone: phone,
           token,
           amount: transaction_amount,
           currency: planData.currency,
@@ -180,16 +186,11 @@ export default function CardPaymentBrick({
           plan_id: planData.id,
           ...(planData.recurrent
             ? {
-                prospect_phone: phone,
                 recurrence_interval: "monthly",
                 identification_type: "CURP",
                 identification_number: curp,
               }
-            : {
-                prospect_phone: phone,
-                installments: Number(installments) || 1,
-                issuer_id: issuer_id || undefined,
-              }),
+            : {}),
         };
         console.log("🚀 ~ CardPaymentBrick ~ apiPayload:", apiPayload);
 
@@ -239,7 +240,8 @@ export default function CardPaymentBrick({
           );
         }
       } finally {
-        setIsProcessing(false);
+        // Notify parent that processing ended
+        onProcessingChange?.(false);
       }
     },
     [
@@ -252,6 +254,7 @@ export default function CardPaymentBrick({
       onPending,
       onRejected,
       handleApiError,
+      onProcessingChange,
     ],
   );
 
@@ -314,14 +317,10 @@ export default function CardPaymentBrick({
               : "Error en el formulario de pago";
           setInternalError(message);
           onError(message);
+          // Notify parent that processing ended on error too
+          onProcessingChange?.(false);
         }}
       />
-
-      {isProcessing && (
-        <div className="mt-4 text-center text-gray-600">
-          <span className="inline-block animate-pulse">Procesando pago...</span>
-        </div>
-      )}
     </div>
   );
 }

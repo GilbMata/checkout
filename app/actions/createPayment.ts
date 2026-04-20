@@ -158,7 +158,7 @@ export async function getOrCreatePreference(params: CreatePreferenceParams) {
     return {
       preferenceId: existingPayment.mpPreferenceId,
       paymentId: existingPayment.id,
-      amount: (existingPayment.transactionAmount || 0) / 100,
+      amount: existingPayment.transactionAmount || 0,
     };
   }
 

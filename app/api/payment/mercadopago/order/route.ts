@@ -1,80 +1,105 @@
 import { prisma } from "@/lib/db/index";
+import {
+  orderPaymentInput,
+  orderPaymentSchema,
+} from "@/validations/paymentSchema";
 import { randomUUID } from "crypto";
-import { MercadoPagoConfig, Order } from "mercadopago";
+import MercadoPagoConfig, { Order } from "mercadopago";
 import { NextResponse } from "next/server";
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN!;
 
+// Configuración del cliente de MercadoPago
+const mpConfig = new MercadoPagoConfig({
+  accessToken: MP_ACCESS_TOKEN,
+  options: { timeout: 15000 }, // Timeout de 15s para operaciones de suscripción
+});
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    console.log("🚀 ~ POST ~ body:", body);
-
-    // Buscar prospecto por teléfono
-    const phoneToSearch = body.prospectPhone.slice(
-      3,
-      body.prospectPhone.length,
-    );
-    const prospect = await prisma.prospects.findFirst({
-      where: { phone: phoneToSearch },
-    });
-
-    if (!prospect) {
+    const body = (await request.json()) as orderPaymentInput;
+    const validation = orderPaymentSchema.safeParse(body);
+    if (!validation.success) {
+      console.error("❌ Validación fallida:", validation.error.issues);
       return NextResponse.json(
-        { success: false, erro: "no prospect" },
+        {
+          success: false,
+          error: validation.error.issues[0]?.message || "Datos inválidos",
+        },
         { status: 400 },
       );
     }
 
-    const prospectId = prospect.id;
-    const phone = prospect.phone.slice(1, prospect.phone.length);
-
-    // Configurar el cliente de Mercado Pago
-    const mercadoPagoConfig = new MercadoPagoConfig({
-      accessToken: MP_ACCESS_TOKEN,
-      options: { timeout: 10000 },
+    const data = validation.data;
+    console.log("📝 Datos validados:", {
+      amount: data.amount,
+      currency: data.currency,
+      planId: data.plan_id,
     });
 
-    const orderClient = new Order(mercadoPagoConfig);
+    // 2. Buscar el prospecto por telefono
+    // Mejor parsing: tomar ultimos 10 digitos para manejo consistente de codigos de pais
+    const phoneRaw = data.prospect_phone || data.payer_email.split("@")[0];
+    const phoneDigits = phoneRaw.replace(/\D/g, "");
+    // Si tiene mas de 10 digitos, tomar ultimos 10 (ej: +52 33 1234 5678 -> 3312345678)
+    const phone =
+      phoneDigits.length > 10 ? phoneDigits.slice(-10) : phoneDigits;
+    console.log("🚀 ~ POST ~ phone:", phone);
+
+    const prospect = await prisma.prospects.findFirst({
+      where: { phone: { equals: phone } },
+    });
+
+    if (!prospect) {
+      return NextResponse.json(
+        { success: false, error: "Prospecto no encontrado" },
+        { status: 404 }, // 404 para "no encontrado"
+      );
+    }
+
+    const prospectId = prospect.id;
+    console.log("✅ Prospecto encontrado:", prospectId);
+
+    const orderClient = new Order(mpConfig);
     const idempotencyKey = randomUUID();
 
-    // Crear la orden
+    // Crear la orden - USAR DATA (datos validados) en lugar de BODY
     const orderData = {
       body: {
         type: "online",
         processing_mode: "automatic",
-        total_amount: String(body.amount),
-        external_reference: String(body.external_reference),
+        total_amount: String(data.amount),
+        external_reference: String(data.external_reference),
         description: "Membresía Station 24",
-        // description: body.description,
+        // description: data.description,
         items: [
           {
-            external_code: String(body.plan_id),
-            title: body.displayName,
-            description: body.description,
+            external_code: String(data.plan_id),
+            title: data.displayName,
+            description: data.description,
             category_id: "gym_fitness",
             quantity: 1,
-            unit_price: String(body.amount),
+            unit_price: String(data.amount),
           },
         ],
         transactions: {
           payments: [
             {
-              amount: String(body.amount),
+              amount: String(data.amount),
               payment_method: {
-                id: body.payment_method_id,
-                type: body.payment_type,
-                token: body.token,
-                installments: body.installments,
+                id: data.payment_method_id,
+                type: data.payment_type,
+                token: data.token,
+                installments: data.installments ? Number(data.installments) : 1,
                 statement_descriptor: "STATION24",
               },
             },
           ],
         },
         payer: {
-          email: body.payer_email,
-          first_name: body.payer_first_name,
-          last_name: body.payer_last_name,
+          email: data.payer_email,
+          first_name: data.payer_first_name,
+          last_name: data.payer_last_name,
         },
       },
       requestOptions: {
@@ -88,8 +113,9 @@ export async function POST(request: Request) {
     let statusDetail: string | undefined = undefined;
     let mpOrderId: string | undefined = undefined;
     let mpPaymentId: string | undefined = undefined;
-    let transactionAmount: any = body.amount;
+    let transactionAmount: any = data.amount;
     let dateApproved: any = null;
+    let dateCreated: any = null;
     let paymentMethodId: any = undefined;
 
     try {
@@ -99,16 +125,18 @@ export async function POST(request: Request) {
       paymentMethodId = order.transactions?.payments?.[0]?.payment_method?.id;
       transactionAmount = order.total_paid_amount;
       dateApproved = order.last_updated_date;
+      dateCreated = order.created_date;
       mpOrderId = order.id;
       mpPaymentId = order.transactions?.payments?.[0]?.id;
     } catch (mpError: any) {
       const errorData = mpError?.data ?? {};
+      console.log("🚀 ~ POST ~ errorData:", errorData);
       const errorPayments = errorData?.transactions?.payments ?? [];
 
       orderStatus = errorData?.status === "failed" ? "rejected" : "unknown";
       console.log("🚀 ~ POST ~ orderStatus:", orderStatus);
 
-      // ✅ status_detail viene en mpError.data.transactions.payments[0].status_detail
+      // status_detail viene en mpError.data.transactions.payments[0].status_detail
       statusDetail =
         errorPayments?.[0]?.status_detail ??
         errorData?.status_detail ??
@@ -117,10 +145,11 @@ export async function POST(request: Request) {
 
       mpOrderId = errorData?.id ?? undefined;
       mpPaymentId = errorPayments?.[0]?.id ?? undefined;
-      transactionAmount = errorData?.total_amount ?? body.amount;
+      transactionAmount = errorData?.total_amount ?? data.amount;
       paymentMethodId =
-        errorPayments?.[0]?.payment_method?.id ?? body.payment_method_id;
+        errorPayments?.[0]?.payment_method?.id ?? data.payment_method_id;
       dateApproved = null;
+      dateCreated = errorData?.created_date ?? null;
 
       const knownRejections = ["rejected", "cancelled", "expired", "failed"];
       if (!knownRejections.includes(orderStatus)) {
@@ -166,8 +195,8 @@ export async function POST(request: Request) {
     }
 
     // Extraer información de la tarjeta
-    const lastFourDigits = body.card_last_four;
-    const cardholderName = body.cardholder_name;
+    const lastFourDigits = data.card_last_four;
+    const cardholderName = data.cardholder_name;
 
     // Registrar el pago en la base de datos
     console.log("🚀 ~ POST ~ paymentStatus:", paymentStatus);
@@ -177,20 +206,21 @@ export async function POST(request: Request) {
         mpPreferenceId: String(mpOrderId),
         status: paymentStatus,
         transactionAmount: Number(transactionAmount) * 100,
-        currencyId: body.currency_id || "MXN",
-        description: body.description,
+        currencyId: data.currency || "MXN",
+        description: data.description,
         externalReference: prospectId,
         mpPaymentId: mpPaymentId ? String(mpPaymentId) : null,
         statusDetail: statusDetail || null,
-        paymentMethodId: body.payment_method_id,
-        paymentTypeId: body.payment_type,
-        installments: Number(body.installments),
-        planId: body.plan_id?.id ?? null,
+        paymentMethodId: data.payment_method_id,
+        paymentTypeId: data.payment_type,
+        installments: Number(data.installments),
+        planId: data.plan_id ?? null,
         cardLastFour: lastFourDigits,
         cardholderName: cardholderName,
+        dateCreated: dateCreated,
+        dateApproved: dateApproved,
       },
     });
-    console.log("🚀 ~ POST ~ data.statusDetail:", statusDetail);
 
     console.log("✅ Payment registered:", {
       paymentId: payment.id,
@@ -257,15 +287,22 @@ export async function POST(request: Request) {
         status_detail: statusDetail,
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("=== ERROR COMPLETO ===");
-    console.error("Mensaje:", JSON.stringify(error));
+    console.error(error);
+
+    let errorMessage = "Error interno del servidor";
+    if (error instanceof Error) {
+      // No exponer detalles internos en produccion
+      errorMessage =
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Error al procesar el pago";
+    }
+
     return NextResponse.json(
-      {
-        success: false,
-        error: error.cause?.body?.errors || error.message,
-      },
-      { status: 400 },
+      { success: false, error: errorMessage },
+      { status: 500 }, // 500 para errores de servidor
     );
   }
 }
