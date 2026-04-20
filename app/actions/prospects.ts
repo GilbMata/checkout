@@ -44,13 +44,28 @@ export async function createProspectAction(data: CreateProspectData) {
           : new Date(data.birthDate);
     }
 
+    // Convert gender string to Prisma enum
+    const genderMap: Record<string, "male" | "female" | "other"> = {
+      male: "male",
+      masculine: "male",
+      m: "male",
+      h: "male",
+      femenino: "female",
+      f: "female",
+      female: "female",
+      otro: "other",
+      other: "other",
+    };
+    const normalizedGender = data.gender?.toLowerCase().trim();
+    const genderEnum = normalizedGender ? genderMap[normalizedGender] ?? null : null;
+
     const prospect = await prisma.prospects.create({
       data: {
         email,
         curp: data.curp,
         firstName: data.firstName,
         lastName: data.lastName,
-        gender: data.gender,
+        gender: genderEnum,
         birthDate,
         areaCode: data.areaCode,
         phone,
