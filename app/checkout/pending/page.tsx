@@ -37,7 +37,7 @@ export default async function PendingPage({
     if (payment) {
       planName = payment.description || "Plan Station24";
       planPrice = payment.transactionAmount
-        ? payment.transactionAmount / 100
+        ? Number(payment.transactionAmount) / 100
         : 0;
     }
   }

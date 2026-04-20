@@ -30,9 +30,9 @@ export async function GET(
     }
   }
 
-  // Formatear datos para el PDF
+  // Formatear datos para el PDF (transactionAmount stored as bigint in cents)
   const amount = payment.transactionAmount
-    ? payment.transactionAmount / 100
+    ? Number(payment.transactionAmount) / 100
     : 0;
   const plan = payment.description || "Plan Station24";
   const date = payment.dateApproved
