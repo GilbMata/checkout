@@ -168,7 +168,7 @@ export async function POST(request: Request) {
     // const mpPaymentId = order.transactions?.payments?.[0]?.id;
 
     // Mapeo de estados de Order a estados de Payment
-    let paymentStatus: string;
+    let paymentStatusStr: string;
     let isSuccess = false;
     let isPending = false;
     let isRejected = false;
@@ -176,23 +176,33 @@ export async function POST(request: Request) {
     switch (orderStatus) {
       case "paid":
       case "processed":
-        paymentStatus = "approved";
+        paymentStatusStr = "approved";
         isSuccess = true;
         break;
       case "pending":
       case "in_process":
-        paymentStatus = "pending";
+        paymentStatusStr = "pending";
         isPending = true;
         break;
       case "rejected":
       case "cancelled":
       case "expired":
-        paymentStatus = "rejected";
+        paymentStatusStr = "rejected";
         isRejected = true;
         break;
       default:
-        paymentStatus = orderStatus || "unknown";
+        paymentStatusStr = orderStatus || "unknown";
     }
+
+    // Convert to Prisma enum
+    const statusMap: Record<string, "pending" | "approved" | "rejected" | "refunded" | "cancelled"> = {
+      pending: "pending",
+      approved: "approved",
+      rejected: "rejected",
+      refunded: "refunded",
+      cancelled: "cancelled",
+    };
+    const paymentStatus = statusMap[paymentStatusStr] || "pending";
 
     // Extraer información de la tarjeta
     const lastFourDigits = data.card_last_four;

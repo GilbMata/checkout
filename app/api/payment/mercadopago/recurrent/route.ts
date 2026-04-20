@@ -514,17 +514,17 @@ function mapRecurrenceToMP(interval: string): string {
 }
 
 /**
- * Mapea el status de MercadoPago al nuestro
+ * Mapea el status de MercadoPago al nuestro enum de Prisma
  */
-function mapPreapprovalStatus(mpStatus: string | undefined): string {
-  const mapping: Record<string, string> = {
+function mapPreapprovalStatus(mpStatus: string | undefined): "pending" | "active" | "paused" | "cancelled" | "expired" {
+  const mapping: Record<string, "pending" | "active" | "paused" | "cancelled" | "expired"> = {
     authorized: "active",
     active: "active",
     pending: "paused",
     paused: "paused",
     cancelled: "cancelled",
     expired: "expired",
-    rejected: "rejected",
+    rejected: "cancelled",
   };
   return mapping[mpStatus || ""] || "pending";
 }

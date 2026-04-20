@@ -117,12 +117,24 @@ async function processPaymentStatus(payment: any) {
     where: { mpPreferenceId: String(payment.id) },
   });
 
-  if (existingPayment) {
+  // Map status to Prisma enum
+    const paymentStatusMap: Record<string, "pending" | "approved" | "rejected" | "refunded" | "cancelled"> = {
+      approved: "approved",
+      pending: "pending",
+      in_process: "pending",
+      rejected: "rejected",
+      refunded: "refunded",
+      cancelled: "cancelled",
+      failed: "rejected",
+    };
+    const paymentStatusEnum = paymentStatusMap[status] || "pending";
+
+    if (existingPayment) {
     // Actualizar pago existente
     await prisma.payments.update({
       where: { id: existingPayment.id },
       data: {
-        status,
+        status: paymentStatusEnum,
         statusDetail: payment.status_detail || null,
         dateApproved: payment.date_approved
           ? new Date(payment.date_approved)
@@ -138,7 +150,7 @@ async function processPaymentStatus(payment: any) {
         prospectId: prospectId || null,
         mpPaymentId: String(payment.id),
         mpPreferenceId: String(payment.id),
-        status,
+        status: paymentStatusEnum,
         statusDetail: payment.status_detail || null,
         transactionAmount: payment.total_paid_amount,
         currencyId: payment.currency || "MXN",
@@ -314,15 +326,15 @@ async function processPreapprovalStatus(
   }
 }
 
-function mapMPPreapprovalStatus(mpStatus: string): string {
-  const mapping: Record<string, string> = {
+function mapMPPreapprovalStatus(mpStatus: string): "pending" | "active" | "paused" | "cancelled" | "expired" {
+  const mapping: Record<string, "pending" | "active" | "paused" | "cancelled" | "expired"> = {
     authorized: "active",
     active: "active",
     pending: "paused",
     paused: "paused",
     cancelled: "cancelled",
     expired: "expired",
-    rejected: "rejected",
+    rejected: "cancelled",
   };
   return mapping[mpStatus] || "pending";
 }
