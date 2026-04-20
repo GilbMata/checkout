@@ -59,6 +59,36 @@ export async function createProspectAction(data: CreateProspectData) {
     const normalizedGender = data.gender?.toLowerCase().trim();
     const genderEnum = normalizedGender ? genderMap[normalizedGender] ?? null : null;
 
+    // Convert documentType string to Prisma enum
+    const documentTypeMap: Record<string, "CURP" | "INE" | "PASSPORT" | "RFC"> = {
+      curp: "CURP",
+      ine: "INE",
+      passport: "PASSPORT",
+      rfc: "RFC",
+    };
+    const normalizedDocType = data.documentType?.toUpperCase().trim();
+    const documentTypeEnum = normalizedDocType ? documentTypeMap[normalizedDocType] ?? "CURP" : "CURP";
+
+    // Convert status string to Prisma enum
+    const statusMap: Record<string, "prospect" | "member" | "inactive"> = {
+      prospect: "prospect",
+      member: "member",
+      inactive: "inactive",
+    };
+    const normalizedStatus = data.status?.toLowerCase().trim();
+    const statusEnum = normalizedStatus ? statusMap[normalizedStatus] ?? "prospect" : "prospect";
+
+    // Convert membershipStatus string to Prisma enum
+    const membershipStatusMap: Record<string, "pending" | "active" | "paused" | "cancelled" | "expired"> = {
+      pending: "pending",
+      active: "active",
+      paused: "paused",
+      cancelled: "cancelled",
+      expired: "expired",
+    };
+    const normalizedMembershipStatus = data.membershipStatus?.toLowerCase().trim();
+    const membershipStatusEnum = normalizedMembershipStatus ? membershipStatusMap[normalizedMembershipStatus] ?? "pending" : "pending";
+
     const prospect = await prisma.prospects.create({
       data: {
         email,
@@ -74,11 +104,11 @@ export async function createProspectAction(data: CreateProspectData) {
         branchName: data.branchName ?? null,
         accessBlocked: data.accessBlocked ?? false,
         blockedReason: data.blockedReason ?? null,
-        documentType: data.documentType ?? "CURP",
+        documentType: documentTypeEnum,
         documentNumber: data.documentNumber ?? data.curp,
         documentId: data.documentId ?? null,
-        status: data.status ?? "prospect",
-        membershipStatus: data.membershipStatus ?? "pending",
+        status: statusEnum,
+        membershipStatus: membershipStatusEnum,
         paymentPending: true,
         planId: data.planId ?? null,
       },
