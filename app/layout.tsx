@@ -2,9 +2,18 @@ import CookieConsent from "@/components/CookieConsent";
 import Header from "@/components/HeaderComp";
 import { Toaster } from "@/components/ui/sonner";
 import { getSession } from "@/lib/auth/session";
+import { Metadata } from "next";
 import { Montserrat, Poppins } from "next/font/google";
 // @ts-ignore
 import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Station 24 checkout",
+  description: "Gimnasio Station 24 - Únete hoy",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
 
 // import { Toaster } from "sonner";
 const poppins = Poppins({
