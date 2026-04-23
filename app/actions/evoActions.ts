@@ -2,7 +2,7 @@
 "use server";
 
 import { getProspectByEmail } from '@/lib/auth/prospect';
-import { getBranchId, getMemberByEmail, getMemberByPhone, getMembership } from "@/lib/evoApi";
+import { getBranchId, getMemberByEmail, getMemberByPhone, getMembership, getVouchers } from "@/lib/evoApi";
 
 export async function getMemberAction(email: string) {
     if (!email) {
@@ -71,5 +71,20 @@ export async function getProspectByEmailAction(email: string) {
     } catch (error) {
         console.error("Error en getProspectByEmailAction:", error);
         throw new Error("No se pudo obtener la información ");
+    }
+}
+
+/**
+ * Obtiene los vouchers/cupones disponibles de Evo
+ * @param idBranch - ID de sucursal (opcional)
+ * @returns Array de vouchers normalizados
+ */
+export async function getVouchersAction(idBranch?: string) {
+    try {
+        const data = await getVouchers({ idBranch });
+        return data;
+    } catch (error) {
+        console.error("Error en getVouchersAction:", error);
+        throw new Error("No se pudo obtener los vouchers");
     }
 }

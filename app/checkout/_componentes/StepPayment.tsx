@@ -1,42 +1,11 @@
 "use client";
 
+import CardPaymentBrick from "@/app/checkout/_componentes/CardPaymentBrick";
+import ProcessingOverlay from "@/app/checkout/_componentes/LoadComp";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import CardPaymentBrick from "./CardPaymentBrick";
-
-// ============================================================================
-// Loader overlay component
-// ============================================================================
-
-function ProcessingOverlay() {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-orange-500/30 rounded-2xl p-8 max-w-sm mx-4 text-center shadow-2xl shadow-orange-500/20">
-        {/* Spinner animados */}
-        <div className="relative w-16 h-16 mx-auto mb-6">
-          <div className="absolute inset-0 rounded-full border-4 border-gray-700"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-orange-500 animate-spin"></div>
-          <div className="absolute inset-2 rounded-full border-4 border-transparent border-t-orange-300 animate-spin" style={{ animationDuration: "0.8s" }}></div>
-        </div>
-
-        {/* Texto */}
-        <h3 className="text-xl font-bold text-white mb-2">
-          Procesando pago
-        </h3>
-        <p className="text-gray-400 text-sm">
-          Por favor espera mientras confirmamos tu pago con Mercado Pago
-        </p>
-
-        {/* Progress bar animada */}
-        <div className="mt-6 h-1 bg-gray-800 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full animate-pulse" style={{ width: "60%" }}></div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ============================================================================
 // Main component
@@ -46,7 +15,10 @@ export default function StepPayment() {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSuccess = (result: { preapproval_id?: string; payment_id?: string }) => {
+  const handleSuccess = (result: {
+    preapproval_id?: string;
+    payment_id?: string;
+  }) => {
     console.log("Pago aprobado:", result);
     if (result.preapproval_id) {
       router.push(`/checkout/success?preapproval_id=${result.preapproval_id}`);
@@ -92,17 +64,25 @@ export default function StepPayment() {
     }, 3000);
   };
 
-  // Obtener datos del plan desde el store
-  const { prospect, plan } = useCheckoutStore();
+  // Obtener datos del plan y voucher desde el store
+  const { prospect, plan, voucherDiscount } = useCheckoutStore();
   if (!plan) {
     throw new Error("Plan no encontrado");
   }
   if (!prospect) {
     throw new Error("Prospect no encontrado");
   }
-  const promo = Number(plan?.valuePromotionalPeriod ?? 0);
-  const price = Number(plan?.value ?? 0);
-  const amount = promo > 0 ? promo : price;
+
+  // Calcular amount con descuento de voucher
+  const basePromo = Number(plan?.valuePromotionalPeriod ?? 0);
+  const basePrice = Number(plan?.value ?? 0);
+  const baseAmount = basePromo > 0 ? basePromo : basePrice;
+
+  // Aplicar descuento del voucher si existe
+  const finalAmount = voucherDiscount
+    ? Math.round(voucherDiscount.totalFinalValue * 100) / 100
+    : baseAmount;
+
   const description = plan?.description ? plan?.description : plan?.displayName;
   const email =
     process.env.NODE_ENV === "development"
@@ -110,11 +90,18 @@ export default function StepPayment() {
       : prospect?.email;
   console.log("StepPayment email:", email);
   console.log("StepPayment membershipType:", plan?.membershipType);
+  console.log(
+    "StepPayment amount:",
+    finalAmount,
+    "(voucher:",
+    !!voucherDiscount,
+    ")",
+  );
 
   const planData = {
     id: String(plan?.idMembership),
     description,
-    amount,
+    amount: finalAmount,
     currency: "MXN",
     recurrent: plan?.membershipType?.includes("recurrence") ? true : false,
     membershipType: plan?.membershipType,
@@ -131,6 +118,7 @@ export default function StepPayment() {
 
   return (
     <>
+      {/* CardPaymentBrick con el monto ya calculado (con descuento) */}
       <CardPaymentBrick
         planData={planData}
         userData={userData}
@@ -141,7 +129,7 @@ export default function StepPayment() {
         onProcessingChange={setIsProcessing}
       />
       {/* Loader overlay mientras procesa el pago */}
-      {isProcessing && <ProcessingOverlay />}
+      {isProcessing && <ProcessingOverlay isVisible={isProcessing} />}
     </>
   );
 }

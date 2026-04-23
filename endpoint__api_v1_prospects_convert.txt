@@ -1,0 +1,81 @@
+{
+  "post": {
+    "summary": "Turn the opportunity into a member, returns the idMember created.",
+    "deprecated": false,
+    "description": "# Converter Prospect em Membro\n\n### Descri\u00e7\u00e3o\nEste endpoint permite converter um prospect (oportunidade) em um membro ativo no sistema. Ap\u00f3s a convers\u00e3o, o endpoint retorna o idMember do membro criado.\n\n### \ud83d\udd11 Par\u00e2metros de Requisi\u00e7\u00e3o (Query Params)\n| Par\u00e2metro    | Tipo            | Obrigat\u00f3rio | Descri\u00e7\u00e3o                                                |\n| ------------ | --------------- | ----------- | -------------------------------------------------------- |\n| `idProspect` | integer (int32) | Sim         | Identificador do prospect que ser\u00e1 convertido em membro. |\n| `idBranch`   | integer (int32) | Sim         | Identificador da filial onde o membro ser\u00e1 criado.       |\n\n### \ud83d\udce4 Estrutura da Resposta\n| Campo      | Tipo            | Descri\u00e7\u00e3o                                                    |\n| ---------- | --------------- | ------------------------------------------------------------ |\n| `idMember` | integer (int32) | Identificador do membro criado ap\u00f3s a convers\u00e3o do prospect. |",
+    "tags": [
+      "Prospects"
+    ],
+    "parameters": [
+      {
+        "name": "idProspect",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      {
+        "name": "idBranch",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IdMemberResponseViewModel"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/IdMemberResponseViewModel"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IdMemberResponseViewModel"
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  }
+}

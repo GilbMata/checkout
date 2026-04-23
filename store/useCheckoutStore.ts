@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { VoucherDiscount } from "@/lib/evoApi";
 
 type Step = "email" | "otp" | "payment" | "";
 
@@ -11,6 +12,10 @@ interface CheckoutState {
   branch: Branch | null;
   prospectId: string;
 
+  // Voucher state
+  voucherCode: string;
+  voucherDiscount: VoucherDiscount | null;
+
   setStep: (step: Step) => void;
   setEmail: (email: string) => void;
   setPhone: (phone: string) => void;
@@ -19,6 +24,9 @@ interface CheckoutState {
   clearPlan: () => void;
   setBranch: (branch: Branch) => void;
   setProspectId: (id: string) => void;
+  setVoucherCode: (code: string) => void;
+  setVoucherDiscount: (discount: VoucherDiscount | null) => void;
+  clearVoucher: () => void;
 }
 
 export const useCheckoutStore = create<CheckoutState>((set) => ({
@@ -29,6 +37,8 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   prospect: null,
   plan: null,
   branch: null,
+  voucherCode: "",
+  voucherDiscount: null,
   setBranch: (branch) => set({ branch }),
   setStep: (step) => set({ step }),
   setEmail: (email) => set({ email }),
@@ -37,6 +47,9 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   setProspectId: (id) => set({ prospectId: id }),
   setPlan: (plan) => set({ plan }),
   clearPlan: () => set({ plan: null }),
+  setVoucherCode: (code) => set({ voucherCode: code }),
+  setVoucherDiscount: (discount) => set({ voucherDiscount: discount }),
+  clearVoucher: () => set({ voucherCode: "", voucherDiscount: null }),
 }));
 
 export interface Prospect {

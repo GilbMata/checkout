@@ -1,6 +1,6 @@
 "use client";
 
-import { getMemberbyPhoneAction } from "@/app/actions/evoMember";
+import { getMemberbyPhoneAction } from "@/app/actions/evoActions";
 import {
   createProspectAction,
   getProspectByEmailAction,
@@ -42,9 +42,10 @@ import { FormProvider, useForm } from "react-hook-form";
 // @ts-ignore
 import "react-phone-number-input/style.css";
 import { toast } from "sonner";
-import { Card, CardHeader } from "../ui/card";
+// import { Card, CardHeader } from "../ui/card";
 
 import { sendOTP } from "@/app/actions/send-otp";
+import { Card, CardHeader } from "@/components/ui/card";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
@@ -94,6 +95,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
 
   useEffect(() => {
     const value = watch("email");
+    console.log("🚀 ~ ClientForm ~ value:", value);
     if (!value) return;
     const timeout = setTimeout(async () => {
       const isValid = await form.trigger("email");
@@ -154,6 +156,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
   };
 
   const validateEmail = async (email: string) => {
+    if (!phoneValid) return;
     try {
       toast.loading("Validando email...");
       const prospect = await getProspectByEmailAction(email);
@@ -211,38 +214,34 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
     const phoneNor = phone.slice(3, phone.length);
     const phoneArea = phone.slice(0, 3);
     try {
-      toast.loading("Validando teléfono...");
+      toast.loading("Validando teléfono...", { id: "phone-validation" });
       //local
       const prospect = await getProspectByPhoneAction(phoneNor);
       // console.log("🚀 ~ validatePhone ~ prospect:", prospect);
 
       if (prospect && prospect.id) {
-        await sendOTP({ prospectId: prospect.id })
-          .then((response) => {
-            console.log("🚀 ~ validatePhone ~ response:", response);
-          })
-          .catch((err) => {
-            console.error(err);
-            toast.error("Error API");
-          });
+        await sendOTP({ prospectId: prospect.id }).catch((err) => {
+          console.error(err);
+          toast.error("Error al enviar OTP", { id: "phone-validation" });
+        });
         setProspect(prospect as any);
+        toast.success("OTP enviado correctamente");
+        toast.dismiss("phone-validation");
         setStep("otp");
         // setStep("payment");
         return;
       }
 
       const member = await getMemberbyPhoneAction(phoneNor);
-      // console.log("🚀 ~ validatePhone ~ member:", member);
       if (member) {
         // El miembro existe - crear prospecto y enviar OTP
-        const phoneNumber = phone;
         const newCustomer = await createProspectAction({
-          email: member.email || "",
+          email: member.email,
           curp: member.curp,
-          firstName: member.firstName || "",
-          lastName: member.lastName || "",
-          gender: member.gender || "",
-          birthDate: member.birthDate || "",
+          firstName: member.firstName,
+          lastName: member.lastName,
+          gender: member.gender,
+          birthDate: member.birthDate,
           areaCode: phoneArea,
           phone: phoneNor,
           planId: String(plan?.idMembership),
@@ -266,22 +265,24 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
         // setEmail(member.email || "");
         // setPhone(phoneNumber);
         setStep("otp");
+        toast.success("OTP enviado correctamente");
+        toast.dismiss("phone-validation");
         return;
       }
 
       setPhoneValid(true);
     } catch (err) {
       console.error(err);
-      toast.error("Error API");
+      toast.error("Error API", { id: "phone-validation" });
     } finally {
-      toast.dismiss();
+      toast.dismiss("phone-validation");
     }
   };
 
   const onSubmit = async (data: RegistrationFormData) => {
     try {
       const phoneNumber = data.phone || "";
-      toast.loading("Guardando usuario...");
+      toast.loading(" Registrando usuario...", { id: "user-registration" });
       const prospect = await createProspectAction({
         email: data.email,
         curp: data.curp,
@@ -298,10 +299,11 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
 
       await sendOTP({ prospectId: prospect.id });
       setStep("otp");
-      toast.dismiss();
+      toast.success("Usuario registrado correctamente");
+      toast.dismiss("user-registration");
     } catch (error: any) {
       console.error("Error creating prospect:", error);
-      toast.dismiss();
+      toast.dismiss("user-registration");
       const errorMessage = error?.message || "Error al registrar usuario";
       toast.error(errorMessage);
     }

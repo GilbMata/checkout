@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db/index";
 import { assertNotDisposableEmail } from "@/lib/email/disposable-email";
-import { Prisma } from "@prisma/client";
+import { DocumentType, Gender, MembershipStatus } from "@prisma/client";
 
 type CreateProspectData = {
   email: string;
@@ -29,7 +29,6 @@ type CreateProspectData = {
 
 export async function createProspectAction(data: CreateProspectData) {
   try {
-    // Validate email is not from a disposable provider
     assertNotDisposableEmail(data.email);
 
     const email = data.email.toLowerCase().trim();
@@ -44,50 +43,27 @@ export async function createProspectAction(data: CreateProspectData) {
           : new Date(data.birthDate);
     }
 
-    // Convert gender string to Prisma enum
-    const genderMap: Record<string, "male" | "female" | "other"> = {
-      male: "male",
-      masculine: "male",
-      m: "male",
-      h: "male",
-      femenino: "female",
-      f: "female",
-      female: "female",
-      otro: "other",
-      other: "other",
-    };
-    const normalizedGender = data.gender?.toLowerCase().trim();
-    const genderEnum = normalizedGender ? genderMap[normalizedGender] ?? null : null;
+    // Convertir gender En un prisma
+    const rawGender = data.gender?.toLowerCase().trim();
+    const gender: Gender = Object.values(Gender).includes(rawGender as Gender)
+      ? (rawGender as Gender)
+      : Gender.other;
 
-    // Convert documentType string to Prisma enum
-    const documentTypeMap: Record<string, "CURP" | "INE" | "PASSPORT" | "RFC"> = {
-      curp: "CURP",
-      ine: "INE",
-      passport: "PASSPORT",
-      rfc: "RFC",
-    };
-    const normalizedDocType = data.documentType?.toUpperCase().trim();
-    const documentTypeEnum = normalizedDocType ? documentTypeMap[normalizedDocType] ?? "CURP" : "CURP";
+    // Convertir documentType a enum Prisma
+    const rawDocType = data.documentType?.toUpperCase().trim();
+    const documentTypeEnum: DocumentType = Object.values(DocumentType).includes(
+      rawDocType as DocumentType,
+    )
+      ? (rawDocType as DocumentType)
+      : DocumentType.CURP;
 
-    // Convert status string to Prisma enum
-    const statusMap: Record<string, "prospect" | "member" | "inactive"> = {
-      prospect: "prospect",
-      member: "member",
-      inactive: "inactive",
-    };
-    const normalizedStatus = data.status?.toLowerCase().trim();
-    const statusEnum = normalizedStatus ? statusMap[normalizedStatus] ?? "prospect" : "prospect";
-
-    // Convert membershipStatus string to Prisma enum
-    const membershipStatusMap: Record<string, "pending" | "active" | "paused" | "cancelled" | "expired"> = {
-      pending: "pending",
-      active: "active",
-      paused: "paused",
-      cancelled: "cancelled",
-      expired: "expired",
-    };
-    const normalizedMembershipStatus = data.membershipStatus?.toLowerCase().trim();
-    const membershipStatusEnum = normalizedMembershipStatus ? membershipStatusMap[normalizedMembershipStatus] ?? "pending" : "pending";
+    // Convertir status a Prisma enum
+    const normalizedStatus = data.membershipStatus?.toLowerCase().trim();
+    const statusEnum: MembershipStatus = Object.values(
+      MembershipStatus,
+    ).includes(normalizedStatus as MembershipStatus)
+      ? (normalizedStatus as MembershipStatus)
+      : MembershipStatus.prospect;
 
     const prospect = await prisma.prospects.create({
       data: {
@@ -95,7 +71,7 @@ export async function createProspectAction(data: CreateProspectData) {
         curp: data.curp,
         firstName: data.firstName,
         lastName: data.lastName,
-        gender: genderEnum,
+        gender: gender,
         birthDate,
         areaCode: data.areaCode,
         phone,
@@ -108,7 +84,7 @@ export async function createProspectAction(data: CreateProspectData) {
         documentNumber: data.documentNumber ?? data.curp,
         documentId: data.documentId ?? null,
         status: statusEnum,
-        membershipStatus: membershipStatusEnum,
+        membershipStatus: data.membershipStatus ?? null,
         paymentPending: true,
         planId: data.planId ?? null,
       },
@@ -118,28 +94,24 @@ export async function createProspectAction(data: CreateProspectData) {
   } catch (error: any) {
     console.error("Error creating prospect:", error);
 
-    // Handle Prisma unique constraint violation
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2002") {
-        // Unique constraint failed
-        const target = (error.meta?.target as string[]) || [];
-        if (target.includes("email")) {
-          throw new Error("El correo electrónico ya está registrado");
-        }
-        if (target.includes("phone")) {
-          throw new Error("El teléfono ya está registrado");
-        }
-        if (target.includes("curp")) {
-          throw new Error("El CURP ya está registrado");
-        }
-      }
-    }
+    // Check for Prisma unique constraint violation (P2002)
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2002") {
+      // Parse constraint fields from error message
+      const message = prismaError.message || "";
+      const match = message.match(/Unique constraint failed on the fields: \(`(.*?)`\)/);
+      const target = match ? match[1].split("`, `") : [];
+      console.log("Unique constraint violation on:", target);
 
-    if (
-      error?.message?.includes("UNIQUE") ||
-      error?.message?.includes("already exists")
-    ) {
-      throw new Error("El correo electrónico ya está registrado");
+      if (target.some((f) => f.includes("email"))) {
+        throw new Error("El correo electrónico ya está registrado");
+      }
+      if (target.some((f) => f.includes("phone"))) {
+        throw new Error("El teléfono ya está registrado");
+      }
+      if (target.some((f) => f.includes("curp"))) {
+        throw new Error("El CURP ya está registrado");
+      }
     }
 
     throw new Error("No se pudo crear el prospecto");

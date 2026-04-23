@@ -1,0 +1,363 @@
+{
+  "get": {
+    "summary": "Get prospects",
+    "deprecated": false,
+    "description": "# Buscar Prospects\n\n### Descri\u00e7\u00e3o\nEndpoint para consultar prospects com filtros variados e pagina\u00e7\u00e3o.\n\n> **OBS.** Dispon\u00edvel para uso com chave de acesso de filial e tamb\u00e9m com chave de acesso de ADM Geral.\n\n### \ud83d\udd11 Par\u00e2metros de Consulta (Query Params)\n| Par\u00e2metro           | Tipo      | Obrigat\u00f3rio | Descri\u00e7\u00e3o                                              |\n| ------------------- | --------- | ----------- | ------------------------------------------------------ |\n| idProspect          | int32     | N\u00e3o         | ID do prospect                                         |\n| name                | string    | N\u00e3o         | Nome do prospect                                       |\n| document            | string    | N\u00e3o         | Documento do prospect                                  |\n| email               | string    | N\u00e3o         | Email do prospect                                      |\n| phone               | string    | N\u00e3o         | Telefone/celular do prospect                           |\n| registerDateStart   | date-time | N\u00e3o         | Data inicial para filtro de registro                   |\n| registerDateEnd     | date-time | N\u00e3o         | Data final para filtro de registro                     |\n| conversionDateStart | date-time | N\u00e3o         | Data inicial para filtro de data de convers\u00e3o          |\n| conversionDateEnd   | date-time | N\u00e3o         | Data final para filtro de data de convers\u00e3o            |\n| take                | int32     | N\u00e3o         | Total de registros a retornar (m\u00e1ximo 50). Default: 50 |\n| skip                | int32     | N\u00e3o         | Total de registros para pular (offset). Default: 0     |\n| gympassId           | string    | N\u00e3o         | ID do Gympass do prospect                              |\n\n### \ud83d\udce4 Estrutura da Resposta\nA resposta retorna uma lista de prospects cadastrados, contendo informa\u00e7\u00f5es pessoais, dados de contato, origem do cadastro, status de convers\u00e3o, interesses e respons\u00e1veis financeiros.\n| Campo                     | Tipo          | Descri\u00e7\u00e3o                                                          |\n| ------------------------- | ------------- | ------------------------------------------------------------------ |\n| `idProspect`              | int32         | Identificador \u00fanico do prospect.                                   |\n| `idBranch`                | int32         | ID da filial onde o prospect foi registrado.                       |\n| `branchName`              | string        | Nome da filial associada ao prospect.                              |\n| `firstName`               | string        | Primeiro nome do prospect.                                         |\n| `lastName`                | string        | Sobrenome do prospect.                                             |\n| `registerName`            | string        | Nome informado no momento do cadastro.                             |\n| `registerLastName`        | string        | Sobrenome informado no momento do cadastro.                        |\n| `usePreferredName`        | boolean       | Indica se o prospect utiliza nome preferencial.                    |\n| `document`                | string        | Documento principal do prospect (ex.: CPF).                        |\n| `rg`                      | string        | Registro Geral (RG) do prospect.                                   |\n| `cellphone`               | string        | N\u00famero de telefone celular.                                        |\n| `email`                   | string        | Endere\u00e7o de e-mail do prospect.                                    |\n| `gympassId`               | string        | Identificador do prospect em plataformas parceiras (ex.: Gympass). |\n| `registerDate`            | date-time     | Data de registro do prospect.                                      |\n| `gender`                  | string        | G\u00eanero informado pelo prospect.                                    |\n| `birthDate`               | date-time     | Data de nascimento do prospect.                                    |\n| `signupType`              | string        | Tipo de cadastro realizado (ex.: presencial, online, campanha).    |\n| `mktChannel`              | string        | Canal de marketing de origem do prospect.                          |\n| `conversionDate`          | date-time     | Data de convers\u00e3o do prospect em aluno, se aplic\u00e1vel.              |\n| `idMember`                | int32         | ID do membro associado ap\u00f3s convers\u00e3o.                             |\n| `currentStep`             | string        | Etapa atual do funil de relacionamento/comercial.                  |\n| `address`                 | string        | Endere\u00e7o do prospect.                                              |\n| `city`                    | string        | Cidade do endere\u00e7o.                                                |\n| `complement`              | string        | Complemento do endere\u00e7o.                                           |\n| `neighborhood`            | string        | Bairro do endere\u00e7o.                                                |\n| `state`                   | string        | Estado do endere\u00e7o.                                                |\n| `country`                 | string        | Pa\u00eds do endere\u00e7o.                                                  |\n| `zipCode`                 | string        | CEP / C\u00f3digo postal.                                               |\n| `number`                  | string        | N\u00famero do endere\u00e7o.                                                |\n| `temperature`             | string        | Classifica\u00e7\u00e3o de interesse do prospect (ex.: frio, morno, quente). |\n| `notes`                   | string        | Observa\u00e7\u00f5es adicionais sobre o prospect.                           |\n| `interests`               | array<string> | Lista de interesses informados pelo prospect.                      |\n| `financiallyResponsibles` | array<object> | Respons\u00e1veis financeiros associados ao prospect. Ver mais abaixo.  |\n\n#### \ud83e\udde9 Estrutura de `financiallyResponsibles`\n| Campo      | Tipo   | Descri\u00e7\u00e3o                                            |\n| ---------- | ------ | ---------------------------------------------------- |\n| `idMember` | int32  | Identificador do membro respons\u00e1vel financeiramente. |\n| `name`     | string | Nome do respons\u00e1vel financeiro.                      |\n| `email`    | string | E-mail do respons\u00e1vel financeiro.                    |\n| `cpf`      | string | CPF do respons\u00e1vel financeiro.                       |\n",
+    "tags": [
+      "Prospects"
+    ],
+    "parameters": [
+      {
+        "name": "idProspect",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      {
+        "name": "name",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "document",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "email",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "phone",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "registerDateStart",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "registerDateEnd",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "conversionDateStart",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "conversionDateEnd",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "take",
+        "in": "query",
+        "description": "Total number of records to return. (Maximum of 50)",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "default": 50
+        }
+      },
+      {
+        "name": "skip",
+        "in": "query",
+        "description": "Total number of records to skip.",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      },
+      {
+        "name": "gympassId",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      {
+        "name": "registerName",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ProspectsResumoApiViewModel"
+              }
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ProspectsResumoApiViewModel"
+              }
+            }
+          },
+          "text/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ProspectsResumoApiViewModel"
+              }
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  },
+  "post": {
+    "summary": "Add prospects",
+    "deprecated": false,
+    "description": "# Adicionar Prospect\n\n### Descri\u00e7\u00e3o \nPermite a cria\u00e7\u00e3o de prospect (potencial cliente)\n\n> **OBS.** Dispon\u00edvel para uso com chave de acesso de filial e tamb\u00e9m com chave de acesso de ADM Geral.\n\n### \ud83d\udce8 Corpo da Requisi\u00e7\u00e3o (Request Body)\n| Par\u00e2metro                       | Tipo         | Descri\u00e7\u00e3o                                                      | Obrigat\u00f3rio |\n| ------------------------------- | ------------ | -------------------------------------------------------------- | ----------- |\n| name                            | string       | Nome preferencial do prospect.                                              | Sim         |\n| lastName                        | string       | Sobrenome preferencial do prospect.                                         | Sim         |\n| email                           | string       | E-mail do prospect.                                            | Sim         |\n| idBranch                        | int32        | ID da unidade (filial) associada.                              | Sim         |\n| cellphone                       | string       | N\u00famero de celular do prospect.                                 | Sim         |\n| cpf                             | string       | CPF do prospect.                                               | Sim |\n| registerName      | string       | Nome de registro do prospect.                                              | N\u00e3o |\n| registerLastName      | string       | Sobrenome de registro do prospect.           | N\u00e3o |\n| ddi                             | string       | C\u00f3digo DDI do telefone (ex: +55).                              | N\u00e3o         |\n| birthday                        | date-time    | Data de nascimento (formato ISO 8601).                         | N\u00e3o         |\n| gender                          | string       | G\u00eanero do prospect {M, F, P}.                                  | N\u00e3o         |\n| visit                           | int32        | C\u00f3digo da origem da visita/campanha.                           | N\u00e3o         |\n| marketingType                   | string       | Tipo de marketing associado.                                   | N\u00e3o         |\n| notes                           | string       | Notas ou observa\u00e7\u00f5es adicionais.                               | N\u00e3o         |\n| currentStep                     | string       | Etapa atual no funil de convers\u00e3o.                             | N\u00e3o         |\n| passport                        | string       | N\u00famero de passaporte do prospect.                              | N\u00e3o         |\n| rg                              | string       | N\u00famero de RG do prospect.                                      | N\u00e3o         |\n| address                         | string       | Endere\u00e7o do prospect.                                          | N\u00e3o         |\n| city                            | string       | Cidade do prospect.                                            | N\u00e3o         |\n| complement                      | string       | Complemento do endere\u00e7o.                                       | N\u00e3o         |\n| neighborhood                    | string       | Bairro do prospect.                                            | N\u00e3o         |\n| idState                         | int32        | ID do estado (UF).                                             | N\u00e3o         |\n| zipCode                         | string       | CEP do prospect.                                               | N\u00e3o         |\n| number                          | string       | N\u00famero do endere\u00e7o.                                            | N\u00e3o         |\n| tokenGympass                    | string       | Token de integra\u00e7\u00e3o com Gympass (se aplic\u00e1vel).                | N\u00e3o         |\n| userTokenGoGood                 | string       | Token de integra\u00e7\u00e3o com GoGood (se aplic\u00e1vel).                 | N\u00e3o         |\n| additionalFieldName             | string       | Nome de campo adicional personalizado.                         | N\u00e3o         |\n| additionalFieldValue            | string       | Valor do campo adicional personalizado.                        | N\u00e3o         |\n| validateCpfDuplication          | boolean      | Indica se deve validar duplicidade de CPF ao criar o prospect. | N\u00e3o         |\n| temperature                     | number       | Temperatura do lead (ex.: score interno).                      | N\u00e3o         |\n| financiallyResponsible          | object       | Dados do respons\u00e1vel financeiro. Ver mais abaixo.                               | N\u00e3o         |\n| interests                       | array[int32] | Lista de IDs de interesses do prospect.                        | N\u00e3o         |\n\n#### \ud83e\udde9 Estrutura do objeto `financiallyResponsible`\n| Par\u00e2metro                       | Tipo         | Descri\u00e7\u00e3o                                                      | Obrigat\u00f3rio |\n| ------------------------------- | ------------ | -------------------------------------------------------------- | ----------- |\n| idMember | int32        | ID de membro vinculado como respons\u00e1vel financeiro.            | N\u00e3o         |\n| name     | string       | Nome do respons\u00e1vel financeiro.                                | N\u00e3o         |\n| email    | string       | E-mail do respons\u00e1vel financeiro.                              | N\u00e3o         |\n| cpf      | string       | CPF do respons\u00e1vel financeiro.                                 | N\u00e3o         |\n\n### \ud83d\udce4 Estrutura da Resposta\n| Par\u00e2metro  | Tipo | Descri\u00e7\u00e3o                         |\n| ---------- | ---- | --------------------------------- |\n| idProspect | int  | Identificador do prospect criado. |",
+    "tags": [
+      "Prospects"
+    ],
+    "parameters": [],
+    "requestBody": {
+      "content": {
+        "application/json-patch+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoViewModel"
+          },
+          "examples": {}
+        },
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoViewModel"
+          }
+        },
+        "text/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoViewModel"
+          }
+        },
+        "application/*+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoViewModel"
+          }
+        }
+      }
+    },
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProspectIdViewModel"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/ProspectIdViewModel"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProspectIdViewModel"
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  },
+  "put": {
+    "summary": "Update prospect",
+    "deprecated": false,
+    "description": "# Atualizar Prospect\n\n### Descri\u00e7\u00e3o\nAtualizar informa\u00e7\u00f5es de um prospect existente.\n\n> **OBS.** Dispon\u00edvel para uso com chave de acesso de filial e tamb\u00e9m com chave de acesso de ADM Geral.\n\n### \ud83d\udce8 Corpo da Requisi\u00e7\u00e3o (Body Params)\n| Par\u00e2metro                       | Tipo         | Obrigat\u00f3rio | Descri\u00e7\u00e3o                                                |\n| ------------------------------- | ------------ | ----------- | -------------------------------------------------------- |\n| idProspect                      | int32        | Sim         | ID do prospect a ser atualizado.                         |\n| name                            | string       | N\u00e3o         | Nome do prospect.                                        |\n| email                           | string       | N\u00e3o         | E-mail do prospect.                                      |\n| lastName                        | string       | N\u00e3o         | Sobrenome do prospect.                                   |\n| idBranch                        | int32        | N\u00e3o         | ID da unidade/filial associada.                          |\n| ddi                             | string       | N\u00e3o         | C\u00f3digo DDI do telefone.                                  |\n| cellphone                       | string       | N\u00e3o         | N\u00famero de celular do prospect.                           |\n| birthday                        | date-time    | N\u00e3o         | Data de nascimento (formato ISO 8601).                   |\n| gender                          | string       | N\u00e3o         | G\u00eanero do prospect {M, F, P}.                            |\n| visit                           | int32        | N\u00e3o         | C\u00f3digo da origem da visita/campanha.                     |\n| marketingType                   | string       | N\u00e3o         | Tipo de marketing associado.                             |\n| notes                           | string       | N\u00e3o         | Notas adicionais sobre o prospect.                       |\n| currentStep                     | string       | N\u00e3o         | Etapa atual do prospect no funil.                        |\n| cpf                             | string       | N\u00e3o         | CPF do prospect.                                         |\n| passport                        | string       | N\u00e3o         | N\u00famero de passaporte do prospect.                        |\n| rg                              | string       | N\u00e3o         | N\u00famero de RG do prospect.                                |\n| address                         | string       | N\u00e3o         | Endere\u00e7o do prospect.                                    |\n| city                            | string       | N\u00e3o         | Cidade do prospect.                                      |\n| complement                      | string       | N\u00e3o         | Complemento do endere\u00e7o.                                 |\n| neighborhood                    | string       | N\u00e3o         | Bairro do prospect.                                      |\n| idState                         | int32        | N\u00e3o         | ID do estado (UF).                                       |\n| zipCode                         | string       | N\u00e3o         | CEP do prospect.                                         |\n| number                          | string       | N\u00e3o         | N\u00famero do endere\u00e7o.                                      |\n| tokenGympass                    | string       | N\u00e3o         | Token do Gympass (se aplic\u00e1vel).                         |\n| userTokenGoGood                 | string       | N\u00e3o         | Token de integra\u00e7\u00e3o com GoGood (se aplic\u00e1vel).           |\n| additionalFieldName             | string       | N\u00e3o         | Nome de campo adicional personalizado.                   |\n| additionalFieldValue            | string       | N\u00e3o         | Valor de campo adicional personalizado.                  |\n| validateCpfDuplication          | boolean      | N\u00e3o         | Valida duplicidade de CPF antes de atualizar o prospect. |\n| temperature                     | number       | N\u00e3o         | Temperatura/classifica\u00e7\u00e3o do lead.                       |\n| financiallyResponsible          | object       | N\u00e3o         | Dados do respons\u00e1vel financeiro. Ver estrutura mais abaixo.                         |\n| interests                       | array[int32] | N\u00e3o         | Lista de IDs de interesses do prospect.                  |\n\n#### \ud83e\udde9 Estrutura do objeto `financiallyResponsible`\n| Par\u00e2metro                       | Tipo         | Descri\u00e7\u00e3o                                                      | Obrigat\u00f3rio |\n| ------------------------------- | ------------ | -------------------------------------------------------------- | ----------- |\n| idMember | int32        | ID de membro vinculado como respons\u00e1vel financeiro.            | N\u00e3o         |\n| name     | string       | Nome do respons\u00e1vel financeiro.                                | N\u00e3o         |\n| email    | string       | E-mail do respons\u00e1vel financeiro.                              | N\u00e3o         |\n| cpf      | string       | CPF do respons\u00e1vel financeiro.                                 | N\u00e3o         |\n\n### \ud83d\udce4 Estrutura da Resposta\n| Par\u00e2metro  | Tipo | Descri\u00e7\u00e3o                         |\n| ---------- | ---- | --------------------------------- |\n| idProspect | int  | Identificador do prospect atualizado. |",
+    "tags": [
+      "Prospects"
+    ],
+    "parameters": [],
+    "requestBody": {
+      "content": {
+        "application/json-patch+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoAtualizacaoViewModel"
+          },
+          "examples": {}
+        },
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoAtualizacaoViewModel"
+          }
+        },
+        "text/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoAtualizacaoViewModel"
+          }
+        },
+        "application/*+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ProspectApiIntegracaoAtualizacaoViewModel"
+          }
+        }
+      }
+    },
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProspectIdViewModel"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/ProspectIdViewModel"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProspectIdViewModel"
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  }
+}

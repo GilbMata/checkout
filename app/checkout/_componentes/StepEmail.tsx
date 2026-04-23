@@ -1,7 +1,7 @@
-import ClientForm from "./ClientForm";
 // import { useCheckoutFlow } from "@/hooks/useCheckoutFlow";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { useState } from "react";
+import ClientForm from "./ClientForm";
 
 export default function StepEmail() {
   // const { setStep, setEmail } = useCheckoutFlow();

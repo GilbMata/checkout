@@ -1,8 +1,8 @@
 "use client";
 
+import VoucherInput from "@/app/checkout/_componentes/VoucherInput";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { useState } from "react";
 import {
@@ -11,8 +11,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/card";
-import { DialogContent, DialogHeader } from "../ui/dialog";
+} from "../../../components/ui/card";
+import { DialogContent, DialogHeader } from "../../../components/ui/dialog";
 
 // type Differential = {
 //   title: string;
@@ -77,14 +77,9 @@ const mockActivities = [
 ];
 
 export default function PlanCheckout() {
-  // plan = {
-  //   ...plan,
-  //   activitiesGroups: plan.activitiesGroups ?? mockActivities,
-  // };
-  const [coupon, setCoupon] = useState("");
   const [open, setOpen] = useState(false);
 
-  const { plan } = useCheckoutStore();
+  const { plan, voucherDiscount } = useCheckoutStore();
   // const [plan, setPlan] = useState<Membership | null>(null);
   //   const { displayName, durationType, value } = plan;
 
@@ -102,15 +97,24 @@ export default function PlanCheckout() {
   } else {
     duration = `Duración ${plan.duration} meses`;
   }
+  // Calcular valor base (promo o normal)
   let value = plan.value;
   let discount = 0;
   if (plan.valuePromotionalPeriod) {
     discount = plan.value - plan.valuePromotionalPeriod;
     value = plan.valuePromotionalPeriod;
   }
+
+  // Aplicar descuento de voucher si existe
+  let finalValue = value;
+  let voucherDiscountValue = 0;
+  if (voucherDiscount && voucherDiscount.totalFinalValue > 0) {
+    voucherDiscountValue = value - voucherDiscount.totalFinalValue;
+    finalValue = voucherDiscount.totalFinalValue;
+  }
   return (
     <>
-      <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
+      <Card className="w-full  md:min-w-md max-w-xl mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
         {/* Header */}
         <CardHeader className="flex flex-row justify-between items-start gap-4 p-0">
           <div>
@@ -132,22 +136,8 @@ export default function PlanCheckout() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Cupón */}
-          <div className="space-y-2">
-            <label className="text-xs md:text-sm text-zinc-400">
-              Código de cupón
-            </label>
-            <div className="flex gap-2">
-              <Input
-                value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
-                className="flex-1 bg-transparent border-0 border-b border-zinc-600 outline-none py-1"
-              />
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                APLICAR
-              </Button>
-            </div>
-          </div>
+          {/* Voucher input */}
+          <VoucherInput />
 
           {/* Resumen */}
           <div className="border border-zinc-700 rounded-lg p-4 space-y-3 text-sm">
@@ -161,11 +151,23 @@ export default function PlanCheckout() {
                 })}
               </span>
             </div>
+            {voucherDiscountValue > 0 && (
+              <div className="flex justify-between">
+                <span className="text-green-400"> Cupón </span>
+                <span className="text-green-400 font-semibold">
+                  -$
+                  {voucherDiscountValue.toLocaleString("es-MX", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-zinc-400">Total</span>
               <span className="font-semibold">
                 $
-                {value.toLocaleString("es-MX", {
+                {finalValue.toLocaleString("es-MX", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -181,7 +183,7 @@ export default function PlanCheckout() {
             <select className="w-full bg-transparent border-b border-zinc-600 text-sm py-1">
               <option>
                 $
-                {value.toLocaleString("es-MX", {
+                {finalValue.toLocaleString("es-MX", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}{" "}
@@ -208,6 +210,28 @@ export default function PlanCheckout() {
                   })}
                 </span>
               </div>
+              {voucherDiscountValue > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-400">Cupón</span>
+                  <span className="text-green-400">
+                    -$
+                    {voucherDiscountValue.toLocaleString("es-MX", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-semibold">
+                <span>Total</span>
+                <span>
+                  $
+                  {finalValue.toLocaleString("es-MX", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -221,7 +245,7 @@ export default function PlanCheckout() {
             </span>
             <span className="text-lg md:text-xl font-bold">
               $
-              {value.toLocaleString("es-MX", {
+              {finalValue.toLocaleString("es-MX", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
@@ -258,6 +282,7 @@ export default function PlanCheckout() {
     flex flex-col 
     rounded-2xl p-4 md:p-10"
         > */}
+
           <DialogHeader className="shrink-0 order-first">
             <DialogTitle className="text-base md:text-lg font-semibold">
               {plan.displayName}
@@ -302,6 +327,7 @@ export default function PlanCheckout() {
               <li>• Clases ilimitadas</li>
               <li>• 5 invitados al mes</li>
             </ul> */}
+
             {/* DIFERENCIALES */}
             <div className="mt-6 pt-5">
               <p className="text-sm font-semibold mb-3"> Diferenciales</p>
@@ -314,6 +340,7 @@ export default function PlanCheckout() {
                 ))}
               </div>
             </div>
+
             {/* ACTIVIDADES */}
             {(plan.activitiesGroups ?? []).length > 0 && (
               <div className="mt-6 order-3">
@@ -354,6 +381,7 @@ export default function PlanCheckout() {
                 </div>
               </div>
             )}
+
             {/* CLOSE */}
             <div className="flex justify-end mt-6 shrink-0 order-last">
               <Button

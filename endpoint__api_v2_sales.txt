@@ -1,0 +1,354 @@
+{
+  "get": {
+    "summary": "Get sales",
+    "deprecated": false,
+    "description": "# Obter Lista de Vendas\n\n### Descri\u00e7\u00e3o\nEste endpoint retorna as vendas registradas no sistema, podendo ser filtradas por membro, datas, status, tipos de venda, entre outros par\u00e2metros.  \nA resposta pode incluir tamb\u00e9m informa\u00e7\u00f5es sobre itens da venda (servi\u00e7os, produtos, matr\u00edculas) e receb\u00edveis (parcelas, pagamentos, status de cobran\u00e7a, etc.).\n\n> **OBS.** Dispon\u00edvel para uso com chave de acesso de filial e tamb\u00e9m com chave de acesso de ADM Geral.\n\n### \ud83d\udd11 Par\u00e2metros da Requisi\u00e7\u00e3o\n| Par\u00e2metro                        | Tipo               | Descri\u00e7\u00e3o                                                                           | \n| -------------------------------- | ------------------ | ----------------------------------------------------------------------------------- | \n| idBranch | int32              | Filtra pelo ID de uma unidade/filial espec\u00edfica.                                             | \n| idMember                         | int32              | Filtra pelo ID de um membro espec\u00edfico.                                             | \n| dateSaleStart                    | string (date-time) | Filtra por data de in\u00edcio do registro da venda no formato `yyyy-mm-dd`.             | \n| dateSaleEnd                      | string (date-time) | Filtra por data de t\u00e9rmino do registro da venda no formato `yyyy-mm-dd`.            | \n| removalDateStart                 | string (date-time) | Filtra por data de in\u00edcio de remo\u00e7\u00e3o da venda no formato `yyyy-mm-dd`.              | \n| removalDateEnd                   | string (date-time) | Filtra por data de t\u00e9rmino de remo\u00e7\u00e3o da venda no formato `yyyy-mm-dd`.             | \n| receivablesRegistrationDateStart | string (date-time) | Filtra vendas com receb\u00edveis registrados a partir de uma data espec\u00edfica.           | \n| receivablesRegistrationDateEnd   | string (date-time) | Filtra vendas com receb\u00edveis registrados at\u00e9 uma data espec\u00edfica.                   | \n| updatedReceivableStartDate | string (date-time) | Filtra vendas cujos receb\u00edveis foram atualizados a partir de uma data espec\u00edfica.  | \n| updatedReceivableEndDate | string (date-time) | Filtra vendas cujos receb\u00edveis foram atualizados at\u00e9 uma data espec\u00edfica.  | \n| showReceivables                  | boolean            | Flag para exibir receb\u00edveis e valores de venda sem considerar cr\u00e9ditos. default: `false`             | \n| take                             | int32              | N\u00famero total de registros a serem retornados (m\u00e1ximo de 100, padr\u00e3o de 25). default: `25`        | \n| skip                             | int32              | N\u00famero total de registros a serem ignorados antes de come\u00e7ar a retornar resultados. default: `0` | \n| onlyMembership                   | boolean            | Retorna apenas vendas associadas a memberships (assinaturas).  default: `false`          | \n| atLeastMonthly    | boolean     | Remove memberships com menos de 30 dias (como no par\u00e2metro antigo `removeMonthly`). default: `false` | \n| flSwimming                       | boolean            | Filtra memberships associadas \u00e0 flag de nata\u00e7\u00e3o.  default: `false`            | \n| showOnlyActiveMemberships        | boolean            | Retorna apenas memberships ativas. default: `false`                | \n| showAllowLocker                  | boolean            | Indica se deve exibir vendas que permitem uso de arm\u00e1rio.           | \n| onlyTotalPass                    | boolean            | Retorna apenas vendas associadas a passes totais.                                   | \n| updateDate                       | string (date-time) | Filtra vendas com atualiza\u00e7\u00e3o a partir desta data.                                  | \n\n### \ud83d\udce4 Estrutura da Resposta\nA resposta retorna uma lista de vendas com a seguinte estrutura:\n| Campo                    | Tipo               | Descri\u00e7\u00e3o                                                                                                            |\n| ------------------------ | ------------------ | ----------------------- |\n| idSale                   | int32              | Identificador \u00fanico da venda.                                                                                        |\n| idMember                 | int32              | ID do aluno vinculado \u00e0 venda;                                                                                       |\n| idEmployee               | int32              | ID do funcion\u00e1rio associado.                                                                                         |\n| idProspect               | int32              | ID do prospect vinculado (se aplic\u00e1vel).                                                                             |\n| idEmployeeSale           | int32              | ID do funcion\u00e1rio respons\u00e1vel pela venda.                                                                            |\n| saleDate                 | string (date-time) | Data em que a venda foi realizada.                                                                                   |\n| saleDateServer           | string (date-time) | Data da venda registrada pelo servidor.                                                                              |\n| idPersonal               | int32              | ID do personal trainer vinculado \u00e0 venda (se aplic\u00e1vel).                                                             |\n| corporatePartnershipName | string             | Nome da parceria corporativa vinculada (se aplic\u00e1vel).                                                               |\n| coporatePartnershipId    | int32              | ID da parceria corporativa.                                                                                          |\n| removed                  | boolean            | Indica se a venda foi removida/cancelada.                                                                            |\n| idEmployeeRemoval        | int32              | ID do funcion\u00e1rio que realizou a remo\u00e7\u00e3o (se houver).                                                                |\n| removalDate              | string (date-time) | Data da remo\u00e7\u00e3o da venda (se houver).                                                                                |\n| idBranch                 | int32              | ID da filial onde a venda foi registrada.                                                                            |\n| observations             | string             | Observa\u00e7\u00f5es relacionadas \u00e0 venda.                                                                                    |\n| idSaleRecurrency         | int32              | Identificador de recorr\u00eancia da venda (se aplic\u00e1vel).                                                                |\n| saleSource               | int32              | Origem da venda                                                                                                      |\n| idSaleMigration          | string             | C\u00f3digo de refer\u00eancia em caso de migra\u00e7\u00e3o de vendas.                                                                  |\n| saleItens                | array              | Lista de itens associados \u00e0 venda (produtos, servi\u00e7os ou matr\u00edculas).                                                |\n| member | object | Aluno/membro associado \u00e0 venda. Ver mais abaixo. |\n| receivables              | arrayobject              | Lista de receb\u00edveis associados \u00e0 venda (parcelas, pagamentos, etc.). (Retornado somente se `showReceivables = true`) |\n| responsibles | arrayobject              | Lista de respons\u00e1veis associados \u00e0 venda. |\n| registrationKind | string | Tipo de registro associado \u00e0 venda (`renewal` para recorr\u00eancia ou null para nova venda). |\n\n#### \ud83e\udde9 Estrutura do Objeto `saleItens`\n| Campo                       | Tipo      | Descri\u00e7\u00e3o                                       |\n| --------------------------- | --------- | ----------------------------------------------- |\n| idSaleItem                  | int32     | ID do item da venda.                            |\n| idSale                      | int32     | ID da venda associada.                          |\n| description                 | string    | Descri\u00e7\u00e3o do item.                              |\n| item                        | string    | Nome do item vendido.                           |\n| itemValue                   | number    | Valor unit\u00e1rio do item.                         |\n| saleValue                   | number    | Valor total do item na venda.                   |\n| saleValueWithoutCreditValue | number    | Valor total sem cr\u00e9ditos aplicados.             |\n| quantity                    | int32     | Quantidade do item vendido.                     |\n| idMembership                | int32     | ID da matr\u00edcula (se aplic\u00e1vel).                 |\n| idMembershipRenewed         | int32     | ID da matr\u00edcula renovada (se aplic\u00e1vel).        |\n| numMembers                  | int32     | Quantidade de alunos vinculados ao item.        |\n| idProduct                   | int32     | ID do produto vendido (se aplic\u00e1vel).           |\n| idService                   | int32     | ID do servi\u00e7o vendido (se aplic\u00e1vel).           |\n| corporatePartnershipName    | string    | Nome da parceria corporativa associada ao item. |\n| coporatePartnershipId       | int32     | ID da parceria corporativa associada ao item.   |\n| membershipStartDate         | date-time | Data de in\u00edcio da matr\u00edcula (quando aplic\u00e1vel). |\n| discount                    | number    | Valor do desconto aplicado.                     |\n| corporateDiscount           | number    | Valor do desconto corporativo aplicado.         |\n| tax                         | number    | Valor de imposto.                               |\n| voucher                     | string    | C\u00f3digo de voucher aplicado.                     |\n| accountingCode              | string    | C\u00f3digo cont\u00e1bil do item.                        |\n| municipalServiceCode        | string    | C\u00f3digo de servi\u00e7o municipal.                    |\n| flReceiptOnly               | boolean   | Indica se o item \u00e9 apenas de recibo.            |\n| idSaleItemMigration         | string    | Identificador do item em processo de migra\u00e7\u00e3o.  |\n| flSwimming                  | boolean   | Indica se o item d\u00e1 acesso \u00e0 piscina.           |\n| flAllowLocker               | boolean   | Indica se o item d\u00e1 direito a arm\u00e1rio.          |\n| idMemberMembership          | int32     | ID do v\u00ednculo de matr\u00edcula do aluno.            |\n| valueNextMonth              | number    | Valor que ser\u00e1 cobrado no pr\u00f3ximo m\u00eas.          |\n\n#### \ud83e\udde9 Estrutura do objeto `member`\n| Campo                     | Tipo          | Descri\u00e7\u00e3o                                                             |\n| ------------------------- | ------------- | --------------------------------------------------------------------- |\n| `idMember`                | int32         | Identificador \u00fanico do membro.                                        |\n| `firstName`               | string        | Primeiro nome do membro.                                              |\n| `lastName`                | string        | Sobrenome do membro.                                                  |\n| `registerName`            | string        | Nome registrado do membro no cadastro.                                |\n| `registerLastName`        | string        | Sobrenome registrado do membro no cadastro.                           |\n| `usePreferredName`        | boolean       | Indica se o sistema deve utilizar o nome preferencial do membro.      |\n| `document`                | string        | Documento de identifica\u00e7\u00e3o do membro.                                 |\n| `country`                 | string        | Pa\u00eds informado no cadastro do membro.                                 |\n| `address`                 | string        | Endere\u00e7o do membro.                                                   |\n| `state`                   | string        | Estado do endere\u00e7o do membro.                                         |\n| `city`                    | string        | Cidade do endere\u00e7o do membro.                                         |\n| `passport`                | string | null | N\u00famero do passaporte do membro, quando aplic\u00e1vel.                     |\n| `zipCode`                 | string        | CEP do endere\u00e7o do membro.                                            |\n| `complement`              | string | null | Complemento do endere\u00e7o.                                              |\n| `neighborhood`            | string        | Bairro do endere\u00e7o do membro.                                         |\n| `number`                  | string        | N\u00famero do endere\u00e7o.                                                   |\n| `idMemberMigration`       | string | null | Identificador do membro em um processo de migra\u00e7\u00e3o de base de dados.  |\n| `registrationKind`        | string        | Tipo de registro do membro (ex.: `renewal` para recorr\u00eancia e null para nova venda).                          |\n| `idFirstMemberMembership` | int32         | Identificador da primeira matr\u00edcula (`membership`) do membro.         |\n| `contacts`                | array         | Lista de contatos cadastrados para o membro. Ver estrutura abaixo.    |\n| `responsibles`            | array         | Lista de respons\u00e1veis vinculados ao membro. Ver estrutura abaixo.     |\n| `diasRenovacao`           | int32         | Quantidade de dias considerados para renova\u00e7\u00e3o do contrato do membro. |\n\n#### \ud83e\udde9 Estrutura do Objeto `receivables`\n| Campo                   | Tipo      | Descri\u00e7\u00e3o                                        |\n| ----------------------- | --------- | ------------------------------------------------ |\n| idReceivable            | int32     | ID do t\u00edtulo gerado.                             |\n| description             | string    | Descri\u00e7\u00e3o do receb\u00edvel.                          |\n| registrationDate        | date-time | Data de registro do receb\u00edvel.                   |\n| dueDate                 | date-time | Data de vencimento.                              |\n| receivingDate           | date-time | Data de recebimento.                             |\n| competenceDate          | date-time | Data de compet\u00eancia.                             |\n| cancellationDate        | date-time | Data de cancelamento (se aplic\u00e1vel).             |\n| ammount                 | number    | Valor do t\u00edtulo.                                 |\n| ammountPaid             | number    | Valor pago.                                      |\n| responsibles | arrayobject | Respons\u00e1veis associados ao recebimento. |\n| status                  | object    | Status do receb\u00edvel (cont\u00e9m `id` e `name`).      |\n| currentInstallment      | int32     | N\u00famero da parcela atual.                         |\n| totalInstallments       | int32     | Total de parcelas.                               |\n| authorization           | string    | C\u00f3digo de autoriza\u00e7\u00e3o da transa\u00e7\u00e3o.              |\n| payerName               | string    | Nome do pagador.                                 |\n| idMemberPayer           | int32     | ID do aluno pagador.                             |\n| idProspectPayer         | int32     | ID do prospect pagador.                          |\n| idBranchMember          | int32     | ID da filial do aluno.                           |\n| idSale                  | int32     | ID da venda associada.                           |\n| bankAccount             | object    | Conta banc\u00e1ria utilizada (`id`, `name`).         |\n| paymentType             | object    | Tipo de pagamento utilizado (`id`, `name`).      |\n| invoiceDetails          | array     | Lista de notas fiscais associadas.               |\n| fees                    | number    | Valor de taxas aplicadas.                        |\n| conciliated             | boolean   | Indica se o receb\u00edvel foi conciliado.            |\n| logTef                  | object    | Dados de TEF (transa\u00e7\u00f5es eletr\u00f4nicas de fundos). |\n| tid                     | string    | Identificador da transa\u00e7\u00e3o.                      |\n| nsu                     | string    | N\u00famero sequencial \u00fanico.                         |\n| updateDate              | date-time | Data da \u00faltima atualiza\u00e7\u00e3o.                      |\n| chargeDate              | date-time | Data da cobran\u00e7a.                                |\n| idReceivableFrom        | int32     | ID do t\u00edtulo de origem.                          |\n| transactionToken        | string    | Token da transa\u00e7\u00e3o.                              |\n| idRevenueCenter         | int32     | ID do centro de receita.                         |\n| cardAcquirer            | string    | Nome da adquirente do cart\u00e3o.                    |\n| cardFlag                | string    | Bandeira do cart\u00e3o.                              |\n| creditDetails           | array     | Detalhes de cr\u00e9ditos associados.                 |\n| cancellationDescription | string    | Motivo do cancelamento.                          |\n| source                  | string    | Origem do receb\u00edvel.                             |\n| saleDate                | date-time | Data da venda associada ao receb\u00edvel.            |\n\n##### \ud83e\udde9 Estrutura do Objeto `receivables.responsibles`\n| Campo                | Tipo    | Descri\u00e7\u00e3o                                                          |\n| -------------------- | ------- | ------------------------------------------------------------------ |\n| idResponsible        | int32   | ID do respons\u00e1vel financeiro.                                      |\n| idMember             | int32   | ID do membro ao qual o respons\u00e1vel est\u00e1 vinculado.                 |\n| name                 | string  | Nome do respons\u00e1vel.                                               |\n| cpf                  | string  | CPF do respons\u00e1vel.                                                |\n| email                | string  | E-mail do respons\u00e1vel.                                             |\n| phone                | string  | Telefone do respons\u00e1vel.                                           |\n| observation          | string  | Observa\u00e7\u00f5es adicionais sobre o respons\u00e1vel.                        |\n| idMemberResponsible  | int32   | ID do membro que atua como respons\u00e1vel.         |\n| acessFiti            | boolean | Indica se o respons\u00e1vel possui acesso ao Fiti.                     |\n| financialResponsible | boolean | Indica se \u00e9 o respons\u00e1vel financeiro.                              |\n| personType           | string  | Tipo de pessoa do respons\u00e1vel (ex.: F\u00edsica ou Jur\u00eddica).           |\n| document             | string  | Documento do respons\u00e1vel (CPF ou CNPJ, conforme o tipo de pessoa). |\n\n##### \ud83e\udde9 Estrutura do Objeto `receivables.invoiceDetails`\n| Campo         | Tipo      | Descri\u00e7\u00e3o                            |\n| ------------- | --------- | ------------------------------------ |\n| invoiceNumber | string    | N\u00famero da nota fiscal.               |\n| issuedAmount  | number    | Valor emitido na nota.               |\n| status        | string    | Status da nota fiscal.               |\n| sendDate      | date-time | Data de envio da nota.               |\n| canceledDate  | date-time | Data de cancelamento (se aplic\u00e1vel). |\n| urlPdf        | string    | Link para o PDF da nota fiscal.      |\n| idInvoiceType | int32     | ID do tipo de nota fiscal.           |\n| invoiceType   | string    | Tipo de nota fiscal.                 |\n\n##### \ud83e\udde9 Estrutura do Objeto `receivables.logTef`\n| Campo                | Tipo   | Descri\u00e7\u00e3o                    |\n| -------------------- | ------ | ---------------------------- |\n| authorization        | string | C\u00f3digo de autoriza\u00e7\u00e3o TEF.   |\n| tefId                | string | ID TEF.                      |\n| merchantCheckoutGuid | string | GUID do checkout do lojista. |\n\n##### \ud83e\udde9 Estrutura do Objeto `receivables.creditDetails`\n| Campo               | Tipo   | Descri\u00e7\u00e3o                      |\n| ------------------- | ------ | ------------------------------ |\n| idCredit            | int32  | ID do cr\u00e9dito.                 |\n| idCancelationCredit | int32  | ID do cr\u00e9dito de cancelamento. |\n| idBranchOrigin      | int32  | ID da filial de origem.        |\n| ammount             | number | Valor do cr\u00e9dito.              |\n| branchDocument      | string | Documento da filial.           |\n| idSaleOrigin        | int32  | ID da venda de origem.         |\n| idReceivableOrigin  | int32  | ID do t\u00edtulo de origem.        |\n\n#### \ud83e\udde9 Estrutura do Objeto `responsibles`\n| Campo                | Tipo    | Descri\u00e7\u00e3o                                                          |\n| -------------------- | ------- | ------------------------------------------------------------------ |\n| idResponsible        | int32   | ID do respons\u00e1vel financeiro.                                      |\n| idMember             | int32   | ID do membro ao qual o respons\u00e1vel est\u00e1 vinculado.                 |\n| name                 | string  | Nome do respons\u00e1vel.                                               |\n| cpf                  | string  | CPF do respons\u00e1vel.                                                |\n| email                | string  | E-mail do respons\u00e1vel.                                             |\n| phone                | string  | Telefone do respons\u00e1vel.                                           |\n| observation          | string  | Observa\u00e7\u00f5es adicionais sobre o respons\u00e1vel.                        |\n| idMemberResponsible  | int32   | ID do membro que atua como respons\u00e1vel.         |\n| acessFiti            | boolean | Indica se o respons\u00e1vel possui acesso ao Fiti.                     |\n| financialResponsible | boolean | Indica se \u00e9 o respons\u00e1vel financeiro.                              |\n| personType           | string  | Tipo de pessoa do respons\u00e1vel (ex.: F\u00edsica ou Jur\u00eddica).           |\n| document             | string  | Documento do respons\u00e1vel (CPF ou CNPJ, conforme o tipo de pessoa). |",
+    "tags": [
+      "Sales"
+    ],
+    "parameters": [
+      {
+        "name": "idBranch",
+        "in": "query",
+        "description": "Filter by a branch Id.",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      {
+        "name": "idMember",
+        "in": "query",
+        "description": "Filter by a member Id.",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      {
+        "name": "dateSaleStart",
+        "in": "query",
+        "description": "Filter by registration of the sales starting in a date (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "dateSaleEnd",
+        "in": "query",
+        "description": "Filter by registration of the sales ending  in a date (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "removalDateStart",
+        "in": "query",
+        "description": "Filter by removal of the sales starting in a date (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "removalDateEnd",
+        "in": "query",
+        "description": "Filter by removal of the sales ending  in a date  (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "receivablesRegistrationDateStart",
+        "in": "query",
+        "description": "Filter sales that had recievables starting in a date (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "receivablesRegistrationDateEnd",
+        "in": "query",
+        "description": "Filter sales that had recievables ending in a date (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "updatedReceivableStartDate",
+        "in": "query",
+        "description": "Filter sales that had receivables changes starting in a date (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "updatedReceivableEndDate",
+        "in": "query",
+        "description": "Filter sales that had receivables changes ending in a date (yyyy-mm-dd)",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      {
+        "name": "showReceivables",
+        "in": "query",
+        "description": "Flag to show sale receivables and sale value without credit value",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      {
+        "name": "take",
+        "in": "query",
+        "description": "Total number of records to return. (Maximum of 100, default of 25)",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "default": 25
+        }
+      },
+      {
+        "name": "skip",
+        "in": "query",
+        "description": "Total number of records to skip.",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      },
+      {
+        "name": "onlyMembership",
+        "in": "query",
+        "description": "Return only sales with membership.",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      {
+        "name": "atLeastMonthly",
+        "in": "query",
+        "description": "remove membership less than 30 days (as old removeMonthly)",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      {
+        "name": "flSwimming",
+        "in": "query",
+        "description": "Filters memberships by the swimming flag",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      {
+        "name": "showOnlyActiveMemberships",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      {
+        "name": "showAllowLocker",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      {
+        "name": "onlyTotalPass",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      {
+        "name": "updateDate",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SalesViewModel"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/SalesViewModel"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SalesViewModel"
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  },
+  "post": {
+    "summary": "/api/v2/sales",
+    "deprecated": false,
+    "description": "# Criar uma nova venda\n\n### Descri\u00e7\u00e3o\nEste endpoint permite registrar a venda de servi\u00e7os, contratos ou aulas experimentais para prospects e membros. Ao realizar a solicita\u00e7\u00e3o, o sistema processa a transa\u00e7\u00e3o, associando o prospect a um cliente (caso ainda n\u00e3o seja membro) e registrando o pagamento, que pode ser feito \u00e0 vista ou parcelado. O fluxo tamb\u00e9m contempla a aplica\u00e7\u00e3o de descontos, a sele\u00e7\u00e3o da filial respons\u00e1vel e o gerenciamento completo das informa\u00e7\u00f5es de pagamento.\n\n> \ud83d\udec2 A permiss\u00e3o no EVO que libera o acesso a este endpoint \u00e9 o `Vendas - Edi\u00e7\u00e3o`.\n\n> **OBS.** Dispon\u00edvel para uso com chave de acesso de filial e tamb\u00e9m com chave de acesso de ADM Geral.\n\n### Instru\u00e7\u00f5es complementares\n\n* [Como realizar uma venda online via API](https://api.abcevo.com/realizar-venda-online-via-api-1798093m0)\n\n> \ud83d\udea7 **Aten\u00e7\u00e3o!**\n> * O `totalInstallments` do objeto `cardData` \u00e9 valido apenas para o pagamento do tipo 1 (Cart\u00e3o de cr\u00e9dito).\n> * Inclua no Header da requisi\u00e7\u00e3o o campo `culture` com o valor `pt-BR`. Esse par\u00e2metro informa \u00e0 API que as respostas devem ser retornadas em portugu\u00eas do Brasil, garantindo que textos como mensagens, descri\u00e7\u00f5es e status venham em pt-BR.\n\n**Exemplo**\n```curl\ncurl --location --request POST 'https://evo-integracao-api.w12app.com.br/api/v2/sales' \\\n--header 'Content-Type: application/json-patch+json' \\\n--header 'Authorization: Basic Og==' \\\n--header 'culture: pt-BR' \\ \ud83d\udc48\ud83d\udc48\ud83d\udc48\n--data-raw '{\n    \"idBranch\": 0,\n    \"idBranchToken\": \"string\",\n    \"idMembership\": 0,\n    ...\n}'\n```\n\n### \ud83d\udce8 Par\u00e2metros do Corpo da Requisi\u00e7\u00e3o (Body Params)\n| Par\u00e2metro   | Tipo   | Obrigat\u00f3rio | Descri\u00e7\u00e3o    |\n| ----- | ------ | ----------- | ------ |\n| `idBranch`          | int32  | N\u00e3o         | Identificador da filial onde a venda foi realizada. Se o sistema for multifilial, preencha com o ID da unidade espec\u00edfica. Caso contr\u00e1rio, ser\u00e1 o valor gerado pelo token. |\n| `idBranchToken`     | string | N\u00e3o         | Token da filial, utilizado para identificar a unidade quando o sistema \u00e9 multifilial.    |\n| `idMembership`      | int32  | N\u00e3o         | Identificador do contrato de ades\u00e3o adquirido (se aplic\u00e1vel).  |\n| `membershipValue`      | double | N\u00e3o         | Valor final do contrato.  |\n| `idService`    | int32  | N\u00e3o         | Identificador do servi\u00e7o ou aula experimental adquirida.   |\n| `serviceValue`| double | N\u00e3o         | Valor final do servi\u00e7o.     |\n| `idProduct` | int32 | N\u00e3o         | ID do produto relacionado \u00e0 venda.    |\n| `productValue` | double | N\u00e3o         | Valor do produto relacionado \u00e0 venda.  |\n| `productAmount` | int32 | N\u00e3o         | Quantidade do produto relacionado \u00e0 venda.  |\n| `memberData`        | object | Sim         | Dados do membro (se o cliente j\u00e1 for um membro). Cont\u00e9m o campo `idMember`.     |\n| `cardData`          | object | N\u00e3o         | Dados do cart\u00e3o de cr\u00e9dito, se a transa\u00e7\u00e3o for realizada via cart\u00e3o. |\n| `idProspect`        | int32  | N\u00e3o         | Identificador do prospecto que est\u00e1 adquirindo o servi\u00e7o.  |\n| `idProspectToken`   | string | N\u00e3o         | Token do prospecto, utilizado para validar a transa\u00e7\u00e3o e garantir que o prospecto seja convertido em membro ap\u00f3s a compra. |\n| `idMemberToken`     | string | N\u00e3o  | Token do membro (se for um cliente registrado).   |\n| `voucher` | string | N\u00e3o         | C\u00f3digo do voucher de desconto, caso o cliente utilize um para obter um desconto. |\n| `idVoucherToken`      | int32  | N\u00e3o   | Token do voucher de desconto (se aplic\u00e1vel). |\n| `idCardMember`      | int32  | N\u00e3o         | Identificador do cart\u00e3o de membro (se aplic\u00e1vel).  |\n| `idMemberCardToken` | string | N\u00e3o         | Token do cart\u00e3o de membro (se aplic\u00e1vel).  |\n| `membershipStart` | string | N\u00e3o         | Data de in\u00edcio do contrato / da associa\u00e7\u00e3o.  |\n| `totalInstallments` | int32  | Sim         | N\u00famero de parcelas para pagamento parcelado. Para pagamento \u00e0 vista, ser\u00e1 0 ou 1.  |\n| `payment`           | int32  | Sim         | Tipo de pagamento: 5 para parcelamento (com valor zerado para aulas experimentais) e 6 para pagamento \u00e0 vista. |\n| `sessionId`         | string | N\u00e3o         | Identificador da sess\u00e3o, utilizado para rastrear a transa\u00e7\u00e3o durante o processo de venda. |\n\n#### \ud83e\udde9 Estrutura do Objeto `memberData`\n| **Par\u00e2metro**  | **Tipo** | **Obrigat\u00f3rio** | **Descri\u00e7\u00e3o**                                                 |\n| -------------- | -------- | --------------- | ------------------------------------------------------------- |\n| `idMember`     | int32    | Sim             | Identificador \u00fanico do membro.                                |\n| `document`     | string   | N\u00e3o             | Documento de identifica\u00e7\u00e3o do membro, como CPF ou CNPJ.       |\n| `zipCode`      | string   | N\u00e3o             | C\u00f3digo postal (CEP) do endere\u00e7o do membro.                    |\n| `address`      | string   | N\u00e3o             | Endere\u00e7o do membro.                                           |\n| `number`       | string   | N\u00e3o             | N\u00famero do endere\u00e7o do membro.                                 |\n| `complement`   | string   | N\u00e3o             | Complemento do endere\u00e7o do membro, como apartamento ou bloco. |\n| `neighborhood` | string   | N\u00e3o             | Bairro do membro.                                             |\n| `city`         | string   | N\u00e3o             | Cidade do membro.                                             |\n| `idState`      | int32    | N\u00e3o             | Identificador do estado onde o membro reside.                 |\n\n#### \ud83e\udde9 Estrutura do Objeto `cardData`\n| **Par\u00e2metro**         | **Tipo** | **Obrigat\u00f3rio** | **Descri\u00e7\u00e3o**                                                                                     |\n| --------------------- | -------- | --------------- | ------------------------------------------------------------------------------------------------- |\n| `token`               | string   | N\u00e3o             | Identificador \u00fanico para o cart\u00e3o.                                                                |\n| `temporaryToken`      | string   | N\u00e3o             | Token tempor\u00e1rio associado ao cart\u00e3o, se aplic\u00e1vel.                                               |\n| `branchToken`         | string   | N\u00e3o             | Token da filial para identificar uma unidade quando o sistema \u00e9 multifilial.                      |\n| `totalInstallments`   | int32    | N\u00e3o             | N\u00famero total de parcelas no pagamento, aplic\u00e1vel em transa\u00e7\u00f5es parceladas.                        |\n| `truncatedCardNumber` | string   | N\u00e3o             | N\u00famero do cart\u00e3o truncado, mostrando apenas os ultimos 4 n\u00fameros reais para seguran\u00e7a. (****1234) |\n| `brand`               | string   | N\u00e3o             | Marca do cart\u00e3o (exemplo: Visa, MasterCard, etc.).                                                |\n| `cardHolderName`      | string   | N\u00e3o             | Nome do titular do cart\u00e3o.                                                                        |\n| `cardExpirationYear`  | int32    | N\u00e3o             | Ano de expira\u00e7\u00e3o do cart\u00e3o.                                                                       |\n| `cardExpirationMonth` | int32    | N\u00e3o             | M\u00eas de expira\u00e7\u00e3o do cart\u00e3o.                                                                       |\n\n#### \ud83d\udd37 Enum de `payment`\n| C\u00f3digo | Tipo de Pagamento | Descri\u00e7\u00e3o                                                                                                                                                                |\n| ------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |\n| null   | LinkCheckout      | Caso o valor de `payment` seja nulo, \u00e9 tratado como LinkCheckout.                                                                                                        |\n| 1      | Credit Card       | Pagamento realizado com cart\u00e3o de cr\u00e9dito. (\u00c9 preciso gerar o token do cart\u00e3o usando [Evo Pay](https://api.abcevo.com/integra%C3%A7%C3%A3o-evo-pay-1798218m0)) |\n| 2      | Boleto            | Pagamento realizado via boleto banc\u00e1rio.                                                                                                                                 |\n| 3      | Sale Credits      | Pagamento realizado com cr\u00e9ditos de vendas.                                                                                                                              |\n| 4      | Transfer          | Pagamento realizado por transfer\u00eancia banc\u00e1ria.                                                                                                                          |\n| 5      | ValorZerado       | Utilizado para transa\u00e7\u00f5es com valor zerado, como aulas experimentais.                                                                                                    |\n| 6      | LinkCheckout      | Pagamento realizado via link de checkout (gerado externamente).                                                                                                          |\n| 7      | Pix               | Pagamento realizado via Pix.                                                                                                                                             |\n| 13     | Transfer\u00eancia     | Pagamento realizado via transfer\u00eancia bancaria                                                                                                                           |",
+    "tags": [
+      "Sales"
+    ],
+    "parameters": [
+      {
+        "name": "showContractHTML",
+        "in": "query",
+        "description": "Display the contract HTML in the response",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    ],
+    "requestBody": {
+      "content": {
+        "application/json-patch+json": {
+          "schema": {
+            "$ref": "#/components/schemas/NewSaleViewModel"
+          },
+          "examples": {}
+        },
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/NewSaleViewModel"
+          }
+        },
+        "text/json": {
+          "schema": {
+            "$ref": "#/components/schemas/NewSaleViewModel"
+          }
+        },
+        "application/*+json": {
+          "schema": {
+            "$ref": "#/components/schemas/NewSaleViewModel"
+          }
+        }
+      }
+    },
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NewSaleViewModel"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/NewSaleViewModel"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NewSaleViewModel"
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  }
+}

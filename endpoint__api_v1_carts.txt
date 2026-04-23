@@ -1,0 +1,164 @@
+{
+  "get": {
+    "summary": "Get cart by idMember or idProspect",
+    "deprecated": false,
+    "description": "# Obter Carrinho\n\n### Descri\u00e7\u00e3o\nRecupera o carrinho de compras associado a um aluno `idMember` ou prospect `idProspect`. Esse carrinho pode conter itens como planos de matr\u00edcula `idMembership` e servi\u00e7os `idService`, previamente adicionados..\nEste endpoint \u00e9 usado para exibir o estado atual do carrinho de um usu\u00e1rio **antes** da finaliza\u00e7\u00e3o da compra.\n\n> **OBS.** Dispon\u00edvel para uso com chave de acesso de filial e tamb\u00e9m com chave de acesso de ADM Geral.\n\n### \ud83d\udd11 Par\u00e2metros de Consulta (Query Params)\nEsse endpoint requer que um dos dois campos `idMember` ou `idProspect` seja informado. Se ambos forem omitidos, o carrinho n\u00e3o ser\u00e1 localizado.\n| Par\u00e2metro  | Tipo  | Obrigatoriedade | Descri\u00e7\u00e3o                                                                                                            |\n| ---------- | ----- | --------------- | -------------------------------------------------------------------------------------------------------------------- |\n| idMember   | int32 | Situacional     | ID do aluno. Utilize este campo quando o carrinho estiver vinculado a um aluno j\u00e1 cadastrado.                        |\n| idProspect | int32 | Situacional     | ID do prospect. Use este campo se o carrinho for de um visitante ou potencial cliente ainda n\u00e3o convertido em aluno. |\n\n### \ud83d\udce4 Estrutura da Resposta\nA resposta ser\u00e1 um objeto representando o carrinho atual do aluno ou prospect.\n| Campo         | Tipo   | Descri\u00e7\u00e3o                                                                |\n| ------------- | ------ | ------------------------------------------------------------------------ |\n| idBranchToken | string | Token identificador da filial onde o carrinho foi criado.                |\n| idBranch      | int32  | ID da filial onde o carrinho foi criado.                                 |\n| idMember      | int32  | ID do aluno vinculado ao carrinho (se aplic\u00e1vel).                        |\n| idProspect    | int32  | ID do prospect vinculado ao carrinho (se aplic\u00e1vel).                     |\n| voucher       | string | C\u00f3digo de voucher aplicado ao carrinho (se houver).                      |\n| cartCheckoutLink | string | URL direta para o processo de finaliza\u00e7\u00e3o do carrinho (checkout). |\n| items         | array  | Lista de itens no carrinho. Cada item pode ser uma matr\u00edcula ou servi\u00e7o. |\n\n### \ud83e\udde9 Estrutura do Objeto `items`\n| Campo        | Tipo  | Descri\u00e7\u00e3o                                |\n| ------------ | ----- | ---------------------------------------- |\n| idMembership | int32 | ID da matr\u00edcula selecionada para compra. |\n| idService    | int32 | ID do servi\u00e7o selecionado para compra.   |",
+    "tags": [
+      "Carts"
+    ],
+    "parameters": [
+      {
+        "name": "idMember",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      {
+        "name": "idProspect",
+        "in": "query",
+        "description": "",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CartIdViewModel"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/CartIdViewModel"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CartIdViewModel"
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  },
+  "post": {
+    "summary": "Add new cart",
+    "deprecated": false,
+    "description": "# Criar Carrinho (Sales Intent)\n\n### Descri\u00e7\u00e3o\nEsse endpoint \u00e9 utilizado para criar um novo carrinho de compras. \u00c9 voltado para situa\u00e7\u00f5es em que um aluno ou prospect seleciona produtos (como matr\u00edculas ou servi\u00e7os) para posterior finaliza\u00e7\u00e3o da compra.\n\n> **OBS.** Dispon\u00edvel para uso com chave de acesso de filial e tamb\u00e9m com chave de acesso de ADM Geral.\n\n### \ud83d\udce8 Corpo da Requisi\u00e7\u00e3o (Request Body)\n| Campo         | Tipo   | Obrigatoriedade | Descri\u00e7\u00e3o       |\n| ------------- | ------ | ---------------  | --------------------------------------------- |\n| idBranch      | int32  | Situacional     |  ID da filial onde o carrinho ser\u00e1 criado.                                                                                |\n| idBranchToken | string | Situacional     |  Token identificador da filial onde o carrinho ser\u00e1 criado.                                                               |\n| idMember      | int32  | Situacional     |  ID do aluno vinculado ao carrinho. Necess\u00e1rio caso o usu\u00e1rio j\u00e1 seja matriculado.                                        |\n| idProspect    | int32  | Situacional     |  ID do prospect vinculado ao carrinho. Utilizado para visitantes ou leads.                                                |\n| voucher       | string | N\u00e3o             |  C\u00f3digo de desconto que ser\u00e1 aplicado ao valor final do carrinho.                                                         |\n| cartCheckoutLink | string | N\u00e3o |  URL direta para o processo de finaliza\u00e7\u00e3o do carrinho (checkout). |\n| items         | array  | Sim             |  Lista de itens a serem inclu\u00eddos no carrinho. Cada item pode ser uma matr\u00edcula `idMembership` ou um servi\u00e7o `idService`. |\n\n#### \ud83e\udde9 Estrutura do Objeto `items`\nAo menos um dos campos `idMember` ou `idProspect` deve ser informado. Al\u00e9m disso, cada item deve conter ou um `idMembership` ou um `idService`.\n| Campo        | Tipo  | Obrigat\u00f3rio | Descri\u00e7\u00e3o                       |\n| ------------ | ----- | :---------- | ------------------------------- |\n| idMembership | int32 | Situacional | ID da matr\u00edcula a ser inclu\u00edda. |\n| idService    | int32 | Situacional | ID do servi\u00e7o a ser inclu\u00eddo.   |\n\n### \ud83d\udcdd Exemplo de Requisi\u00e7\u00e3o (Request Body)\n```json\n{\n  \"idBranch\": \"123\",\n  \"idMember\": 1010,\n  \"idProspect\": 0,\n  \"voucher\": \"PROMOACADEMIA\",\n  \"items\": [\n    {\n      \"idMembership\": 2001,\n      \"idService\": 0\n    }\n  ]\n}\n```\n\n### \ud83d\udce4 Estrutura da Resposta\nAo criar o carrinho, a API retorna o token identificador do carrinho e o link para a finaliza\u00e7\u00e3o da compra.\n| Campo            | Tipo   | Descri\u00e7\u00e3o                                                                       |\n| ---------------- | ------ | ------------------------------------------------------------------------------- |\n| idCartToken      | string | Token \u00fanico do carrinho criado. Pode ser usado posteriormente para recupera\u00e7\u00e3o. |\n| cartCheckoutLink | string | URL direta para o processo de finaliza\u00e7\u00e3o do carrinho (checkout).               |",
+    "tags": [
+      "Carts"
+    ],
+    "parameters": [],
+    "requestBody": {
+      "content": {
+        "application/json-patch+json": {
+          "schema": {
+            "$ref": "#/components/schemas/CartViewModel"
+          },
+          "examples": {}
+        },
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/CartViewModel"
+          }
+        },
+        "text/json": {
+          "schema": {
+            "$ref": "#/components/schemas/CartViewModel"
+          }
+        },
+        "application/*+json": {
+          "schema": {
+            "$ref": "#/components/schemas/CartViewModel"
+          }
+        }
+      }
+    },
+    "responses": {
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CartIdViewModel"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/CartIdViewModel"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CartIdViewModel"
+            }
+          }
+        },
+        "headers": {}
+      },
+      "400": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          },
+          "text/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HttpResponseError"
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "security": [
+      {
+        "Basic": []
+      }
+    ]
+  }
+}

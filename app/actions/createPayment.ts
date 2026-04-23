@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db/index";
 import { mp } from "@/lib/mercadopago";
 import { Preference } from "mercadopago";
-import { getMembershipAction } from "./evoMember";
+import { getMembershipAction } from "./evoActions";
 
 interface CreatePreferenceParams {
   planId: string;

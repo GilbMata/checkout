@@ -1,6 +1,6 @@
-import CheckoutClient from "@/components/checkout/CheckoutClient";
 import { getSession } from "@/lib/auth/session";
-import { getBranchAction, getMembershipAction } from "../actions/evoMember";
+import { getBranchAction, getMembershipAction } from "../actions/evoActions";
+import CheckoutClient from "./_componentes/CheckoutClient";
 
 interface SearchParams {
   planId?: string;
