@@ -161,6 +161,7 @@ export const orderPaymentSchema = z.object({
   // Referencia externa Número de sucursal.
   external_reference: z.string().optional(),
   card_last_four: z.string().optional(),
+  
 });
 
 export type orderPaymentInput = z.infer<typeof orderPaymentSchema>;

@@ -1,5 +1,6 @@
 "use client";
 
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardPayment } from "@mercadopago/sdk-react";
 import { useCallback, useState } from "react";
 
@@ -46,9 +47,13 @@ interface PaymentResponse {
   success?: boolean;
   pending?: boolean;
   rejected?: boolean;
+  challenge_required?: boolean;
+  challenge_url?: string;
   error?: string;
   status_detail?: string;
+  status?: string;
   payment_id?: string;
+  order_id?: string;
   preapproval_id?: string;
   [key: string]: unknown;
 }
@@ -112,8 +117,8 @@ export default function CardPaymentBrick({
   const [internalError, setInternalError] = useState<string | null>(null);
   console.log("🚀 ~ CardPaymentBrick ~ planData:", planData);
   const title = planData.recurrent
-    ? "Pago recurrente de tu Membresía. Tarjetas de crédito y débito "
-    : "Pago anual de tu Membresía. Tarjetas de crédito y débito";
+    ? "Pago mensual recurrente con tarjeta de crédito o débito"
+    : "Pago único con tarjeta de crédito o débito";
 
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
@@ -157,7 +162,7 @@ export default function CardPaymentBrick({
 
         // Dev-only logging
         if (process.env.NODE_ENV === "development") {
-          console.debug("[CardPayment] Submitting:", {
+          console.log("[CardPayment] Submitting:", {
             hasToken: !!token,
             amount: transaction_amount,
             paymentMethod: payment_method_id,
@@ -165,7 +170,7 @@ export default function CardPaymentBrick({
           });
         }
 
-        // Build payload based on payment type
+        // payload según el tipo de pago
         const apiPayload = {
           displayName: planData.displayName,
           payment_type: paymentTypeId,
@@ -184,11 +189,11 @@ export default function CardPaymentBrick({
           payer_first_name: firstName,
           payer_last_name: lastName,
           plan_id: planData.id,
+          identification_type: "CURP",
+          identification_number: curp,
           ...(planData.recurrent
             ? {
                 recurrence_interval: "monthly",
-                identification_type: "CURP",
-                identification_number: curp,
               }
             : {}),
         };
@@ -207,7 +212,7 @@ export default function CardPaymentBrick({
           body: JSON.stringify(apiPayload),
         });
 
-        // Validate HTTP response
+        //Validar response
         if (!response.ok) {
           throw new Error(
             `Error del servidor (${response.status}). Por favor, intenta más tarde.`,
@@ -216,9 +221,15 @@ export default function CardPaymentBrick({
 
         const result = (await response.json()) as PaymentResponse;
 
-        // Process response
+        // ========================================================================
+        // Procesar respuesta - incluyendo 3DS Challenge
+        // ========================================================================
         if (result.success) {
           onSuccess(result);
+        } else if (result.challenge_required) {
+          // 3DS Challenge requerido - pasar datos al callback onPending
+          // que maneja el StepPayment (muestra iframe del challenge)
+          onPending?.(result);
         } else if (result.pending) {
           onPending?.(result);
         } else if (result.rejected) {
@@ -240,7 +251,7 @@ export default function CardPaymentBrick({
           );
         }
       } finally {
-        // Notify parent that processing ended
+        // Notificar que el procesamiento finalizó
         onProcessingChange?.(false);
       }
     },
@@ -269,58 +280,87 @@ export default function CardPaymentBrick({
 
   // Main render
   return (
-    <div className="w-full max-w-md">
-      <CardPayment
-        initialization={{
-          amount: planData.amount,
-          payer: {
-            email: email || "",
-            identification: {
-              type: "CURP",
-              number: curp,
-            },
-          },
-        }}
-        customization={{
-          paymentMethods: {
-            minInstallments: 1,
-            maxInstallments: 6,
-          },
-          visual: {
-            texts: {
-              formTitle: title,
-            },
-            hidePaymentMethodIcon: false,
-            style: {
-              theme: "dark",
-              customVariables: {
-                formBackgroundColor: "rgb(30, 30, 30)",
-                baseColor: "rgb(236, 97, 0)",
-                buttonTextColor: "white",
-                borderRadiusMedium: "10px",
-                borderRadiusLarge: "10px",
-                borderRadiusSmall: "10px",
+    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
+      {/* Header mejorado */}
+      <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
+        <CardTitle className="text-xl font-semibold tracking-tight">
+          {planData.recurrent ? (
+            <>
+              <span className="text-orange-500">Membresía recurrente</span>
+              <span className="block text-sm font-normal text-gray-400 mt-1">
+                Pago mensual con tarjeta de crédito o débito
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-orange-500">Membresía anual</span>
+              <span className="block text-sm font-normal text-gray-400 mt-1">
+                Pago único con tarjeta de crédito o débito
+              </span>
+            </>
+          )}
+        </CardTitle>
+      </CardHeader>
+      {/* Contenido del formulario */}
+      <div className="px-3 pb- pt-">
+        <CardPayment
+          initialization={{
+            amount: planData.amount,
+            payer: {
+              email: email || "",
+              identification: {
+                type: "CURP",
+                number: curp,
               },
             },
-          },
-        }}
-        locale="es-MX"
-        onSubmit={handleSubmit}
-        onReady={() => {
-          console.debug("[CardPayment] Brick ready");
-        }}
-        onError={(error: unknown) => {
-          console.error("[CardPayment] Brick error:", error);
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Error en el formulario de pago";
-          setInternalError(message);
-          onError(message);
-          // Notify parent that processing ended on error too
-          onProcessingChange?.(false);
-        }}
-      />
-    </div>
+          }}
+          customization={{
+            // paymentMethods: {
+            //   minInstallments: 1,
+            //   maxInstallments: 6,
+            // },
+            visual: {
+              // hideFormTitle: true,
+              texts: {
+                formTitle: planData.recurrent
+                  ? "Datos para tu suscripción mensual"
+                  : "Datos para tu pago anual",
+              },
+              hidePaymentMethodIcon: false,
+              style: {
+                theme: "dark",
+                customVariables: {
+                  formBackgroundColor: "transparent",
+                  baseColor: "#ec6100",
+                  buttonTextColor: "#ffffff",
+                  borderRadiusMedium: "12px",
+                  borderRadiusLarge: "16px",
+                  borderRadiusSmall: "8px",
+                  fontSizeBase: "14px",
+                  primaryColor: "#ec6100",
+                  outlineClear: "true",
+                },
+              },
+            },
+          }}
+          locale="es-MX"
+          onSubmit={handleSubmit}
+          onReady={() => {
+            console.debug("[CardPayment] Brick ready");
+          }}
+          onError={(error: unknown) => {
+            console.error("[CardPayment] Brick error:", error);
+            const message =
+              error instanceof Error
+                ? error.message
+                : "Error en el formulario de pago";
+            setInternalError(message);
+            onError(message);
+            // Notificar que el procesamiento también finalizó por error
+            onProcessingChange?.(false);
+          }}
+        />
+      </div>
+    </Card>
   );
 }

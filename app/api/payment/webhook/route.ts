@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db/prisma";
+import prisma from "@/lib/db/prisma";
 
 // Estado del pago en MercadoPago
 type MPPaymentStatus =
@@ -96,6 +96,8 @@ async function getPaymentDetails(paymentId: string) {
 
 async function processPaymentStatus(payment: any) {
   const status = payment.status as MPPaymentStatus;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const statusTyped = status as any;
   const externalReference = payment.external_reference;
 
   // Buscar el prospecto por external_reference (que contiene el prospectId)
@@ -122,7 +124,7 @@ async function processPaymentStatus(payment: any) {
     await prisma.payments.update({
       where: { id: existingPayment.id },
       data: {
-        status,
+        status: statusTyped,
         statusDetail: payment.status_detail || null,
         dateApproved: payment.date_approved
           ? new Date(payment.date_approved)
@@ -138,7 +140,7 @@ async function processPaymentStatus(payment: any) {
         prospectId: prospectId || null,
         mpPaymentId: String(payment.id),
         mpPreferenceId: String(payment.id),
-        status,
+        status: statusTyped as any,
         statusDetail: payment.status_detail || null,
         transactionAmount: payment.total_paid_amount,
         currencyId: payment.currency || "MXN",
@@ -230,7 +232,7 @@ async function processPreapprovalWebhook(
     await prisma.subscriptions.update({
       where: { id: existingSubscription.id },
       data: {
-        status: mapMPPreapprovalStatus(preapproval.status),
+        status: mapMPPreapprovalStatus(preapproval.status) as any,
         nextBillingDate: preapproval.next_payment_date
           ? new Date(preapproval.next_payment_date)
           : existingSubscription.nextBillingDate,

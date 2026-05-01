@@ -9,6 +9,7 @@ import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { initMercadoPago } from "@mercadopago/sdk-react";
 import { useEffect, useState } from "react";
 import LoadComp from "./LoadComp";
+import PlanCheckout2 from "./PlanCheckout2";
 let mpInitialized = false;
 
 export default function CheckoutClient({
@@ -90,7 +91,7 @@ export default function CheckoutClient({
         title="Cargando..."
         description="Por favor espera mientras cargamos tu plan de entrenamiento..."
       />
-      <main className="flex flex-1 flex-col md:flex-row overflow-hidden justify-center bg-black">
+      <main className="flex flex-1 flex-col md:flex-row overflow-hidde justify-center bg-black">
         <div className="p-6 md:flex- md:overflow-y-auto md:self-start">
           {/* 👇 siempre montado, invisible durante carga */}
           <div className={loading ? "invisible" : ""}>
@@ -102,6 +103,7 @@ export default function CheckoutClient({
 
         <div className="md:sticky md:top-0 md:h-screen p-6">
           <PlanCheckout />
+          <PlanCheckout2 />
         </div>
       </main>
     </div>

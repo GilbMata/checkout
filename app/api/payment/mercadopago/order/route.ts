@@ -4,7 +4,8 @@ import {
   orderPaymentSchema,
 } from "@/validations/paymentSchema";
 import { randomUUID } from "crypto";
-import MercadoPagoConfig, { Order } from "mercadopago";
+import { MercadoPagoConfig, Order } from "mercadopago";
+import type { OrderCreateData } from "mercadopago/dist/clients/order/create/types";
 import { NextResponse } from "next/server";
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN!;
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     const idempotencyKey = randomUUID();
 
     // Crear la orden - USAR DATA (datos validados) en lugar de BODY
-    const orderData = {
+    const orderData: OrderCreateData = {
       body: {
         type: "online",
         processing_mode: "automatic",
@@ -100,13 +101,24 @@ export async function POST(request: Request) {
           email: data.payer_email,
           first_name: data.payer_first_name,
           last_name: data.payer_last_name,
+          identification: {
+            type: data.identification_type,
+            number: data.identification_number,
+          },
+        },
+        config: {
+          online: {
+            transaction_security: {
+              validation: "on_fraud_risk",
+              liability_shift: "required",
+            },
+          },
         },
       },
       requestOptions: {
         idempotencyKey,
       },
-    };
-    console.log("🚀 ~ POST ~ orderData:", orderData);
+    } as const;
 
     let order: any;
     let orderStatus: string = "unknown";
@@ -118,16 +130,80 @@ export async function POST(request: Request) {
     let dateCreated: any = null;
     let paymentMethodId: any = undefined;
 
+    // Extraer información de la tarjeta
+    const lastFourDigits = data.card_last_four;
+    const cardholderName = data.cardholder_name;
+
     try {
       order = await orderClient.create(orderData);
+      console.log("🚀 ~ POST ~ order:", order);
 
       orderStatus = order.status;
+      statusDetail = order.status_detail;
       paymentMethodId = order.transactions?.payments?.[0]?.payment_method?.id;
       transactionAmount = order.total_paid_amount;
       dateApproved = order.last_updated_date;
       dateCreated = order.created_date;
       mpOrderId = order.id;
       mpPaymentId = order.transactions?.payments?.[0]?.id;
+
+      // ========================================================================
+      // 3DS 2.0: Detectar si se requiere Challenge
+      // ========================================================================
+      const is3DSChallengeRequired =
+        orderStatus === "action_required" &&
+        statusDetail === "pending_challenge";
+
+      if (is3DSChallengeRequired) {
+        // Extraer URL del challenge desde transaction_security
+        const challengeUrl =
+          order.transactions?.payments?.[0]?.payment_method
+            ?.transaction_security?.url;
+
+        console.log("🔐 ~ 3DS Challenge requerido:", {
+          orderId: mpOrderId,
+          paymentId: mpPaymentId,
+          challengeUrl,
+        });
+
+        // Guardar registro inicial del pago (pendiente de challenge)
+        // Usar "pending" del enum y guardar "pending_challenge" en statusDetail
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const payment = await prisma.payments.create({
+          data: {
+            prospectId,
+            mpPreferenceId: String(mpOrderId),
+            status: "pending" as any,
+            transactionAmount: Number(transactionAmount) * 100,
+            currencyId: data.currency || "MXN",
+            description: data.description,
+            externalReference: prospectId,
+            mpPaymentId: mpPaymentId ? String(mpPaymentId) : null,
+            statusDetail: "pending_challenge", // Indica que está esperando 3DS
+            paymentMethodId: data.payment_method_id,
+            paymentTypeId: data.payment_type,
+            installments: Number(data.installments),
+            planId: data.plan_id ?? null,
+            cardLastFour: lastFourDigits,
+            cardholderName: cardholderName,
+            dateCreated: dateCreated,
+            dateApproved: dateApproved,
+          },
+        });
+
+        // Retornar datos del challenge para que el frontend muestre el iframe
+        return NextResponse.json({
+          challenge_required: true,
+          challenge_url: challengeUrl,
+          order_id: mpOrderId,
+          payment_id: mpPaymentId,
+          paymentId: payment.id,
+          external_reference: prospectId,
+          status: orderStatus,
+          status_detail: statusDetail,
+          amount: transactionAmount,
+        });
+      }
     } catch (mpError: any) {
       const errorData = mpError?.data ?? {};
       console.log("🚀 ~ POST ~ errorData:", errorData);
@@ -167,7 +243,7 @@ export async function POST(request: Request) {
     // const mpOrderId = order.id;
     // const mpPaymentId = order.transactions?.payments?.[0]?.id;
 
-    // Mapeo de estados de Order a estados de Payment
+    // Determinar el estado del pago
     let paymentStatus: string;
     let isSuccess = false;
     let isPending = false;
@@ -194,9 +270,7 @@ export async function POST(request: Request) {
         paymentStatus = orderStatus || "unknown";
     }
 
-    // Extraer información de la tarjeta
-    const lastFourDigits = data.card_last_four;
-    const cardholderName = data.cardholder_name;
+    // Las variables lastFourDigits y cardholderName ya fueron declaradas antes del try
 
     // Registrar el pago en la base de datos
     console.log("🚀 ~ POST ~ paymentStatus:", paymentStatus);
@@ -204,7 +278,7 @@ export async function POST(request: Request) {
       data: {
         prospectId,
         mpPreferenceId: String(mpOrderId),
-        status: paymentStatus,
+        status: paymentStatus as any,
         transactionAmount: Number(transactionAmount) * 100,
         currencyId: data.currency || "MXN",
         description: data.description,
@@ -287,9 +361,14 @@ export async function POST(request: Request) {
         status_detail: statusDetail,
       });
     }
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("=== ERROR COMPLETO ===");
     console.error(error);
+    console.error({
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+    });
 
     let errorMessage = "Error interno del servidor";
     if (error instanceof Error) {

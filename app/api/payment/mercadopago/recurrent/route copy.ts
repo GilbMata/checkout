@@ -195,7 +195,7 @@ export async function POST(request: Request) {
         currencyId: data.currency,
         startDate: now,
         nextBillingDate: nextBillingDate,
-        status: mapPreapprovalStatus(preapproval.status),
+        status: mapPreapprovalStatus(preapproval.status) as any,
         payerEmail: data.payer_email,
         payerFirstName: data.payer_first_name,
         payerLastName: data.payer_last_name,

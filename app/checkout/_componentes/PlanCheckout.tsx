@@ -114,7 +114,7 @@ export default function PlanCheckout() {
   }
   return (
     <>
-      <Card className="w-full  md:min-w-md max-w-xl mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
+      <Card className="w-full  md:min-w-md max-w-lg mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
         {/* Header */}
         <CardHeader className="flex flex-row justify-between items-start gap-4 p-0">
           <div>

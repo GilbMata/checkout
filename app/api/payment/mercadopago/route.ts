@@ -173,7 +173,7 @@ export async function POST(request: Request) {
       data: {
         prospectId,
         mpPreferenceId: String(mpOrderId),
-        status: paymentStatus,
+        status: paymentStatus as any,
         transactionAmount: Number(transactionAmount) * 100,
         currencyId: body.currency_id || "MXN",
         description: body.description,

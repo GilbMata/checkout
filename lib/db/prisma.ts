@@ -12,7 +12,11 @@ const prismaClientSingleton = () => {
   const adapter = new PrismaPg(pool);
 
   // 3. Pasar el adaptador al constructor
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    log: ["warn", "error"],
+    errorFormat: "minimal",
+  });
 };
 declare global {
   var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;

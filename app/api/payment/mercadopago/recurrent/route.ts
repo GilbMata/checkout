@@ -309,7 +309,7 @@ export async function POST(request: Request) {
         lastBillingDate: null,
 
         // Status - mapear status de MP al nuestro
-        status: mapPreapprovalStatus(preapproval.status),
+        status: mapPreapprovalStatus(preapproval.status) as any,
 
         // Payer info
         payerEmail: data.payer_email,
