@@ -1,1 +1,0 @@
-ALTER TABLE `otp_requests` ADD `created_at` integer NOT NULL;

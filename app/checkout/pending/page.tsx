@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/index";
 import { Clock } from "lucide-react";
+import { redirect } from "next/navigation";
 
 type Plan = {
   id: string;
@@ -39,6 +40,14 @@ export default async function PendingPage({
       planPrice = payment.transactionAmount
         ? Number(payment.transactionAmount) / 100
         : 0;
+
+      // Redirigir automáticamente según el estado del payment
+      if (payment.status === "approved") {
+        redirect(`/checkout/success?payment_id=${paymentId}`);
+      }
+      if (payment.status === "rejected" || payment.status === "failed" || payment.status === "cancelled") {
+        redirect(`/checkout/failure?payment_id=${paymentId}`);
+      }
     }
   }
 

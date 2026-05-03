@@ -1,6 +1,6 @@
 "use client";
 
-import { validateVoucherAction } from "@/app/actions/validateVoucher";
+import { validateVoucherAction } from "@/app/actions/validateVoucherAction";
 import { cn } from "@/lib/utils";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { motion } from "framer-motion";

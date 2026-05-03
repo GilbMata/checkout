@@ -1,4 +1,5 @@
 import prisma from "@/lib/db/prisma";
+import { PaymentStatus } from "@/src/generated/prisma";
 
 // Estado del pago en MercadoPago
 type MPPaymentStatus =
@@ -9,7 +10,9 @@ type MPPaymentStatus =
   | "refunded" // Pago reembolsado
   | "in_process" // Pago en proceso de revisión
   | "in_mediation" // Pago en mediación
-  | "failed"; // Pago en mediación
+  | "failed" // Pago fallido 3ds
+  | "charged_back" // 🔄 Contracargo (dispute)
+  | "authorized"; // 🔐 Autorizado, sin capturar
 
 // Estado de suscripción/preapproval en MercadoPago
 type MPPreapprovalStatus =
@@ -19,7 +22,8 @@ type MPPreapprovalStatus =
   | "paused" // Pausado
   | "cancelled" // Cancelado
   | "expired" // Expirado
-  | "rejected"; // Rechazado;
+  | "rejected" // Rechazado;
+  | "stopped"; // Detenido manualmente
 
 interface WebhookData {
   type: string;
@@ -32,8 +36,20 @@ interface WebhookData {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as WebhookData;
-    console.log("Webhook MercadoPago recibido:", JSON.stringify(body));
+    // 3c019d78cb0cfbeb4b1ec6296a2ce46ab38ad69dc833af1aa79fb323d91bb5f0
+    // Obtain the x-signature value from the header
+    const xSignature = req.headers.get("x-signature") || "";
+    const xRequestId = req.headers.get("x-request-id") || "";
 
+    // Obtain Query params related to the request URL
+    // const urlParams = new URLSearchParams(window.location.search);
+    // console.log("🚀 ~ POST ~ urlParams:", urlParams);
+    // const dataID = urlParams.get("data.id");
+    // console.log("🚀 ~ POST ~ dataID:", dataID);
+
+    // Separating the x-signature into parts
+    const parts = xSignature.split(",");
+    // console.log("Webhook MercadoPago recibido:", JSON.stringify(body));
     // Determinar el tipo de notificación
     const notificationType = body.type;
     const action = body.action;
@@ -62,7 +78,11 @@ export async function POST(req: Request) {
     }
 
     return Response.json({ received: true });
-  } catch (error) {
+  } catch (error: any) {
+    console.log("=== ERROR ===");
+    console.log(error?.message); // Solo el mensaje, no todo el stack
+    console.log("=== CODIGO ===");
+    console.log(error?.code);
     console.error(" Error procesando webhook:", error);
     return Response.json(
       { received: true, error: "Processing error" },
@@ -94,19 +114,46 @@ async function getPaymentDetails(paymentId: string) {
   }
 }
 
+// ============================================
+// Mapping de status de MP al enum de Prisma
+function mapMPPaymentStatus(mpStatus: string): PaymentStatus {
+  const statusMap: Record<string, PaymentStatus> = {
+    approved: "approved",
+    pending: "pending",
+    in_process: "in_process",
+    rejected: "rejected",
+    cancelled: "cancelled",
+    refunded: "refunded",
+    failed: "failed",
+    charged_back: "charged_back", // Contracargo
+    authorized: "authorized", // Autorizado sin capturar
+  };
+  return statusMap[mpStatus] || "pending";
+}
+
 async function processPaymentStatus(payment: any) {
   const status = payment.status as MPPaymentStatus;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const statusTyped = status as any;
+  const statusDetail = payment.status_detail;
+  
+  // Si status_detail es "accredited", el pago fue aprobado aunque el status sea "pending"
+  // Esto puede pasar con 3DS donde el status queda en pending pero el detail indica acreditado
+  let statusTyped: PaymentStatus;
+  if (statusDetail === "accredited") {
+    statusTyped = "approved";
+  } else {
+    // Mapear el status de MP al enum de Prisma
+    statusTyped = mapMPPaymentStatus(status);
+  }
+  
   const externalReference = payment.external_reference;
 
   // Buscar el prospecto por external_reference (que contiene el prospectId)
-  let prospectId = externalReference;
+  let customerPhone = externalReference.slice(-10);
+  let prospectId: string | null = null;
 
-  // Si no hay external_reference, intentar buscar por email del payer
-  if (!prospectId && payment.payer?.email) {
+  if (!customerPhone && payment.payer?.email) {
     const prospect = await prisma.prospects.findFirst({
-      where: { phone: externalReference },
+      where: { phone: customerPhone },
     });
 
     if (prospect) {
@@ -115,10 +162,10 @@ async function processPaymentStatus(payment: any) {
   }
 
   // Verificar si ya existe el pago
+  // console.log("🚀 ~ processPaymentStatus ~ payment:", payment);
   const existingPayment = await prisma.payments.findFirst({
     where: { mpPreferenceId: String(payment.id) },
   });
-
   if (existingPayment) {
     // Actualizar pago existente
     await prisma.payments.update({
@@ -129,6 +176,8 @@ async function processPaymentStatus(payment: any) {
         dateApproved: payment.date_approved
           ? new Date(payment.date_approved)
           : null,
+        threeDsStatus: payment.transactions?.payments?.[0]?.status || null,
+        threeDsStatusDetail: payment.transactions?.payments?.[0]?.status_detail || null,
       },
     });
 
@@ -140,7 +189,7 @@ async function processPaymentStatus(payment: any) {
         prospectId: prospectId || null,
         mpPaymentId: String(payment.id),
         mpPreferenceId: String(payment.id),
-        status: statusTyped as any,
+        status: statusTyped,
         statusDetail: payment.status_detail || null,
         transactionAmount: payment.total_paid_amount,
         currencyId: payment.currency || "MXN",
@@ -155,6 +204,8 @@ async function processPaymentStatus(payment: any) {
         dateCreated: payment.created_date
           ? new Date(payment.created_date)
           : null,
+        threeDsStatus: payment.transactions?.payments?.[0]?.status || null,
+        threeDsStatusDetail: payment.transactions?.payments?.[0]?.status_detail || null,
       },
     });
 
@@ -192,6 +243,12 @@ async function processPaymentStatus(payment: any) {
       break;
     case "in_mediation":
       console.log("⚖️ Pago en mediación:", payment.id);
+      break;
+    case "charged_back":
+      console.log("⚠️ Contracargo/disputa iniciado:", payment.id);
+      break;
+    case "authorized":
+      console.log("🔐 Pago autorizado (sin capturar):", payment.id);
       break;
   }
 }

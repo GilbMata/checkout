@@ -39,7 +39,7 @@ export async function GET(
         { status: 404 },
       );
     }
-    console.log("🚀 ~ GET ~ order:", order);
+    // console.log("🚀 ~ GET ~ order:", order);
 
     console.log("📋 ~ Estado de orden:", {
       id: order.id,

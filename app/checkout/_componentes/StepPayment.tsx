@@ -1,7 +1,8 @@
 "use client";
 
-import CardPaymentBrick from "@/app/checkout/_componentes/CardPaymentBrick";
 import ProcessingOverlay from "@/app/checkout/_componentes/LoadComp";
+import OrderPaymentBrick from "@/app/checkout/_componentes/OrderPaymentBrick";
+import SubscriptionPaymentBrick from "@/app/checkout/_componentes/SubscriptionPaymentBrick";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +57,9 @@ export default function StepPayment() {
     (result: PaymentResponse) => {
       console.log("Pago aprobado:", result);
       if (result.payment_id) {
-        router.push(`/checkout/success?payment_id=${result.payment_id}`);
+        router.push(
+          `/checkout/success?order_id=${result.order_id}&payment_id=${result.payment_id}`,
+        );
       } else {
         router.push("https://station24.com.mx/");
       }
@@ -98,6 +101,7 @@ export default function StepPayment() {
     (result: PaymentResponse) => {
       console.log("Pago rechazado:", result);
       const paymentId = result.payment_id || result.id || result.preference_id;
+      const orderId = result.order_id || result.id;
       const statusDetail = result.status_detail || result.error;
 
       let queryParams = "";
@@ -253,6 +257,17 @@ export default function StepPayment() {
       ? "test_user_mx@testuser.com"
       : prospect?.email;
 
+  const userData = {
+    phone: prospect?.phone,
+    area: prospect?.areaCode,
+    email: email,
+    curp: prospect?.curp,
+    firstName: prospect?.firstName,
+    lastName: prospect?.lastName,
+  };
+
+  const externalReference = plan?.idBranch + "-" + userData.phone;
+
   const planData = {
     id: String(plan?.idMembership),
     description,
@@ -262,27 +277,32 @@ export default function StepPayment() {
     membershipType: plan?.membershipType,
     displayName: plan?.displayName,
     branch: String(plan?.idBranch),
-  };
-
-  const userData = {
-    phone: prospect.areaCode + prospect?.phone,
-    email: email,
-    curp: prospect?.curp,
-    firstName: prospect?.firstName,
-    lastName: prospect?.lastName,
+    externalReference,
   };
 
   return (
     <>
-      <CardPaymentBrick
-        planData={planData}
-        userData={userData}
-        onSuccess={handleSuccess}
-        onError={handleError}
-        onPending={handlePending}
-        onRejected={handleRejected}
-        onProcessingChange={setIsProcessing}
-      />
+      {planData.recurrent ? (
+        <SubscriptionPaymentBrick
+          planData={planData}
+          userData={userData}
+          onSuccess={handleSuccess}
+          onError={handleError}
+          onPending={handlePending}
+          onRejected={handleRejected}
+          onProcessingChange={setIsProcessing}
+        />
+      ) : (
+        <OrderPaymentBrick
+          planData={planData}
+          userData={userData}
+          onSuccess={handleSuccess}
+          onError={handleError}
+          onPending={handlePending}
+          onRejected={handleRejected}
+          onProcessingChange={setIsProcessing}
+        />
+      )}
 
       {/* Loader overlay mientras procesa el pago */}
       {isProcessing && <ProcessingOverlay isVisible={isProcessing} />}

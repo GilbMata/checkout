@@ -27,8 +27,10 @@ enum PaymentStatus {
   rejected
   refunded
   cancelled
+  failed
+  charged_back  // Contracargo / dispute
+  authorized    // Autorizado sin capturar
 }
-
 
 enum Gender {
   male
@@ -142,6 +144,8 @@ model Payments {
   dateCreated       DateTime? @map("date_created") @db.Timestamptz
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  threeDsStatus       String?  @map("three_ds_status")        // authenticated, not_authenticated, aborted, pending
+  threeDsStatusDetail String?  @map("three_ds_status_detail") // status_detail del payment (failed, accredited, etc.)
 
   prospect  Prospects? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
 

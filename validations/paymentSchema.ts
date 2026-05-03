@@ -150,7 +150,8 @@ export const orderPaymentSchema = z.object({
   plan_id: z.string().min(1, "ID de plan requerido"),
 
   // Teléfono del prospecto (para buscar en DB)
-  prospect_phone: z.string().optional(),
+  payer_phone: z.string().optional(),
+  payer_area_code: z.string().optional(),
 
   //(default: CURP)
   identification_type: z.string().default("CURP"),
@@ -161,7 +162,6 @@ export const orderPaymentSchema = z.object({
   // Referencia externa Número de sucursal.
   external_reference: z.string().optional(),
   card_last_four: z.string().optional(),
-  
 });
 
 export type orderPaymentInput = z.infer<typeof orderPaymentSchema>;

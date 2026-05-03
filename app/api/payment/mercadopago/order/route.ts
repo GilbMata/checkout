@@ -40,15 +40,14 @@ export async function POST(request: Request) {
 
     // 2. Buscar el prospecto por telefono
     // Mejor parsing: tomar ultimos 10 digitos para manejo consistente de codigos de pais
-    const phoneRaw = data.prospect_phone || data.payer_email.split("@")[0];
+    const phoneRaw = data.payer_phone || data.payer_email.split("@")[0];
     const phoneDigits = phoneRaw.replace(/\D/g, "");
     // Si tiene mas de 10 digitos, tomar ultimos 10 (ej: +52 33 1234 5678 -> 3312345678)
     const phone =
       phoneDigits.length > 10 ? phoneDigits.slice(-10) : phoneDigits;
-    console.log("🚀 ~ POST ~ phone:", phone);
 
     const prospect = await prisma.prospects.findFirst({
-      where: { phone: { equals: phone } },
+      where: { phone: { equals: data.payer_phone } },
     });
 
     if (!prospect) {
@@ -101,6 +100,10 @@ export async function POST(request: Request) {
           email: data.payer_email,
           first_name: data.payer_first_name,
           last_name: data.payer_last_name,
+          phone: {
+            area_code: data.payer_area_code,
+            number: data.payer_phone,
+          },
           identification: {
             type: data.identification_type,
             number: data.identification_number,
@@ -190,6 +193,7 @@ export async function POST(request: Request) {
             dateApproved: dateApproved,
           },
         });
+        // console.log("🚀 ~ POST ~ payment:", payment);
 
         // Retornar datos del challenge para que el frontend muestre el iframe
         return NextResponse.json({

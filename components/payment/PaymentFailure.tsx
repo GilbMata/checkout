@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertCircle,
+  AlertTriangle,
   Copy,
   CreditCard,
   Home,
@@ -24,6 +25,9 @@ type PaymentData = {
   paymentId?: string;
   external_reference?: string;
   error?: string;
+  three_ds_validation?: string;
+  three_ds_status?: string;
+  isSpecialStatus?: boolean;
 };
 
 interface Props {
@@ -35,8 +39,38 @@ export default function PaymentFailure({ payment, email }: Props) {
   console.log("🚀 ~ PaymentFailure ~ payment:", payment);
   const [copiedId, setCopiedId] = useState(false);
   const router = useRouter();
-  // Get friendly error message
+  // Get friendly error message based on 3DS status and status_detail
   const getErrorMessage = (detail?: string) => {
+    // Priority 1: Check 3DS status (from transactions.payments)
+    if (payment.three_ds_status === "not_authenticated") {
+      if (payment.three_ds_status_detail === "on_fraud_risk") {
+        return "La verificación de seguridad fue rechazada por riesgo de fraude. Contáctanos para más información.";
+      }
+      return "La verificación de seguridad no pudo completarse. Intenta con otra tarjeta.";
+    }
+
+    if (payment.three_ds_status === "aborted") {
+      return "El proceso de verificación fue cancelado. Intenta nuevamente.";
+    }
+
+    if (payment.three_ds_status === "pending") {
+      return "La verificación de seguridad está en proceso. Por favor espera.";
+    }
+
+    // Priority 2: Check special payment status
+    if (payment.status === "charged_back") {
+      return "Se ha iniciado un contracargo. Te contactaremos pronto.";
+    }
+
+    if (payment.status === "authorized") {
+      return "El pago está autorizado. Próximamente se procesará el cobro.";
+    }
+
+    if (payment.status === "in_mediation") {
+      return "El pago está en mediación. Te notificaremos cuando se resuelva.";
+    }
+
+    // Priority 3: Check status_detail for generic card errors
     if (!detail) return "El pago fue rechazado";
     if (detail.includes("cc_rejected")) return "La tarjeta fue rechazada";
     if (detail.includes("cc_rejected_call_for_authorize"))
@@ -48,10 +82,71 @@ export default function PaymentFailure({ payment, email }: Props) {
     if (detail.includes("blacklisted")) return "La tarjeta está en lista negra";
     if (detail.includes("bad_filled_card_data"))
       return "Datos de tarjeta inválidos";
+    if (detail.includes("failed")) {
+      return "El pago fue rechazado por el banco. Intenta con otra tarjeta.";
+    }
+
     return "El pago fue rechazado";
   };
 
   const errorMessage = payment.error || getErrorMessage(payment.status_detail);
+  
+  // Get the display status label
+  const getStatusLabel = () => {
+    const statusLabels: Record<string, string> = {
+      rejected: "Rechazado",
+      charged_back: "Contracargo",
+      authorized: "Autorizado",
+      in_mediation: "En Mediación",
+      in_process: "En Proceso",
+      pending: "Pendiente",
+      cancelled: "Cancelado",
+      refunded: "Reembolsado",
+    };
+    return statusLabels[payment.status] || "Rechazado";
+  };
+
+  // Get title based on status
+  const getTitle = () => {
+    const titles: Record<string, string> = {
+      rejected: "Pago rechazado",
+      charged_back: "Contracargo iniciado",
+      authorized: "Pago autorizado",
+      in_mediation: "Pago en mediación",
+      in_process: "Pago en proceso",
+      pending: "Pago pendiente",
+      cancelled: "Pago cancelado",
+      refunded: "Pago reembolsado",
+    };
+    return titles[payment.status] || "Pago rechazado";
+  };
+
+  // Determine icon and color based on status
+  const StatusIcon = () => {
+    const isSpecial = payment.isSpecialStatus;
+    
+    if (payment.status === "authorized") {
+      return (
+        <div className="w-24 h-24 rounded-full bg-linear-to-br from-yellow-500 to-yellow-600 flex items-center justify-center shadow-2xl shadow-yellow-500/30">
+          <AlertCircle className="w-14 h-14 text-white" strokeWidth={2.5} />
+        </div>
+      );
+    }
+    
+    if (payment.status === "in_mediation" || payment.status === "in_process") {
+      return (
+        <div className="w-24 h-24 rounded-full bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-2xl shadow-orange-500/30">
+          <AlertCircle className="w-14 h-14 text-white" strokeWidth={2.5} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-24 h-24 rounded-full bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center shadow-2xl shadow-red-500/30">
+        <AlertCircle className="w-14 h-14 text-white" strokeWidth={2.5} />
+      </div>
+    );
+  };
   const displayPaymentId = payment.payment_id || payment.paymentId || "";
 
   const handleCopyId = () => {
@@ -126,7 +221,7 @@ export default function PaymentFailure({ payment, email }: Props) {
                     Estado
                   </p>
                   <p className="text-lg font-semibold text-red-400">
-                    Rechazado
+                    {getStatusLabel()}
                   </p>
                 </div>
               </div>
