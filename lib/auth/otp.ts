@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/index";
 import crypto from "crypto";
 
 export function generateOTP() {
+  // Genera OTP 6 digitos aleatorios
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 

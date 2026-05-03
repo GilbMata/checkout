@@ -9,9 +9,17 @@ import {
 } from "@/lib/auth/otp";
 import { prisma } from "@/lib/db/index";
 import { sendOtpEmail } from "@/lib/otpsend/email/send-email";
-import { sendOTPWhatsApp } from "@/lib/otpsend/whatsapp-sender";
+import { createPlaticaClient } from "@/lib/otpsend/whatsapp-sender";
 
 export type OTPMethod = "whatsapp" | "email";
+
+// Crear cliente WhatsApp una sola vez
+const whatsappClient = createPlaticaClient({
+  channelId: process.env.PLATICA_CHANNEL_ID!,
+  apiKey: process.env.PLATICA_API_KEY!,
+  apiUrl: process.env.PLATICA_API_URL!,
+  apiUrlOTP: process.env.PLATICA_API_URLOTP!,
+});
 
 interface SendOTPParams {
   prospectId: string;
@@ -48,9 +56,9 @@ export async function sendOTP(params: SendOTPParams): Promise<{
     const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
 
     if (method === "whatsapp") {
-      const sent = await sendOTPWhatsApp(prospect.phone, otp);
-      if (!sent) {
-        return { success: false, method, error: "Error al enviar el código" };
+      const result = await whatsappClient.sendOTP(prospect.phone, otp);
+      if (!result.ok) {
+        return { success: false, method, error: result.error };
       }
       return { success: true, method: "whatsapp" };
     } else {
