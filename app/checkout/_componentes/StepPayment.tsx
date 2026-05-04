@@ -267,6 +267,7 @@ export default function StepPayment() {
   };
 
   const externalReference = plan?.idBranch + "-" + userData.phone;
+  const recurrence = plan?.membershipType?.includes("recurrence");
 
   const planData = {
     id: String(plan?.idMembership),
@@ -282,7 +283,7 @@ export default function StepPayment() {
 
   return (
     <>
-      {planData.recurrent ? (
+      {recurrence ? (
         <SubscriptionPaymentBrick
           planData={planData}
           userData={userData}

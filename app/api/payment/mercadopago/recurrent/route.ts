@@ -54,10 +54,9 @@ export async function POST(request: Request) {
     const phone = data.prospect_phone
       ? data.prospect_phone.replace(/\D/g, "")
       : data.payer_email.split("@")[0]; // Fallback
-    console.log("🚀 ~ POST ~ phone:", phone);
 
     const prospectResult = await prisma.prospects.findMany({
-      where: { phone: { equals: phone.slice(2, phone.length) } },
+      where: { phone: { equals: phone } },
       take: 1,
     });
 
@@ -149,6 +148,7 @@ export async function POST(request: Request) {
       data.recurrence_interval,
     );
     const startDateMp = startDate.toISOString();
+    console.log("🚀 ~ POST ~ startDateMp:", startDateMp);
     // const startDateMp = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // +5 min de margen
     // Mapear interval a formato de MercadoPago
     const frequencyType = mapRecurrenceToMP(data.recurrence_interval);
@@ -224,7 +224,8 @@ export async function POST(request: Request) {
 
     let preapprovalData: any;
 
-    if (usePlanAssociation) {
+    // if (usePlanAssociation) {
+    if (false) {
       // Suscripción con plan asociado - usar preapproval_plan_id
       preapprovalData = {
         body: {
@@ -244,7 +245,7 @@ export async function POST(request: Request) {
       });
     } else {
       // Suscripción sin plan asociado - crear con auto_recurring
-      console.log("🚀 ~ POST ~ data.payer_email:", data.payer_email);
+      // console.log("🚀 ~ POST ~ data.payer_email:", data.payer_email);
       preapprovalData = {
         body: {
           reason: `Suscripción Station 24 - ${data.description}`,
@@ -287,7 +288,7 @@ export async function POST(request: Request) {
         prospectId: prospectId,
 
         // MP IDs
-        mpCustomerId: mpCustomerId,
+        mpCustomerId: mpCustomerId || null,
         mpCardId: mpCardId,
         mpPreapprovalId: preapproval.id || null,
 
@@ -302,9 +303,7 @@ export async function POST(request: Request) {
         currencyId: preapproval.auto_recurring?.currency_id,
 
         // Billing dates
-        startDate: preapproval.auto_recurring?.start_date
-          ? new Date(preapproval.auto_recurring.start_date)
-          : startDate,
+        startDate: preapproval.auto_recurring?.start_date || null,
         nextBillingDate: preapproval.next_payment_date,
         lastBillingDate: null,
 

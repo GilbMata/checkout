@@ -108,7 +108,6 @@ export default function SubscriptionPaymentBrick({
   onProcessingChange,
 }: SubscriptionPaymentBrickProps) {
   const [internalError, setInternalError] = useState<string | null>(null);
-  console.log("🚀 ~ SubscriptionPaymentBrick ~ planData:", planData);
 
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
@@ -195,13 +194,12 @@ export default function SubscriptionPaymentBrick({
         });
 
         if (!response.ok) {
-          throw new Error(
-            `Error del servidor (${response.status}). Por favor, intenta más tarde.`,
-          );
+          throw new Error(`Error del servidor (${response.status}). `);
         }
 
         const result = (await response.json()) as PaymentResponse;
-
+        console.log("🚀 ~ SubscriptionPaymentBrick ~ result:", result);
+        return;
         if (result.success) {
           onSuccess(result);
         } else if (result.challenge_required) {
@@ -215,6 +213,8 @@ export default function SubscriptionPaymentBrick({
           onError(extractErrorMessage(result));
         }
       } catch (error) {
+        console.error("Error al procesar el pago:", error);
+
         if (error instanceof TypeError && error.message.includes("fetch")) {
           handleApiError(
             error,
@@ -255,8 +255,8 @@ export default function SubscriptionPaymentBrick({
 
   // Main render - Subscription payment
   return (
-    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
-      <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
+    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden gap-0">
+      <CardHeader className="px-6 border-b border-gray-700">
         <CardTitle className="text-xl font-semibold tracking-tight">
           <>
             <span className="text-orange-500">Membresía recurrente</span>
@@ -266,7 +266,7 @@ export default function SubscriptionPaymentBrick({
           </>
         </CardTitle>
       </CardHeader>
-      <div className="px-3 py-4">
+      <div className="px-3 py-0">
         <CardPayment
           initialization={{
             amount: planData.amount,

@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth/otp";
 import { prisma } from "@/lib/db/index";
 import { sendOtpEmail } from "@/lib/otpsend/email/send-email";
-import { createPlaticaClient } from "@/lib/otpsend/whatsapp-sender";
+import { createPlaticaClient } from "@/lib/whatsapp-sender";
 
 export type OTPMethod = "whatsapp" | "email";
 
