@@ -110,12 +110,14 @@ model MagicLinks {
   id        String   @id @default(uuid()) @db.Uuid
   token     String   @unique
   userId    String   @map("user_id") @db.Uuid
+  type      String?  // Tipo de magic link: "paymentfailed", "paymentsuccess", etc.
   expiresAt DateTime @map("expires_at") @db.Timestamptz
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   prospect  Prospects @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
+  @@index([type])
   @@map("magic_links")
 }
 
@@ -187,6 +189,17 @@ enum SubscriptionStatus {
   paused
   cancelled
   expired
+  past_due
+  refunded
+}
+
+enum SubscriptionPaymentStatus {
+  pending
+  approved
+  rejected
+  failed
+  refunded
+  cancelled
 }
 
 model Subscriptions {
@@ -195,29 +208,68 @@ model Subscriptions {
   planId                String   @map("plan_id")
   planDescription       String?  @map("plan_description")
   mpCustomerId          String?  @map("mp_customer_id")
+  mpPayerId             String?  @map("mp_payer_id")
   mpCardId              String?  @map("mp_card_id")
-  mpPreapprovalId      String?  @map("mp_preapproval_id")
-  mpPreapprovalPlanId  String?  @map("mp_preapproval_plan_id")
+  mpPreapprovalId       String?  @map("mp_preapproval_id")
+  mpPreapprovalPlanId   String?  @map("mp_preapproval_plan_id")
+  frequency             Int?      @map("frequency")
+  frequencyType        String?  @map("frequency_type")
   recurrenceInterval   String?  @map("recurrence_interval")
-  transactionAmount   BigInt?  @map("transaction_amount")
-  currencyId           String   @default("MXN") @map("currency_id")
+  transactionAmount     BigInt?  @map("transaction_amount")
+  currencyId            String   @default("MXN") @map("currency_id")
   startDate            DateTime? @map("start_date") @db.Timestamptz
-  nextBillingDate     DateTime? @map("next_billing_date") @db.Timestamptz
-  lastBillingDate     DateTime? @map("last_billing_date") @db.Timestamptz
+  endDate              DateTime? @map("end_date") @db.Timestamptz
+  freeTrialDays        Int?      @map("free_trial_days")
+  nextBillingDate      DateTime? @map("next_billing_date") @db.Timestamptz
+  lastBillingDate      DateTime? @map("last_billing_date") @db.Timestamptz
   status               SubscriptionStatus @default(pending) @map("status")
-  payerEmail           String?  @map("payer_email")
-  payerFirstName      String?  @map("payer_first_name")
-  payerLastName       String?  @map("payer_last_name")
-  externalReference  String?  @map("external_reference")
+  lastPaymentStatus   SubscriptionPaymentStatus? @map("last_payment_status")
+  failedAttempts      Int        @default(0) @map("failed_attempts")
+  paymentMethodId     String?   @map("payment_method_id")
+  totalInstallments   Int?      @map("total_installments")
+  pendingInstallments Int?     @map("pending_installments")
+  payerEmail          String?   @map("payer_email")
+  payerFirstName     String?   @map("payer_first_name")
+  payerLastName      String?   @map("payer_last_name")
+  externalReference  String?   @map("external_reference")
   description         String?
-  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   prospect  Prospects @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  payments SubscriptionPayment[]
 
   @@index([prospectId])
   @@index([mpPreapprovalId])
   @@index([status])
   @@index([nextBillingDate])
   @@map("subscriptions")
+}
+
+// ==========================================
+// Subscription Payments Table - Individual payment attempts
+// ==========================================
+
+model SubscriptionPayment {
+  id              String   @id @default(uuid()) @db.Uuid
+  subscriptionId  String  @map("subscription_id") @db.Uuid
+  mpPaymentId     String? @map("mp_payment_id") @unique // Idempotency key
+  status          SubscriptionPaymentStatus @default(pending) @map("status")
+  amount          BigInt?  @map("amount")
+  currencyId      String  @default("MXN") @map("currency_id")
+  attemptsCount   Int     @default(0) @map("attempts_count")
+  nextRetryAt     DateTime? @map("next_retry_at") @db.Timestamptz
+  lastAttemptAt   DateTime? @map("last_attempt_at") @db.Timestamptz
+  errorCode       String?  @map("error_code")
+  errorReason    String?  @map("error_reason")
+  dateApproved   DateTime? @map("date_approved") @db.Timestamptz
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  subscription Subscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@map("subscription_payments")
 }

@@ -48,7 +48,8 @@ export const recurrentPaymentSchema = z.object({
   recurrence_interval: z.enum(["weekly", "monthly", "bimonthly", "yearly"]),
 
   // Teléfono del prospecto (para buscar en DB)
-  prospect_phone: z.string().optional(),
+  payer_phone: z.string().optional(),
+  payer_area_code: z.string().optional(),
 
   //(default: CURP)
   identification_type: z.string().default("CURP"),

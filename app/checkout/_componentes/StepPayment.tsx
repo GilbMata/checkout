@@ -2,7 +2,6 @@
 
 import ProcessingOverlay from "@/app/checkout/_componentes/LoadComp";
 import OrderPaymentBrick from "@/app/checkout/_componentes/OrderPaymentBrick";
-import SubscriptionPaymentBrick from "@/app/checkout/_componentes/SubscriptionPaymentBrick";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +14,8 @@ import { Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import SubscriptionPaymentBrick from "./suscription/SubscriptionPaymentBrick";
+let mpInitialized = false;
 
 // ========================================================================
 // Types

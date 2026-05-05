@@ -12,9 +12,7 @@
 /**
  * Simple Result type for explicit error handling
  */
-type Result<T, E = string> =
-  | { ok: true; data: T }
-  | { ok: false; error: E };
+type Result<T, E = string> = { ok: true; data: T } | { ok: false; error: E };
 
 /**
  * Configuration for Platica client
@@ -24,6 +22,7 @@ interface PlaticaClientConfig {
   apiKey: string;
   apiUrl: string;
   apiUrlOTP: string;
+  campaignId?: string;
   timeout?: number;
   retries?: number;
 }
@@ -66,7 +65,11 @@ interface PlaticaMessageRequestOTP {
 interface PlaticaMessageRequest {
   channelId: string;
   conversationId: string;
-  content: string;
+  campaignId?: string;
+  template: {
+    name: string;
+    params: string[];
+  };
 }
 
 /**
@@ -147,6 +150,7 @@ async function executeWithRetry<T>(
   parseResponse: (response: unknown) => T,
 ): Promise<Result<T, string>> {
   const { url, method, headers, body, timeout, retries } = options;
+  console.log("🚀 ~ executeWithRetry ~ body:", body);
   let lastError: string = "Unknown error";
 
   for (let attempt = 0; attempt < retries; attempt++) {
@@ -175,7 +179,9 @@ async function executeWithRetry<T>(
         }
         // Retry on server errors (5xx) or network errors
         if (attempt < retries - 1) {
-          const delay = RETRY_DELAYS_MS[attempt] || RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+          const delay =
+            RETRY_DELAYS_MS[attempt] ||
+            RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
@@ -203,7 +209,9 @@ async function executeWithRetry<T>(
 
       // Retry on network errors
       if (attempt < retries - 1) {
-        const delay = RETRY_DELAYS_MS[attempt] || RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+        const delay =
+          RETRY_DELAYS_MS[attempt] ||
+          RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -238,7 +246,7 @@ async function executeWithRetry<T>(
  * }
  *
  * // Send regular message
- * const msgResult = await client.sendMessage("+1234567890", "Hello!");
+ * const msgResult = await client.sendpaymentfailedMessage("+1234567890", "Hello!");
  * ```
  */
 export function createPlaticaClient(config: PlaticaClientConfig) {
@@ -247,6 +255,7 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
     apiKey,
     apiUrl,
     apiUrlOTP,
+    campaignId,
     timeout = DEFAULT_TIMEOUT_MS,
     retries = DEFAULT_RETRIES,
   } = config;
@@ -318,9 +327,11 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
   /**
    * Send a regular WhatsApp message
    */
-  async function sendMessage(
+  async function sendpaymentfailedMessage(
     phone: string,
-    content: string,
+    name: string,
+    planName: string,
+    magicLink: string,
   ): Promise<Result<boolean, string>> {
     // Validate credentials
     const credsResult = validateCredentials(channelId, apiKey, apiUrl);
@@ -333,7 +344,11 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
     const requestBody: PlaticaMessageRequest = {
       channelId: credsResult.data.channelId,
       conversationId: cleanPhoneNumber,
-      content,
+      ...(campaignId && { campaignId }),
+      template: {
+        name: "actualizacion_pago_membresia",
+        params: [name, planName, magicLink],
+      },
     };
 
     const result = await executeWithRetry<boolean>(
@@ -369,9 +384,69 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
     return result;
   }
 
+  /**
+   * Send payment success notification via WhatsApp
+   */
+  async function sendpaymentsuccessMessage(
+    phone: string,
+    name: string,
+    planName: string,
+  ): Promise<Result<boolean, string>> {
+    // Validate credentials
+    const credsResult = validateCredentials(channelId, apiKey, apiUrl);
+    if (!credsResult.ok) {
+      console.error("Platica credentials error:", credsResult.error);
+      return { ok: false, error: credsResult.error };
+    }
+
+    const cleanPhoneNumber = cleanPhone(phone);
+    const requestBody: PlaticaMessageRequest = {
+      channelId: credsResult.data.channelId,
+      conversationId: cleanPhoneNumber,
+      ...(campaignId && { campaignId }),
+      template: {
+        name: "pago_aprobado_membresia", // Template para pago exitoso
+        params: [name, planName],
+      },
+    };
+
+    const result = await executeWithRetry<boolean>(
+      {
+        url: apiUrl,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${credsResult.data.apiKey}`,
+        },
+        body: requestBody,
+        timeout,
+        retries,
+      },
+      () => {
+        console.log(
+          `[Platica] Payment success message sent to ${cleanPhoneNumber.substring(
+            0,
+            6,
+          )}***`,
+        );
+        return true;
+      },
+    );
+
+    if (!result.ok) {
+      console.error(
+        `[Platica] Failed to send payment success message to ${cleanPhoneNumber.substring(0, 6)}***:`,
+        result.error,
+      );
+    }
+
+    return result;
+  }
+
   return {
     sendOTP,
-    sendMessage,
+    sendpaymentfailedMessage,
+    sendpaymentsuccessMessage,
   };
 }
 
@@ -433,7 +508,12 @@ export async function sendWhatsApp(phone: string): Promise<boolean> {
     return false;
   }
 
-  const result = await client.sendMessage(phone, "verificacion_no_borrar");
+  const result = await client.sendpaymentfailedMessage(
+    phone,
+    "Usuario",
+    "Plan",
+    "https://station24.com.mx",
+  );
   return result.ok && result.data;
 }
 
@@ -443,9 +523,9 @@ export async function sendWhatsApp(phone: string): Promise<boolean> {
 
 export type {
   PlaticaClientConfig,
-  PlaticaMessageRequestOTP,
-  PlaticaMessageRequest,
   PlaticaErrorResponse,
+  PlaticaMessageRequest,
+  PlaticaMessageRequestOTP,
   PlaticaSuccessResponse,
   Result,
 };

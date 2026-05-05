@@ -6,7 +6,6 @@ import StepEmail from "@/app/checkout/_componentes/StepEmail";
 import StepOTP from "@/app/checkout/_componentes/StepOTP";
 import StepPayment from "@/app/checkout/_componentes/StepPayment";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
-import { initMercadoPago } from "@mercadopago/sdk-react";
 import { useEffect, useState } from "react";
 import LoadComp from "./LoadComp";
 import PlanCheckout2 from "./PlanCheckout2";
@@ -23,18 +22,19 @@ export default function CheckoutClient({
 }) {
   const [loading, setLoading] = useState(true);
   const { step, setPlan, setBranch, setStep, setProspect } = useCheckoutStore();
+  const mpkey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS;
 
   useEffect(() => {
-    if (!mpInitialized && process.env.NEXT_PUBLIC_MP_PUBLIC_KEY) {
-      try {
-        initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY, {
-          locale: "es-MX",
-        });
-        mpInitialized = true;
-      } catch (err) {
-        console.error("MP init error:", err);
-      }
-    }
+    // if (!mpInitialized && mpkey) {
+    //   try {
+    //     initMercadoPago(mpkey, {
+    //       locale: "es-MX",
+    //     });
+    //     mpInitialized = true;
+    //   } catch (err) {
+    //     console.error("MP init error:", err);
+    //   }
+    // }
 
     const init = async () => {
       try {

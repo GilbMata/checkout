@@ -1,6 +1,6 @@
 "use server";
 
-import { mpConfig } from "@/lib/mercadopago";
+// import { mpConfig } from "@/lib/mercadoPagoInit";
 
 export async function POST(req: Request) {
   try {
@@ -39,7 +39,7 @@ async function getWebhookConfig() {
 
     return Response.json({
       webhookUrl,
-      mode: mpConfig.isProd ? "prod" : "test",
+      // mode: mpConfig.isProd ? "prod" : "test",
       ready: true,
     });
   } catch (error) {
@@ -60,7 +60,7 @@ async function registerWebhook() {
       webhookUrl,
       instructions:
         "Registra esta URL en el panel de MercadoPago: https://www.mercadopago.com.mx/developers/panel/notifications",
-      mode: mpConfig.isProd ? "prod" : "test",
+      // mode: mpConfig.isProd ? "prod" : "test",
     });
   } catch (error) {
     console.error("Error registering webhook:", error);

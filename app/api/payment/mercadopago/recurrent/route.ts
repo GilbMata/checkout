@@ -14,8 +14,7 @@ import {
 } from "mercadopago";
 import { NextResponse } from "next/server";
 
-const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN!;
-
+const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN_SUBSCRIPTIONS!;
 // Configuración del cliente de MercadoPago
 const mpConfig = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN,
@@ -30,6 +29,7 @@ export async function POST(request: Request) {
   try {
     // 1. Parsear y validar el body
     const body = (await request.json()) as RecurrentPaymentInput;
+    // console.log("🚀 ~ POST ~ body:", body);
     const validation = recurrentPaymentSchema.safeParse(body);
     if (!validation.success) {
       console.error("❌ Validación fallida:", validation.error.issues);
@@ -51,9 +51,11 @@ export async function POST(request: Request) {
     });
 
     // 2. Buscar el prospecto por teléfono
-    const phone = data.prospect_phone
-      ? data.prospect_phone.replace(/\D/g, "")
-      : data.payer_email.split("@")[0]; // Fallback
+    const phoneRaw = data.payer_phone || data.payer_email.split("@")[0];
+    const phoneDigits = phoneRaw.replace(/\D/g, "");
+    // Si tiene mas de 10 digitos, tomar ultimos 10 (ej: +52 33 1234 5678 -> 3312345678)
+    const phone =
+      phoneDigits.length > 10 ? phoneDigits.slice(-10) : phoneDigits;
 
     const prospectResult = await prisma.prospects.findMany({
       where: { phone: { equals: phone } },
@@ -90,28 +92,28 @@ export async function POST(request: Request) {
     }
 
     // Crear cliente si no existe
-    // if (!mpCustomerId) {
-    //   const idempotencyKey = randomUUID();
-    //   try {
-    //     const newCustomer = await customerClient.create({
-    //       body: {
-    //         email: data.payer_email,
-    //         first_name: data.payer_first_name,
-    //         last_name: data.payer_last_name,
-    //         identification: {
-    //           type: "CURP",
-    //           number: data.identification_number || prospect.curp,
-    //         },
-    //       },
-    //       requestOptions: { idempotencyKey },
-    //     });
-    //     mpCustomerId = newCustomer.id || null;
-    //     console.log("✅ Cliente creado en MP:", mpCustomerId);
-    //   } catch (createError: any) {
-    //     console.error("❌ Error creando cliente MP:", createError);
-    //     // Continuar sin customer ID - aún podemos crear suscripción directa
-    //   }
-    // }
+    if (!mpCustomerId) {
+      const idempotencyKey = randomUUID();
+      try {
+        const newCustomer = await customerClient.create({
+          body: {
+            email: data.payer_email,
+            first_name: data.payer_first_name,
+            last_name: data.payer_last_name,
+            identification: {
+              type: "CURP",
+              number: data.identification_number || prospect.curp,
+            },
+          },
+          requestOptions: { idempotencyKey },
+        });
+        mpCustomerId = newCustomer.id || null;
+        console.log("✅ Cliente creado en MP:", mpCustomerId);
+      } catch (createError: any) {
+        console.error("❌ Error creando cliente MP:", createError);
+        // Continuar sin customer ID - aún podemos crear suscripción directa
+      }
+    }
 
     // 4. Guardar tarjeta en el cliente (opcional pero recomendado)
     let mpCardId: string | null = null;
@@ -139,7 +141,7 @@ export async function POST(request: Request) {
 
     // Calcular fecha de inicio y próximo cobro
     const startDate = new Date(Date.now() + 2 * 60 * 1000);
-    // startDate.setMinutes(startDate.getMinutes() + 2);
+    startDate.setMinutes(startDate.getMinutes() + 2);
     // segundos y milisegundos en 0
     startDate.setSeconds(0);
     startDate.setMilliseconds(0);
@@ -249,7 +251,7 @@ export async function POST(request: Request) {
       preapprovalData = {
         body: {
           reason: `Suscripción Station 24 - ${data.description}`,
-          external_reference: data.prospect_phone,
+          external_reference: data.external_reference,
           payer_email: data.payer_email,
           card_token_id: data.token,
           auto_recurring: {
@@ -267,6 +269,7 @@ export async function POST(request: Request) {
         },
         requestOptions: { idempotencyKey: preapprovalIdempotencyKey },
       };
+      // console.log("🚀 ~ POST ~ preapprovalData:", preapprovalData);
       console.log("📤 Creando suscripción sin plan asociado:", {
         reason: preapprovalData.body.reason,
         amount: preapprovalData.body.auto_recurring?.transaction_amount,
@@ -274,13 +277,55 @@ export async function POST(request: Request) {
       });
     }
 
-    const preapproval = await preapprovalClient.create(preapprovalData);
-    console.log("🚀 ~ POST ~ preapproval:", preapproval);
-    console.log("✅ Preapproval creado:", preapproval.id, preapproval.status);
+    let preapproval: any;
+    let mpRejected = false;
+    let rejectionReason = "";
 
-    // 6. Guardar suscripción en nuestra base de datos
+    // console.log("🚀 ~ POST ~ preapprovalData:", preapprovalData);
+    // return;
+    try {
+      preapproval = await preapprovalClient.create(preapprovalData);
+      // console.log("🚀 ~ POST ~ preapproval:", preapproval);
+      console.log("✅ Preapproval creado:", preapproval.id, preapproval.status);
+    } catch (mpError: any) {
+      console.log("🚀 ~ POST ~ mpError:", mpError);
+      // MercadoPago devolvió error (tarjeta rechazada, etc.)
+      // Igual guardamos la suscripción con status "pending" para que el webhook pueda actualizarla
+      console.error("❌ Error creando preapproval en MP:", mpError.message);
+      mpRejected = true;
+      rejectionReason = parseMPError(mpError);
+      console.log("🚀 ~ POST ~ rejectionReason:", rejectionReason);
+
+      // Crear preapproval simulado para guardar en DB
+      preapproval = {
+        id: `pending_${randomUUID()}`,
+        status: "pending",
+        payer_id: data.payer_email,
+        external_reference: data.external_reference,
+        next_payment_date: null,
+        payment_method_id: null,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: frequencyType,
+          start_date: startDateMp,
+          end_date: nextBillingDate,
+          transaction_amount: Number(data.amount),
+          currency_id: data.currency,
+        },
+      };
+    }
+
+    // 6. Guardar suscripción en nuestra base de datos (siempre, incluso si MP rechaza)
     const subscriptionId = randomUUID();
     const now = Date.now();
+
+    // Extraer datos de auto_recurring (usar any para campos que MP SDK no tipa bien)
+    const mpResponse = preapproval as any;
+    const autoRecurring = mpResponse.auto_recurring || {};
+    const summarized = mpResponse.summarized || {};
+
+    // Extraer datos del payer
+    const payerId = mpResponse.payer_id;
 
     await prisma.subscriptions.create({
       data: {
@@ -289,26 +334,51 @@ export async function POST(request: Request) {
 
         // MP IDs
         mpCustomerId: mpCustomerId || null,
+        mpPayerId: payerId ? String(payerId) : null,
         mpCardId: mpCardId,
-        mpPreapprovalId: preapproval.id || null,
+        mpPreapprovalId: mpResponse.id || null,
+        mpPreapprovalPlanId: mpPlanId || null,
 
         // Plan info
         planId: data.plan_id,
         planDescription: data.description,
-        mpPreapprovalPlanId: mpPlanId || null,
         recurrenceInterval: data.recurrence_interval,
+
+        // Frecuency info
+        frequency: autoRecurring.frequency || 1,
+        frequencyType: autoRecurring.frequency_type || null,
 
         // Amount
         transactionAmount: Math.round(Number(data.amount) * 100), // Convertir a centavos
-        currencyId: preapproval.auto_recurring?.currency_id,
+        currencyId: autoRecurring.currency_id || data.currency,
 
         // Billing dates
-        startDate: preapproval.auto_recurring?.start_date || null,
-        nextBillingDate: preapproval.next_payment_date,
+        startDate: autoRecurring.start_date
+          ? new Date(autoRecurring.start_date)
+          : null,
+        endDate: autoRecurring.end_date
+          ? new Date(autoRecurring.end_date)
+          : null,
+        nextBillingDate: mpResponse.next_payment_date
+          ? new Date(mpResponse.next_payment_date)
+          : null,
         lastBillingDate: null,
 
+        // Free trial
+        freeTrialDays: autoRecurring.free_trial?.frequency || null,
+
+        // Payment method
+        paymentMethodId: mpResponse.payment_method_id || null,
+
+        // Installments
+        totalInstallments: summarized.quotas || null,
+        pendingInstallments: summarized.pending_charge_quantity || null,
+
         // Status - mapear status de MP al nuestro
-        status: mapPreapprovalStatus(preapproval.status) as any,
+        // Si MP rechaza, forzamos status "past_due" para distinguir de "pending"
+        status: mpRejected
+          ? "past_due"
+          : (mapPreapprovalStatus(mpResponse.status) as any),
 
         // Payer info
         payerEmail: data.payer_email,
@@ -316,7 +386,7 @@ export async function POST(request: Request) {
         payerLastName: data.payer_last_name,
 
         // Metadata
-        externalReference: preapproval.external_reference,
+        externalReference: mpResponse.external_reference,
         description: data.description,
       },
     });
@@ -336,6 +406,19 @@ export async function POST(request: Request) {
     }
 
     // 8. Responder al frontend
+    // Si MP rechazado, siempre responder con error aunque se guardó la suscripción
+    if (mpRejected) {
+      return NextResponse.json({
+        success: false,
+        rejected: true,
+        error: rejectionReason,
+        status: "past_due",
+        subscription_id: subscriptionId,
+        status_detail:
+          "Suscripción guardada con estado pendiente. El webhook actualizará el estado cuando MP notifique el rechazo.",
+      });
+    }
+
     const isPending =
       preapproval.status === "pending" || preapproval.status === "paused";
     const isRejected =
@@ -374,6 +457,7 @@ export async function POST(request: Request) {
       subscription_id: subscriptionId,
     });
   } catch (error: any) {
+    console.log("🚀 ~ POST ~ error:", error);
     console.error("=== ERROR EN PAGO RECURRENTE ===");
     console.error("Mensaje:", error.message);
 

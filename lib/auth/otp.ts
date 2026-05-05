@@ -75,13 +75,14 @@ export function generateMagicToken() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-export async function saveMagicToken(userId: string, token: string) {
+export async function saveMagicToken(userId: string, token: string, type?: string) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
   await prisma.magicLinks.create({
     data: {
       token,
       userId,
+      type,
       expiresAt,
     },
   });

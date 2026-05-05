@@ -27,6 +27,7 @@ type PaymentData = {
   error?: string;
   three_ds_validation?: string;
   three_ds_status?: string;
+  three_ds_status_detail?: string;
   isSpecialStatus?: boolean;
 };
 

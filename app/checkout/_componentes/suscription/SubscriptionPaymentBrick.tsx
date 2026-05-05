@@ -1,8 +1,11 @@
 "use client";
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { ensureMercadoPagoInitialized } from "@/lib/mercadoPagoInit";
 import { CardPayment } from "@mercadopago/sdk-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+let mpInitialized = false;
 
 // ============================================================================
 // Types
@@ -20,6 +23,7 @@ interface PlanData {
 
 interface UserData {
   phone: string;
+  area: string;
   email: string;
   curp: string;
   firstName: string;
@@ -99,7 +103,7 @@ function extractErrorMessage(response: PaymentResponse): string {
 // ============================================================================
 
 export default function SubscriptionPaymentBrick({
-  userData: { phone, email, curp, firstName, lastName },
+  userData: { phone, area, email, curp, firstName, lastName },
   planData,
   onSuccess,
   onError,
@@ -162,10 +166,9 @@ export default function SubscriptionPaymentBrick({
           payment_type: paymentTypeId,
           installments: Number(installments),
           issuer_id: issuer_id || undefined,
-          external_reference: planData.branch,
+          external_reference: planData.branch + "_" + phone,
           card_last_four: cardLastFour,
           cardholder_name: cardholderName,
-          prospect_phone: phone,
           token,
           amount: transaction_amount,
           currency: planData.currency,
@@ -174,6 +177,8 @@ export default function SubscriptionPaymentBrick({
           payer_email: payer.email,
           payer_first_name: firstName,
           payer_last_name: lastName,
+          payer_phone: phone,
+          payer_area_code: area,
           plan_id: planData.id,
           identification_type: "CURP",
           identification_number: curp,
@@ -243,6 +248,33 @@ export default function SubscriptionPaymentBrick({
       onProcessingChange,
     ],
   );
+  const mpInitializedRef = useRef(false);
+  const [isMPReady, setIsMPReady] = useState(false);
+  const mpkey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS;
+  if (!mpkey) {
+    throw new Error("Missing Mercado Pago public key for subscriptions");
+  }
+  useEffect(() => {
+    if (!mpkey) {
+      setInternalError("Configuración de pagos no disponible");
+      return;
+    }
+
+    let mounted = true;
+
+    ensureMercadoPagoInitialized(mpkey)
+      .then(() => {
+        if (mounted) setIsMPReady(true);
+      })
+      .catch((err) => {
+        console.error("MP init error:", err);
+        if (mounted) setInternalError("Error al cargar Mercado Pago");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [mpkey]);
 
   // Error state render
   if (internalError) {
@@ -250,6 +282,21 @@ export default function SubscriptionPaymentBrick({
       <div className="w-full max-w-md p-4 border border-red-300 rounded-lg bg-red-50">
         <p className="text-center text-red-700">{internalError}</p>
       </div>
+    );
+  }
+
+  if (!isMPReady) {
+    return (
+      <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden gap-0">
+        <CardHeader className="px-6 border-b border-gray-700">
+          <CardTitle className="text-xl font-semibold">
+            <span className="text-orange-500">Cargando...</span>
+          </CardTitle>
+        </CardHeader>
+        <div className="p-6 text-center text-gray-400">
+          Preparando el sistema de pagos...
+        </div>
+      </Card>
     );
   }
 
@@ -303,7 +350,7 @@ export default function SubscriptionPaymentBrick({
           locale="es-MX"
           onSubmit={handleSubmit}
           onReady={() => {
-            console.debug("[SubscriptionPayment] Brick ready");
+            console.log("[SubscriptionPayment] Brick ready");
           }}
           onError={(error: unknown) => {
             console.error("[SubscriptionPayment] Brick error:", error);
