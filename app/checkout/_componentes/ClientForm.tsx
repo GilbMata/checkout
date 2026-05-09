@@ -220,6 +220,7 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
       // console.log("🚀 ~ validatePhone ~ prospect:", prospect);
 
       if (prospect && prospect.id) {
+        // El prospecto existe - enviar OTP
         await sendOTP({ prospectId: prospect.id }).catch((err) => {
           console.error(err);
           toast.error("Error al enviar OTP", { id: "phone-validation" });

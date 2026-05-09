@@ -1,7 +1,7 @@
 "use client";
 
+import CardPaymentBrick from "@/app/checkout/_componentes/CardPaymentBrick";
 import ProcessingOverlay from "@/app/checkout/_componentes/LoadComp";
-import OrderPaymentBrick from "@/app/checkout/_componentes/OrderPaymentBrick";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import SubscriptionPaymentBrick from "./suscription/SubscriptionPaymentBrick";
+
 let mpInitialized = false;
 
 // ========================================================================
@@ -267,7 +267,7 @@ export default function StepPayment() {
     lastName: prospect?.lastName,
   };
 
-  const externalReference = plan?.idBranch + "-" + userData.phone;
+  const externalReference = plan?.idBranch + "_" + userData.phone;
   const recurrence = plan?.membershipType?.includes("recurrence");
 
   const planData = {
@@ -275,7 +275,7 @@ export default function StepPayment() {
     description,
     amount: finalAmount,
     currency: "MXN",
-    recurrent: plan?.membershipType?.includes("recurrence") ? true : false,
+    recurrent: recurrence,
     membershipType: plan?.membershipType,
     displayName: plan?.displayName,
     branch: String(plan?.idBranch),
@@ -284,27 +284,19 @@ export default function StepPayment() {
 
   return (
     <>
-      {recurrence ? (
-        <SubscriptionPaymentBrick
-          planData={planData}
-          userData={userData}
-          onSuccess={handleSuccess}
-          onError={handleError}
-          onPending={handlePending}
-          onRejected={handleRejected}
-          onProcessingChange={setIsProcessing}
-        />
-      ) : (
-        <OrderPaymentBrick
-          planData={planData}
-          userData={userData}
-          onSuccess={handleSuccess}
-          onError={handleError}
-          onPending={handlePending}
-          onRejected={handleRejected}
-          onProcessingChange={setIsProcessing}
-        />
-      )}
+      {/* ======================================================================== */}
+      {/* Componente unificado CardPaymentBrick - detecta automáticamente */}
+      {/* si es Order o Suscripción basado en planData.recurrent */}
+      {/* ======================================================================== */}
+      <CardPaymentBrick
+        planData={planData}
+        userData={userData}
+        onSuccess={handleSuccess}
+        onError={handleError}
+        onPending={handlePending}
+        onRejected={handleRejected}
+        onProcessingChange={setIsProcessing}
+      />
 
       {/* Loader overlay mientras procesa el pago */}
       {isProcessing && <ProcessingOverlay isVisible={isProcessing} />}
