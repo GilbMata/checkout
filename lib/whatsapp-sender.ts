@@ -21,7 +21,7 @@ interface PlaticaClientConfig {
   channelId: string;
   apiKey: string;
   apiUrl: string;
-  apiUrlOTP: string;
+  apiUrlOTP?: string;
   campaignId?: string;
   timeout?: number;
   retries?: number;
@@ -267,8 +267,10 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
     phone: string,
     otp: string,
   ): Promise<Result<boolean, string>> {
+    // Use apiUrlOTP if available, otherwise fallback to apiUrl
+    const otpApiUrl = apiUrlOTP ?? apiUrl;
     // Validate credentials
-    const credsResult = validateCredentials(channelId, apiKey, apiUrlOTP);
+    const credsResult = validateCredentials(channelId, apiKey, otpApiUrl);
     if (!credsResult.ok) {
       console.error("Platica credentials error:", credsResult.error);
       return { ok: false, error: credsResult.error };
@@ -463,7 +465,7 @@ function getDefaultClient(): ReturnType<typeof createPlaticaClient> | null {
   const apiUrl = process.env.PLATICA_API_URL;
   const apiUrlOTP = process.env.PLATICA_API_URLOTP;
 
-  if (!channelId || !apiKey || !apiUrl || !apiUrlOTP) {
+  if (!channelId || !apiKey || !apiUrl) {
     return null;
   }
 
@@ -471,7 +473,7 @@ function getDefaultClient(): ReturnType<typeof createPlaticaClient> | null {
     channelId,
     apiKey,
     apiUrl,
-    apiUrlOTP,
+    apiUrlOTP: apiUrlOTP || undefined,
   });
 }
 

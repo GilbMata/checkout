@@ -111,10 +111,12 @@ model MagicLinks {
   token     String   @unique
   userId    String   @map("user_id") @db.Uuid
   type      String?  // Tipo de magic link: "paymentfailed", "paymentsuccess", etc.
+  subscriptionId  String?  @map("subscription_id") @db.Uuid
   expiresAt DateTime @map("expires_at") @db.Timestamptz
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   prospect  Prospects @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscriptions? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
   @@index([type])
@@ -238,6 +240,7 @@ model Subscriptions {
 
   prospect  Prospects @relation(fields: [prospectId], references: [id], onDelete: Cascade)
   payments SubscriptionPayment[]
+  magicLinks MagicLinks[]
 
   @@index([prospectId])
   @@index([mpPreapprovalId])

@@ -1,8 +1,9 @@
 "use client";
 
+import { ensureMercadoPagoInitialized } from "@/lib/mercadoPagoInit";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardPayment } from "@mercadopago/sdk-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // ============================================================================
 // Types
@@ -13,13 +14,17 @@ interface PlanData {
   description: string;
   amount: number;
   currency: string;
+  /** Indica si es un pago recurrente (suscripción) o único (order) */
   recurrent: boolean;
   displayName: string;
   branch: string;
+  /** Referencia externa - se construye dinámicamente si no se proporciona */
+  externalReference?: string;
 }
 
 interface UserData {
   phone: string;
+  area?: string;
   email: string;
   curp: string;
   firstName: string;
@@ -58,13 +63,6 @@ interface PaymentResponse {
   [key: string]: unknown;
 }
 
-interface PaymentCallbacks {
-  onSuccess: (data: PaymentResponse) => void;
-  onError: (error: string) => void;
-  onPending?: (data: PaymentResponse) => void;
-  onRejected?: (data: PaymentResponse) => void;
-}
-
 interface CardPaymentBrickProps {
   planData: PlanData;
   userData: UserData;
@@ -101,12 +99,90 @@ function extractErrorMessage(response: PaymentResponse): string {
   return "Error desconocido en el procesamiento del pago";
 }
 
+/**
+ * Construye la externalReference según el tipo de pago
+ * - Suscripciones (recurrent): branch + "_" + phone
+ * - Orders (no recurrent): branch + "_" + phone
+ */
+function buildExternalReference(planData: PlanData, phone: string): string {
+  if (planData.externalReference) {
+    return planData.externalReference;
+  }
+  return `${planData.branch}_${phone}`;
+}
+
+/**
+ * Obtiene el endpoint correcto según el tipo de pago
+ */
+function getPaymentEndpoint(recurrent: boolean): string {
+  return recurrent
+    ? "/api/payment/mercadopago/recurrent"
+    : "/api/payment/mercadopago/order";
+}
+
+/**
+ * Construye el payload para el API según el tipo de pago
+ */
+function buildApiPayload(
+  cardPaymentData: CardPaymentData,
+  extraData: AdditionalCardData | undefined,
+  planData: PlanData,
+  userData: UserData,
+): Record<string, unknown> {
+  const {
+    token,
+    transaction_amount,
+    issuer_id,
+    installments,
+    payer,
+    payment_method_id,
+  } = cardPaymentData;
+
+  const cardLastFour = extraData?.lastFourDigits ?? null;
+  const paymentTypeId = extraData?.paymentTypeId;
+  const cardholderName = extraData?.cardholderName ?? null;
+
+  const basePayload = {
+    displayName: planData.displayName,
+    payment_type: paymentTypeId,
+    installments: Number(installments),
+    issuer_id: issuer_id || undefined,
+    external_reference: buildExternalReference(planData, userData.phone),
+    card_last_four: cardLastFour,
+    cardholder_name: cardholderName,
+    token,
+    amount: transaction_amount,
+    currency: planData.currency,
+    description: planData.description,
+    payment_method_id,
+    payer_email: payer.email,
+    payer_first_name: userData.firstName,
+    payer_last_name: userData.lastName,
+    plan_id: planData.id,
+    identification_type: "CURP",
+    identification_number: userData.curp,
+    // Campos de contacto
+    payer_phone: userData.phone,
+    ...(userData.area ? { payer_area_code: userData.area } : {}),
+  };
+
+  // Agregar recurrence_interval solo para suscripciones
+  if (planData.recurrent) {
+    return {
+      ...basePayload,
+      recurrence_interval: "monthly",
+    };
+  }
+
+  return basePayload;
+}
+
 // ============================================================================
-// Component
+// Component - Unified CardPaymentBrick
 // ============================================================================
 
 export default function CardPaymentBrick({
-  userData: { phone, email, curp, firstName, lastName },
+  userData,
   planData,
   onSuccess,
   onError,
@@ -115,10 +191,11 @@ export default function CardPaymentBrick({
   onProcessingChange,
 }: CardPaymentBrickProps) {
   const [internalError, setInternalError] = useState<string | null>(null);
+  const [isMPReady, setIsMPReady] = useState(false);
+  const mpInitializedRef = useRef(false);
+
   console.log("🚀 ~ CardPaymentBrick ~ planData:", planData);
-  const title = planData.recurrent
-    ? "Pago mensual recurrente con tarjeta de crédito o débito"
-    : "Pago único con tarjeta de crédito o débito";
+  console.log("🚀 ~ CardPaymentBrick ~ recurrent:", planData.recurrent);
 
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
@@ -126,7 +203,6 @@ export default function CardPaymentBrick({
       const message = error instanceof Error ? error.message : fallbackMessage;
       setInternalError(message);
       onError(message);
-      // Notify parent that processing ended
       onProcessingChange?.(false);
     },
     [onError, onProcessingChange],
@@ -134,76 +210,43 @@ export default function CardPaymentBrick({
 
   const handleSubmit = useCallback(
     async (cardPaymentData: unknown, additionalData?: unknown) => {
-      // Notify parent that processing started - THIS IS THE KEY TO AVOID RE-RENDER
+      // Notificar que el procesamiento comenzó
       onProcessingChange?.(true);
       setInternalError(null);
 
       try {
-        // Validate data from Brick
+        // Validar datos del Brick
         if (!validateCardPaymentData(cardPaymentData)) {
           throw new Error(
             "Datos de pago inválidos. Por favor, verifica la información de tu tarjeta.",
           );
         }
 
-        const {
-          token,
-          transaction_amount,
-          issuer_id,
-          installments,
-          payer,
-          payment_method_id,
-        } = cardPaymentData as CardPaymentData;
-
         const extraData = additionalData as AdditionalCardData | undefined;
-        const cardLastFour = extraData?.lastFourDigits ?? null;
-        const paymentTypeId = extraData?.paymentTypeId;
-        const cardholderName = extraData?.cardholderName ?? null; // Reserved for future use
 
         // Dev-only logging
         if (process.env.NODE_ENV === "development") {
-          console.log("[CardPayment] Submitting:", {
-            hasToken: !!token,
-            amount: transaction_amount,
-            paymentMethod: payment_method_id,
-            cardLastFour,
+          console.log(`[CardPayment - ${planData.recurrent ? "Recurrent" : "Order"}] Submitting:`, {
+            hasToken: !!(cardPaymentData as CardPaymentData).token,
+            amount: (cardPaymentData as CardPaymentData).transaction_amount,
+            paymentMethod: (cardPaymentData as CardPaymentData).payment_method_id,
+            cardLastFour: extraData?.lastFourDigits,
           });
         }
 
-        // payload según el tipo de pago
-        const apiPayload = {
-          displayName: planData.displayName,
-          payment_type: paymentTypeId,
-          installments: Number(installments),
-          issuer_id: issuer_id || undefined,
-          external_reference: planData.branch,
-          card_last_four: cardLastFour,
-          cardholder_name: cardholderName,
-          prospect_phone: phone,
-          token,
-          amount: transaction_amount,
-          currency: planData.currency,
-          description: planData.description,
-          payment_method_id,
-          payer_email: payer.email,
-          payer_first_name: firstName,
-          payer_last_name: lastName,
-          plan_id: planData.id,
-          identification_type: "CURP",
-          identification_number: curp,
-          ...(planData.recurrent
-            ? {
-                recurrence_interval: "monthly",
-              }
-            : {}),
-        };
+        // Construir payload dinámicamente según el tipo
+        const apiPayload = buildApiPayload(
+          cardPaymentData as CardPaymentData,
+          extraData,
+          planData,
+          userData,
+        );
+
         console.log("🚀 ~ CardPaymentBrick ~ apiPayload:", apiPayload);
 
-        const endpoint = planData.recurrent
-          ? "/api/payment/mercadopago/recurrent"
-          : "/api/payment/mercadopago/order";
+        // Endpoint dinámico según tipo de pago
+        const endpoint = getPaymentEndpoint(planData.recurrent);
 
-        // HTTP request
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
@@ -212,7 +255,6 @@ export default function CardPaymentBrick({
           body: JSON.stringify(apiPayload),
         });
 
-        //Validar response
         if (!response.ok) {
           throw new Error(
             `Error del servidor (${response.status}). Por favor, intenta más tarde.`,
@@ -221,14 +263,14 @@ export default function CardPaymentBrick({
 
         const result = (await response.json()) as PaymentResponse;
 
-        // ========================================================================
+        // ====================================================================
         // Procesar respuesta - incluyendo 3DS Challenge
-        // ========================================================================
+        // ====================================================================
         if (result.success) {
           onSuccess(result);
         } else if (result.challenge_required) {
           // 3DS Challenge requerido - pasar datos al callback onPending
-          // que maneja el StepPayment (muestra iframe del challenge)
+          // que maneja StepPayment (muestra iframe del challenge)
           onPending?.(result);
         } else if (result.pending) {
           onPending?.(result);
@@ -251,25 +293,45 @@ export default function CardPaymentBrick({
           );
         }
       } finally {
-        // Notificar que el procesamiento finalizó
+        // Notificar que el procesamiento terminó
         onProcessingChange?.(false);
       }
     },
-    [
-      planData,
-      phone,
-      curp,
-      firstName,
-      lastName,
-      onSuccess,
-      onPending,
-      onRejected,
-      handleApiError,
-      onProcessingChange,
-    ],
+    [planData, userData, onSuccess, onPending, onRejected, handleApiError, onProcessingChange],
   );
 
-  // Error state render
+  // ========================================================================
+  // Inicialización de Mercado Pago (requerida para el Brick)
+  // ========================================================================
+  const mpKey = planData.recurrent
+    ? process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS
+    : process.env.NEXT_PUBLIC_MP_PUBLIC_KEY;
+
+  useEffect(() => {
+    if (!mpKey) {
+      console.warn("Mercado Pago public key no disponible");
+      return;
+    }
+
+    let mounted = true;
+
+    ensureMercadoPagoInitialized(mpKey)
+      .then(() => {
+        if (mounted) setIsMPReady(true);
+      })
+      .catch((err) => {
+        console.error("MP init error:", err);
+        if (mounted) setInternalError("Error al cargar Mercado Pago");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [mpKey]);
+
+  // ========================================================================
+  // Render: Estado de error interno
+  // ========================================================================
   if (internalError) {
     return (
       <div className="w-full max-w-md p-4 border border-red-300 rounded-lg bg-red-50">
@@ -278,13 +340,35 @@ export default function CardPaymentBrick({
     );
   }
 
-  // Main render
+  // ========================================================================
+  // Render: Cargando Mercado Pago
+  // ========================================================================
+  if (!isMPReady) {
+    return (
+      <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
+        <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
+          <CardTitle className="text-xl font-semibold">
+            <span className="text-orange-500">Cargando...</span>
+          </CardTitle>
+        </CardHeader>
+        <div className="p-6 text-center text-gray-400">
+          Preparando el sistema de pagos...
+        </div>
+      </Card>
+    );
+  }
+
+  // ========================================================================
+  // Render: Formulario de pago unificado
+  // ========================================================================
+  const isRecurrent = planData.recurrent;
+
   return (
     <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
-      {/* Header mejorado */}
+      {/* Header */}
       <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
         <CardTitle className="text-xl font-semibold tracking-tight">
-          {planData.recurrent ? (
+          {isRecurrent ? (
             <>
               <span className="text-orange-500">Membresía recurrente</span>
               <span className="block text-sm font-normal text-gray-400 mt-1">
@@ -301,28 +385,24 @@ export default function CardPaymentBrick({
           )}
         </CardTitle>
       </CardHeader>
-      {/* Contenido del formulario */}
+
+      {/* Formulario del Brick */}
       <div className="px-3 py-4">
         <CardPayment
           initialization={{
             amount: planData.amount,
             payer: {
-              email: email || "",
+              email: isRecurrent ? userData.email : "",
               identification: {
                 type: "CURP",
-                number: curp,
+                number: userData.curp,
               },
             },
           }}
           customization={{
-            // paymentMethods: {
-            //   minInstallments: 1,
-            //   maxInstallments: 6,
-            // },
             visual: {
-              // hideFormTitle: true,
               texts: {
-                formTitle: planData.recurrent
+                formTitle: isRecurrent
                   ? "Datos para tu suscripción mensual"
                   : "Datos para tu pago anual",
               },
@@ -346,17 +426,16 @@ export default function CardPaymentBrick({
           locale="es-MX"
           onSubmit={handleSubmit}
           onReady={() => {
-            console.debug("[CardPayment] Brick ready");
+            console.debug(`[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick ready`);
           }}
           onError={(error: unknown) => {
-            console.error("[CardPayment] Brick error:", error);
+            console.error(`[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick error:`, error);
             const message =
               error instanceof Error
                 ? error.message
                 : "Error en el formulario de pago";
             setInternalError(message);
             onError(message);
-            // Notificar que el procesamiento también finalizó por error
             onProcessingChange?.(false);
           }}
         />

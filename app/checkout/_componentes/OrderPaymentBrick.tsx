@@ -264,6 +264,7 @@ export default function OrderPaymentBrick({
           </>
         </CardTitle>
       </CardHeader>
+
       <div className="px-3 py-4">
         <CardPayment
           initialization={{
@@ -291,9 +292,6 @@ export default function OrderPaymentBrick({
                   borderRadiusMedium: "12px",
                   borderRadiusLarge: "16px",
                   borderRadiusSmall: "8px",
-                  fontSizeBase: "14px",
-                  primaryColor: "#ec6100",
-                  outlineClear: "true",
                 },
               },
             },

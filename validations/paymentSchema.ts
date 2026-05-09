@@ -166,3 +166,31 @@ export const orderPaymentSchema = z.object({
 });
 
 export type orderPaymentInput = z.infer<typeof orderPaymentSchema>;
+
+/**
+ * Schema para actualizar la tarjeta de una suscripción
+ */
+export const updateCardSchema = z.object({
+  // ID de la suscripción en nuestra base de datos
+  subscription_id: z.string().uuid("ID de suscripción inválido"),
+
+  // ID del preapproval en MercadoPago
+  preapproval_id: z.string().min(1, "ID de preapproval requerido"),
+
+  // Token de la nueva tarjeta
+  token: z.string().min(1, "Token de tarjeta requerido"),
+
+  // Últimos 4 dígitos de la tarjeta (opcional)
+  card_last_four: z.string().optional(),
+
+  // Nombre del titular de la tarjeta (opcional)
+  cardholder_name: z.string().optional(),
+
+  // ID del método de pago (opcional)
+  payment_method_id: z.string().optional(),
+
+  // Cuotas (opcional)
+  installments: z.number().optional(),
+});
+
+export type UpdateCardInput = z.infer<typeof updateCardSchema>;

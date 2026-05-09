@@ -75,7 +75,12 @@ export function generateMagicToken() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-export async function saveMagicToken(userId: string, token: string, type?: string) {
+export async function saveMagicToken(
+  userId: string,
+  token: string,
+  type?: string,
+  subscriptionId?: string,
+) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
   await prisma.magicLinks.create({
@@ -83,6 +88,7 @@ export async function saveMagicToken(userId: string, token: string, type?: strin
       token,
       userId,
       type,
+      subscriptionId,
       expiresAt,
     },
   });
@@ -90,6 +96,7 @@ export async function saveMagicToken(userId: string, token: string, type?: strin
 
 export async function getUserFromToken(token: string) {
   const now = new Date();
+  console.log("🚀 ~ getUserFromToken ~ now:", now);
 
   const record = await prisma.magicLinks.findFirst({
     where: {
@@ -97,6 +104,9 @@ export async function getUserFromToken(token: string) {
       expiresAt: { gt: now },
     },
   });
+  console.log("🚀 ~ getUserFromToken ~ record:", record);
+
+  const subscriptionId = record?.subscriptionId || null;
 
   if (!record) return null;
 
@@ -104,5 +114,5 @@ export async function getUserFromToken(token: string) {
     where: { id: record.userId },
   });
 
-  return user;
+  return { user, subscriptionId };
 }

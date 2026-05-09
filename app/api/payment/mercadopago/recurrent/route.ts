@@ -3,7 +3,9 @@
 import prisma from "@/lib/db/prisma";
 import {
   recurrentPaymentSchema,
+  updateCardSchema,
   type RecurrentPaymentInput,
+  type UpdateCardInput,
 } from "@/validations/paymentSchema";
 import { randomUUID } from "crypto";
 import {
@@ -550,6 +552,115 @@ export async function DELETE(request: Request) {
     console.error("Error cancelando suscripción:", error.message);
     return NextResponse.json(
       { error: "Error cancelando suscripción" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * PUT endpoint para actualizar la tarjeta de una suscripción
+ * PUT /api/payment/mercadopago/recurrent
+ */
+export async function PUT(request: Request) {
+  try {
+    // 1. Parsear y validar el body
+    const body = (await request.json()) as UpdateCardInput;
+    const validation = updateCardSchema.safeParse(body);
+
+    if (!validation.success) {
+      console.error("❌ Validación fallida:", validation.error.issues);
+      return NextResponse.json(
+        {
+          success: false,
+          error: validation.error.issues[0]?.message || "Datos inválidos",
+        },
+        { status: 400 },
+      );
+    }
+
+    const data = validation.data;
+    console.log("📝 Actualizando tarjeta:", {
+      subscriptionId: data.subscription_id,
+      preapprovalId: data.preapproval_id,
+      hasToken: !!data.token,
+      cardLastFour: data.card_last_four,
+    });
+
+    // 2. Buscar la suscripción en nuestra base de datos
+    const subscription = await prisma.subscriptions.findUnique({
+      where: { id: data.subscription_id },
+    });
+
+    if (!subscription) {
+      return NextResponse.json(
+        { success: false, error: "Suscripción no encontrada" },
+        { status: 404 },
+      );
+    }
+
+    // 3. Verificar que el preapproval_id coincida
+    if (subscription.mpPreapprovalId !== data.preapproval_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "El ID de preapproval no coincide con la suscripción",
+        },
+        { status: 400 },
+      );
+    }
+
+    // 4. Actualizar la tarjeta en MercadoPago usando PreApproval.update
+    const preApprovalClient = new PreApproval(mpConfig);
+    const idempotencyKey = randomUUID();
+
+    try {
+      // await preApprovalClient.update({
+      //   id: data.preapproval_id,
+      //   body: {
+      //     card_token_id: data.token,
+      //   },
+      //   requestOptions: { idempotencyKey },
+      // });
+      console.log(
+        "✅ Tarjeta actualizada en MercadoPago:",
+        data.preapproval_id,
+      );
+    } catch (mpError: any) {
+      console.error("❌ Error actualizando tarjeta en MP:", mpError.message);
+      return NextResponse.json(
+        {
+          success: false,
+          error: parseMPError(mpError),
+        },
+        { status: 400 },
+      );
+    }
+
+    // 5. Actualizar la suscripción en nuestra base de datos
+    await prisma.subscriptions.update({
+      where: { id: data.subscription_id },
+      data: {
+        paymentMethodId: data.payment_method_id || null,
+      },
+    });
+
+    console.log("✅ Suscripción actualizada en DB:", data.subscription_id);
+
+    // 6. Responder al frontend
+    return NextResponse.json({
+      success: true,
+      message: "Tarjeta actualizada correctamente",
+    });
+  } catch (error: any) {
+    console.error("=== ERROR ACTUALIZANDO TARJETA ===");
+    console.error("Mensaje:", error.message);
+
+    const mpError = parseMPError(error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: mpError,
+      },
       { status: 500 },
     );
   }

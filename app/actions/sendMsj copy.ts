@@ -17,7 +17,6 @@ interface SendOTPParams {
   prospectId: string;
   planName: string;
   type: string;
-  subscriptionId?: string;
 }
 
 export async function sendMsj(params: SendOTPParams): Promise<{
@@ -29,7 +28,6 @@ export async function sendMsj(params: SendOTPParams): Promise<{
     let userId = params.prospectId;
     let type = params.type;
     const planName = params.planName;
-    const subscriptionId = params.subscriptionId;
 
     console.log("[sendMsj] Iniciando - type:", type, "prospectId:", userId);
 
@@ -41,39 +39,26 @@ export async function sendMsj(params: SendOTPParams): Promise<{
       return { success: false, error: "Cliente no encontrado" };
     }
 
-    console.log(
-      "[sendMsj] Prospecto:",
-      prospect.firstName,
-      "phone:",
-      prospect.phone,
-    );
+    console.log("[sendMsj] Prospecto:", prospect.firstName, "phone:", prospect.phone);
 
     const { phone, firstName } = prospect;
     const token = generateMagicToken();
 
     // Inicializar con tipo correcto
-    let result:
-      | { ok: true; data: boolean }
-      | { ok: false; error: string }
-      | null = null;
+    let result: { ok: true; data: boolean } | { ok: false; error: string } | null = null;
 
     if (type === "paymentfailed") {
       console.log("[sendMsj] Guardando magic token...");
-      await saveMagicToken(userId, token, type, subscriptionId);
+      await saveMagicToken(userId, token, type);
 
       const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
-      console.log(
-        "[sendMsj] Enviando WhatsApp a:",
-        phone,
-        "magicLink:",
-        magicLink,
-      );
+      console.log("[sendMsj] Enviando WhatsApp a:", phone, "magicLink:", magicLink);
 
       result = await whatsappClient.sendpaymentfailedMessage(
-        phone,
-        firstName,
+        prospect.phone,
+        prospect.firstName,
         planName,
-        magicLink || "",
+        magicLink,
       );
       console.log("[sendMsj] Result WhatsApp:", result);
     }
