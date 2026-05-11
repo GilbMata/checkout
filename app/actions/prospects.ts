@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db/index";
 import { assertNotDisposableEmail } from "@/lib/email/disposable-email";
-import { DocumentType, Gender, MembershipStatus } from "@prisma/client";
+import { DocumentType, Gender, MembershipStatus } from "@/src/generated/prisma";
 
 type CreateProspectData = {
   email: string;
