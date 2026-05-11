@@ -439,6 +439,17 @@ export async function POST(request: Request) {
       code: error.code,
       meta: error.meta,
     });
+
+    // Extraer detalles del error de MP (errors[].details)
+    const mpResponse = error?.response?.data;
+    if (mpResponse?.errors) {
+      console.error("=== ERROR DETAILS ===");
+      console.error("Errors:", JSON.stringify(mpResponse.errors, null, 2));
+      if (mpResponse.errors[0]?.details) {
+        console.error("Error details:", JSON.stringify(mpResponse.errors[0].details, null, 2));
+      }
+    }
+
     console.error(
       "MP raw error:",
       JSON.stringify(

@@ -52,7 +52,7 @@ export const recurrentPaymentSchema = z.object({
   payer_area_code: z.string().optional(),
 
   //(default: CURP)
-  identification_type: z.string().default("CURP"),
+  identification_type: z.string().default("OTRO"),
 
   // (CURP del usuario)
   identification_number: z.string().optional(),
@@ -155,7 +155,7 @@ export const orderPaymentSchema = z.object({
   payer_area_code: z.string().optional(),
 
   //(default: CURP)
-  identification_type: z.string().default("CURP"),
+  identification_type: z.string().default("OTRO"),
 
   // (CURP del usuario)
   identification_number: z.string().optional(),

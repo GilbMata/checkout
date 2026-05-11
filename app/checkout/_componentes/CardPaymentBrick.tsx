@@ -161,7 +161,7 @@ function buildApiPayload(
     payer_first_name: userData.firstName,
     payer_last_name: userData.lastName,
     plan_id: planData.id,
-    identification_type: "CURP",
+    identification_type: "OTRO",
     identification_number: userData.curp,
     // Campos de contacto
     payer_phone: userData.phone,
@@ -415,10 +415,19 @@ export default function CardPaymentBrick({
             amount: planData.amount,
             payer: {
               email: isRecurrent ? userData.email : "",
-              identification: {
-                type: "CURP",
-                number: userData.curp,
-              },
+              // Para México (MLM), el formulario de pago de MP NO incluye campos de identificación
+              // a diferencia de Argentina, Brasil, Colombia, etc. Por eso no es necesario
+              // pre-inicializar el campo identification para Orders.
+              // Para Suscripciones (recurrent), necesitamos pasar la identificación porque
+              // la suscripción se crea primero y el cargo se hace después.
+              ...(isRecurrent
+                ? {
+                    identification: {
+                      type: "OTRO", // Tipo genérico válido para México
+                      number: userData.curp,
+                    },
+                  }
+                : {}),
             },
           }}
           customization={{
