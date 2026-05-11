@@ -327,33 +327,23 @@ export default function CardPaymentBrick({
       console.warn("Mercado Pago public key no disponible");
       return;
     }
-    if (mpInitializedRef.current) return; // ← activa el guard
-    mpInitializedRef.current = true;
-
-    console.log(
-      "[CardPaymentBrick] Iniciando MercadoPago con key:",
-      mpKey.substring(0, 10) + "...",
-    );
-
-    // Si ya está inicializado globalmente, marcar listo inmediatamente
+    // Si ya está inicializado globalmente con la misma key
+    // solo marcar listo (funciona en remounts de StrictMode)
     if (isMercadoPagoReady() && getInitializedKey() === mpKey) {
-      console.log(
-        "[CardPaymentBrick] Ya estaba inicializado, marcando listo inmediatamente",
-      );
       setIsMPReady(true);
       return;
     }
 
+    // Evitar múltiples llamadas a ensureInitialized en el mismo mount
+    if (mpInitializedRef.current) return;
+    mpInitializedRef.current = true;
+
     ensureMercadoPagoInitialized(mpKey)
       .then(() => {
-        console.log(
-          "[CardPaymentBrick] MercadoPago inicializado exitosamente!",
-        );
         setIsMPReady(true);
       })
       .catch((err) => {
         mpInitializedRef.current = false;
-        console.error("[CardPaymentBrick] MP init error:", err);
         setInternalError(
           "Error al cargar Mercado Pago: " +
             (err instanceof Error ? err.message : String(err)),
