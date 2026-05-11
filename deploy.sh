@@ -1,32 +1,25 @@
 #!/bin/bash
-set -euo pipefail
+set -e  # Salir en primer error
 
-APP_DIR="/home/administrator/checkout"
-LOG_PREFIX="[$(date '+%Y-%m-%d %H:%M:%S')]"
+cd /home/administrator/checkout
 
-log() { echo "$LOG_PREFIX === $1 ==="; }
-die() { echo "$LOG_PREFIX ERROR: $1" >&2; exit 1; }
-
-cd "$APP_DIR" || die "No se puede acceder a $APP_DIR"
-
-log "Pulling latest code"
+echo "=== Pulling latest code ==="
 git pull origin main
 
-log "Installing dependencies"
-npm ci --omit=dev 2>/dev/null || npm install   # ci es más reproducible
+echo "=== Installing dependencies ==="
+npm install
 
-log "Generating Prisma client"
+echo "=== Generating Prisma client ==="
 npm run db:generate
 
-log "Building application"
-npm run build || die "Build falló — abortando sin reiniciar"
+echo "=== Building application ==="
+npm run build
 
-# Schema ANTES del restart para evitar ventana de inconsistencia
-log "Pushing database schema"
-npm run db:push || die "db:push falló — la app sigue corriendo con la versión anterior"
+echo "=== Pushing database schema ==="
+npm run db:push
 
-log "Restarting PM2"
+echo "=== Restarting PM2 ==="
 pm2 restart app
 pm2 save
 
-log "Deploy completado"
+echo "Deployment completed at $(date)" >> /home/administrator/checkout/deploy.log
