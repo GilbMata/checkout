@@ -1,16 +1,16 @@
 /**
  * Webhook de MercadoPago para Orders/Pagos (Checkout API)
  * Maneja todos los actions y statuses de MP Orders
- * 
+ *
  * Actions posibles:
  * - payment.created, payment.updated
  * - order.created, order.updated
- * 
+ *
  * Order statuses: created, processed, processing, action_required, canceled, charged_back, expired, failed, refunded
  * Payment statuses: created, processed, action_required, at_terminal, expired, refunded, canceled, failed
  */
 import prisma from "@/lib/db/prisma";
-import { PaymentStatus, OrderStatus } from "@/src/generated/prisma";
+import { OrderStatus, PaymentStatus } from "@/src/generated/prisma";
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 
@@ -19,7 +19,7 @@ import { NextRequest } from "next/server";
 // ============================================================================
 
 const WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET_ORDERS;
-const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN!;
+const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN_ORDERS!;
 
 // ============================================================================
 // Tipos de datos de MercadoPago
@@ -46,40 +46,40 @@ interface MPNotification {
 // Documentación: https://www.mercadopago.com.mx/developers/es/docs/checkout-api-orders/payment-management/status/order-status
 const ORDER_STATUS_MAP: Record<string, OrderStatus> = {
   // Estados finales
-  created: "pending",          // Orden creada, esperando pago
-  processed: "completed",        // Pago acreditado (approved)
-  canceled: "cancelled",         // Orden cancelada
-  charged_back: "failed",        // Contracargo
-  expired: "expired",           // Orden expirada
-  failed: "failed",             // Orden fallida
-  refunded: "failed",           // Reembolsada (tratarla como fallida)
-  
+  created: "pending", // Orden creada, esperando pago
+  processed: "completed", // Pago acreditado (approved)
+  canceled: "cancelled", // Orden cancelada
+  charged_back: "failed", // Contracargo
+  expired: "expired", // Orden expirada
+  failed: "failed", // Orden fallida
+  refunded: "failed", // Reembolsada (tratarla como fallida)
+
   // Estados de procesamiento
-  processing: "processing",    // En procesamiento
+  processing: "processing", // En procesamiento
   action_required: "processing", // Requiere acción (3DS, etc)
-  at_terminal: "processing",    // En terminal (para Point)
+  at_terminal: "processing", // En terminal (para Point)
 };
 
 // Payment status (transacción interna) de MP -> our PaymentStatus
 // Documentación: https://www.mercadopago.com.mx/developers/es/docs/mp-point/resources/status-order-transaction
 const PAYMENT_STATUS_MAP: Record<string, PaymentStatus> = {
   // Estados finales
-  approved: "approved",        // Pago aprobado
-  pending: "pending",          // Pago pendiente
-  rejected: "rejected",         // Pago rechazado
-  canceled: "cancelled",        // Pago cancelado
-  refunded: "refunded",         // Pago reembolsado
-  failed: "failed",            // Pago fallido
+  approved: "approved", // Pago aprobado
+  pending: "pending", // Pago pendiente
+  rejected: "rejected", // Pago rechazado
+  canceled: "cancelled", // Pago cancelado
+  refunded: "refunded", // Pago reembolsado
+  failed: "failed", // Pago fallido
   charged_back: "charged_back", // Contracargo
-  
+
   // Estados de procesamiento
-  created: "pending",          // Transacción creada
-  processed: "approved",        // Transacción procesada
-  in_process: "in_process",   // En procesamiento
-  action_required: "pending",   // Requiere acción
-  authorized: "authorized",      // Autorizado (sin capturar)
-  at_terminal: "in_process",  // En terminal
-  expired: "rejected",         // Expirado
+  created: "pending", // Transacción creada
+  processed: "approved", // Transacción procesada
+  in_process: "in_process", // En procesamiento
+  action_required: "pending", // Requiere acción
+  authorized: "authorized", // Autorizado (sin capturar)
+  at_terminal: "in_process", // En terminal
+  expired: "rejected", // Expirado
 };
 
 // ============================================================================
@@ -174,14 +174,13 @@ async function processOrderNotification(mpData: any) {
   });
 
   // Mapear status de MP a nuestro OrderStatus
-  const orderStatus: OrderStatus =
-    ORDER_STATUS_MAP[mpData.status] || "pending";
+  const orderStatus: OrderStatus = ORDER_STATUS_MAP[mpData.status] || "pending";
 
   // Mapear status de payment interno (si existe)
   let paymentStatus: PaymentStatus = "pending";
   let paymentStatusDetail: string | null = null;
   const paymentTransaction = mpData.transactions?.payments?.[0];
-  
+
   if (paymentTransaction) {
     paymentStatus = PAYMENT_STATUS_MAP[paymentTransaction.status] || "pending";
     paymentStatusDetail = paymentTransaction.status_detail || null;
@@ -201,7 +200,7 @@ async function processOrderNotification(mpData: any) {
   // Calcular totalAmount - MP devuelve en centavos (integer)
   // NOTA: total_paid_amount y total_amount de MP ya vienen en la menor unidad de la moneda (centavos para MXN)
   let totalAmount: number | null = null;
-  
+
   if (mpData.total_paid_amount) {
     totalAmount = Math.round(Number(mpData.total_paid_amount));
   } else if (mpData.total_amount) {
@@ -317,7 +316,9 @@ async function processOrderNotification(mpData: any) {
   // Log detallado del estado
   console.log(`📊 Order: ${mpData.status}/${mpData.status_detail}`);
   if (paymentTransaction) {
-    console.log(`📊 Payment: ${paymentTransaction.status}/${paymentTransaction.status_detail}`);
+    console.log(
+      `📊 Payment: ${paymentTransaction.status}/${paymentTransaction.status_detail}`,
+    );
   }
 }
 

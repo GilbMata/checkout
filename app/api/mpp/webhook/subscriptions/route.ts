@@ -262,7 +262,7 @@ async function getAuthorizedPaymentDetails(paymentId: string) {
       `https://api.mercadopago.com/authorized_payments/${paymentId}`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+          Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN_SUBSCRIPTIONS}`,
         },
       },
     );
@@ -346,7 +346,7 @@ async function getPreapprovalDetails(preapprovalId: string) {
       `https://api.mercadopago.com/preapproval/${preapprovalId}`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+          Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN_SUBSCRIPTIONS}`,
         },
       },
     );

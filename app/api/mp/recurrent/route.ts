@@ -16,10 +16,11 @@ import {
 } from "mercadopago";
 import { NextResponse } from "next/server";
 
-const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN_SUBSCRIPTIONS!;
+const MP_ACCESS_TOKEN_SUBSCRIPTIONS =
+  process.env.MP_ACCESS_TOKEN_SUBSCRIPTIONS!;
 // Configuración del cliente de MercadoPago
 const mpConfig = new MercadoPagoConfig({
-  accessToken: MP_ACCESS_TOKEN,
+  accessToken: MP_ACCESS_TOKEN_SUBSCRIPTIONS,
   options: { timeout: 15000 }, // Timeout de 15s para operaciones de suscripción
 });
 

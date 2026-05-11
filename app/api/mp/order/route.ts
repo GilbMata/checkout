@@ -8,11 +8,11 @@ import { MercadoPagoConfig, Order } from "mercadopago";
 import type { OrderCreateData } from "mercadopago/dist/clients/order/create/types";
 import { NextResponse } from "next/server";
 
-const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN!;
+const MP_ACCESS_TOKEN_ORDERS = process.env.MP_ACCESS_TOKEN_ORDERS!;
 
 // Configuración del cliente de MercadoPago
 const mpConfig = new MercadoPagoConfig({
-  accessToken: MP_ACCESS_TOKEN,
+  accessToken: MP_ACCESS_TOKEN_ORDERS,
   options: { timeout: 15000 }, // Timeout de 15s para operaciones de suscripción
 });
 
@@ -320,7 +320,8 @@ export async function POST(request: Request) {
     };
 
     // Obtener datos de MP (del objeto order o del errorData)
-    const mpPayerId = order?.payer?.id?.toString() || errorData?.payer?.id?.toString() || null;
+    const mpPayerId =
+      order?.payer?.id?.toString() || errorData?.payer?.id?.toString() || null;
 
     // 1. Crear la Orden con datos de MP
     const dbOrder = await prisma.orders.create({
