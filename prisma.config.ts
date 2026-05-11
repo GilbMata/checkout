@@ -5,8 +5,8 @@
 import { defineConfig } from "prisma/config";
 // import { dotenv } from "@prisma/client/runtime/library";
 
-import { config } from "dotenv";
-config({ path: ".env.development" });
+// import { config } from "dotenv";
+// config({ path: ".env.development" });
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
