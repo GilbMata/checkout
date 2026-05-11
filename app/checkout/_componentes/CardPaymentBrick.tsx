@@ -317,6 +317,7 @@ export default function CardPaymentBrick({
   const mpKey = planData.recurrent
     ? process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS
     : process.env.NEXT_PUBLIC_MP_PUBLIC_KEY;
+  console.log("🚀 ~ CardPaymentBrick ~ mpKey:", mpKey);
 
   useEffect(() => {
     if (!mpKey) {

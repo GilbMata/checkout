@@ -150,7 +150,6 @@ async function executeWithRetry<T>(
   parseResponse: (response: unknown) => T,
 ): Promise<Result<T, string>> {
   const { url, method, headers, body, timeout, retries } = options;
-  console.log("🚀 ~ executeWithRetry ~ body:", body);
   let lastError: string = "Unknown error";
 
   for (let attempt = 0; attempt < retries; attempt++) {
