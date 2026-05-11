@@ -7,7 +7,7 @@ import {
   isMercadoPagoReady,
 } from "@/lib/mercadoPagoInit";
 import { CardPayment } from "@mercadopago/sdk-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ============================================================================
 // Types
@@ -314,15 +314,21 @@ export default function CardPaymentBrick({
   // ========================================================================
   // Inicialización de Mercado Pago (requerida para el Brick)
   // ========================================================================
-  const mpKey = planData.recurrent
-    ? process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS
-    : process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_ORDERS;
+  const mpKey = useMemo(
+    () =>
+      planData.recurrent
+        ? process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS
+        : process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_ORDERS,
+    [planData.recurrent],
+  );
 
   useEffect(() => {
     if (!mpKey) {
       console.warn("Mercado Pago public key no disponible");
       return;
     }
+    if (mpInitializedRef.current) return; // ← activa el guard
+    mpInitializedRef.current = true;
 
     console.log(
       "[CardPaymentBrick] Iniciando MercadoPago con key:",
@@ -346,6 +352,7 @@ export default function CardPaymentBrick({
         setIsMPReady(true);
       })
       .catch((err) => {
+        mpInitializedRef.current = false;
         console.error("[CardPaymentBrick] MP init error:", err);
         setInternalError(
           "Error al cargar Mercado Pago: " +
