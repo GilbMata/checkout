@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import WelcomePage from "./checkout/_componentes/WelcomePage";
 
 export default function Home() {
-  redirect("https://station24.com.mx/unete");
+  return <WelcomePage />;
 }

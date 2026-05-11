@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth/session";
 import { getBranchAction, getMembershipAction } from "../actions/evoActions";
 import CheckoutClient from "./_componentes/CheckoutClient";
+import WelcomePage from "./_componentes/WelcomePage";
 
 interface SearchParams {
   planId?: string;
@@ -15,28 +16,7 @@ export default async function CheckoutPage({
   const planId = params.planId;
 
   if (!planId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center ">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Plan no seleccionado</h1>
-          <p className=" mb-2">Serás redirigido en 5 segundos...</p>
-          <p className="text-sm text-gray-400">
-            Si no redirecciona, haz clic en el botón
-          </p>
-          <a
-            href="https://station24.com.mx/unete"
-            className="inline-block mt-4 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Ir ahora
-          </a>
-          {/* <script
-            dangerouslySetInnerHTML={{
-              __html: `setTimeout(function(){window.location.href='https://station24.com.mx/unete'},5000)`,
-            }}
-          /> */}
-        </div>
-      </div>
-    );
+    return <WelcomePage />;
   }
 
   let plan: any = null;
