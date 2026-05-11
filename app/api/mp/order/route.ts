@@ -109,14 +109,14 @@ export async function POST(request: Request) {
             number: data.identification_number,
           },
         },
-        config: {
-          online: {
-            transaction_security: {
-              validation: "on_fraud_risk",
-              liability_shift: "required",
-            },
-          },
-        },
+        // config: {
+        //   online: {
+        //     transaction_security: {
+        //       validation: "on_fraud_risk",
+        //       liability_shift: "required",
+        //     },
+        //   },
+        // },
       },
       requestOptions: {
         idempotencyKey,
@@ -132,6 +132,7 @@ export async function POST(request: Request) {
     let dateApproved: any = null;
     let dateCreated: any = null;
     let paymentMethodId: any = undefined;
+    let errorData: any = null; // Para guardar datos de error de MP
 
     // Extraer información de la tarjeta
     const lastFourDigits = data.card_last_four;
@@ -170,30 +171,52 @@ export async function POST(request: Request) {
         });
 
         // Guardar registro inicial del pago (pendiente de challenge)
-        // Usar "pending" del enum y guardar "pending_challenge" en statusDetail
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const payment = await prisma.payments.create({
+        // 1. Crear la Orden con datos de MP
+        const metadata = {
+          items: orderData.body.items,
+          payer: {
+            email: orderData.body.payer?.email,
+            first_name: orderData.body.payer?.first_name,
+            last_name: orderData.body.payer?.last_name,
+          },
+        };
+
+        const dbOrder = await prisma.orders.create({
           data: {
             prospectId,
-            mpPreferenceId: String(mpOrderId),
-            status: "pending" as any,
-            transactionAmount: Number(transactionAmount) * 100,
-            currencyId: data.currency || "MXN",
+            planId: data.plan_id ?? null,
+            status: "processing",
             description: data.description,
-            externalReference: prospectId,
+            externalReference: String(data.external_reference),
+            totalAmount: BigInt(Math.round(Number(transactionAmount))),
+            metadata,
+            mpOrderId: String(mpOrderId),
+            mpUserId: order.payer?.id?.toString() || null,
+            mpCreatedDate: dateCreated ? new Date(dateCreated) : null,
+            mpLastUpdatedDate: dateApproved ? new Date(dateApproved) : null,
+          },
+        });
+
+        // 2. Crear el Payment asociado a la orden
+        const payment = await prisma.orderPayments.create({
+          data: {
+            orderId: dbOrder.id,
+            mpOrderId: String(mpOrderId),
+            status: "pending",
+            transactionAmount: BigInt(Math.round(Number(transactionAmount))),
+            currencyId: data.currency || "MXN",
             mpPaymentId: mpPaymentId ? String(mpPaymentId) : null,
-            statusDetail: "pending_challenge", // Indica que está esperando 3DS
+            statusDetail: "pending_challenge",
             paymentMethodId: data.payment_method_id,
             paymentTypeId: data.payment_type,
             installments: Number(data.installments),
-            planId: data.plan_id ?? null,
             cardLastFour: lastFourDigits,
             cardholderName: cardholderName,
-            dateCreated: dateCreated,
-            dateApproved: dateApproved,
+            dateCreated: dateCreated ? new Date(dateCreated) : null,
+            dateApproved: dateApproved ? new Date(dateApproved) : null,
+            rawResponse: order, // Guardar respuesta completa de MP
           },
         });
-        // console.log("🚀 ~ POST ~ payment:", payment);
 
         // Retornar datos del challenge para que el frontend muestre el iframe
         return NextResponse.json({
@@ -201,6 +224,7 @@ export async function POST(request: Request) {
           challenge_url: challengeUrl,
           order_id: mpOrderId,
           payment_id: mpPaymentId,
+          orderId: dbOrder.id,
           paymentId: payment.id,
           external_reference: prospectId,
           status: orderStatus,
@@ -209,19 +233,16 @@ export async function POST(request: Request) {
         });
       }
     } catch (mpError: any) {
-      const errorData = mpError?.data ?? {};
-      console.log("🚀 ~ POST ~ errorData:", errorData);
+      errorData = mpError?.data ?? {};
       const errorPayments = errorData?.transactions?.payments ?? [];
 
       orderStatus = errorData?.status === "failed" ? "rejected" : "unknown";
-      console.log("🚀 ~ POST ~ orderStatus:", orderStatus);
 
       // status_detail viene en mpError.data.transactions.payments[0].status_detail
       statusDetail =
         errorPayments?.[0]?.status_detail ??
         errorData?.status_detail ??
         "cc_rejected_other_reason";
-      console.log("🚀 ~ POST ~ statusDetail:", statusDetail);
 
       mpOrderId = errorData?.id ?? undefined;
       mpPaymentId = errorPayments?.[0]?.id ?? undefined;
@@ -276,34 +297,75 @@ export async function POST(request: Request) {
 
     // Las variables lastFourDigits y cardholderName ya fueron declaradas antes del try
 
+    // Determinar estado de la orden
+    let orderStatusEnum: "pending" | "processing" | "completed" | "failed" =
+      "pending";
+    if (isSuccess) orderStatusEnum = "completed";
+    else if (isPending) orderStatusEnum = "processing";
+    else if (isRejected) orderStatusEnum = "failed";
+
     // Registrar el pago en la base de datos
     console.log("🚀 ~ POST ~ paymentStatus:", paymentStatus);
-    const payment = await prisma.payments.create({
+
+    // Preparar metadata con datos del request
+    const metadata = {
+      items: orderData.body.items,
+      payer: {
+        email: orderData.body.payer?.email,
+        first_name: orderData.body.payer?.first_name,
+        last_name: orderData.body.payer?.last_name,
+      },
+      // En caso de error, guardar los datos del error
+      ...(isRejected && { errorData: errorData || null }),
+    };
+
+    // Obtener datos de MP (del objeto order o del errorData)
+    const mpPayerId = order?.payer?.id?.toString() || errorData?.payer?.id?.toString() || null;
+
+    // 1. Crear la Orden con datos de MP
+    const dbOrder = await prisma.orders.create({
       data: {
         prospectId,
-        mpPreferenceId: String(mpOrderId),
-        status: paymentStatus as any,
-        transactionAmount: Number(transactionAmount) * 100,
-        currencyId: data.currency || "MXN",
+        planId: data.plan_id ?? null,
+        status: orderStatusEnum,
         description: data.description,
-        externalReference: prospectId,
+        externalReference: String(data.external_reference),
+        totalAmount: BigInt(Math.round(Number(transactionAmount))),
+        metadata,
+        mpOrderId: String(mpOrderId),
+        mpUserId: mpPayerId,
+        mpCreatedDate: dateCreated ? new Date(dateCreated) : null,
+        mpLastUpdatedDate: dateApproved ? new Date(dateApproved) : null,
+      },
+    });
+
+    // 2. Crear el Payment asociado a la orden (guardar rawResponse del objeto order o errorData)
+    const rawResponse = order || errorData || null;
+    const payment = await prisma.orderPayments.create({
+      data: {
+        orderId: dbOrder.id,
+        mpOrderId: String(mpOrderId),
+        status: paymentStatus as any,
+        transactionAmount: BigInt(Math.round(Number(transactionAmount))),
+        currencyId: data.currency || "MXN",
         mpPaymentId: mpPaymentId ? String(mpPaymentId) : null,
         statusDetail: statusDetail || null,
         paymentMethodId: data.payment_method_id,
         paymentTypeId: data.payment_type,
         installments: Number(data.installments),
-        planId: data.plan_id ?? null,
         cardLastFour: lastFourDigits,
         cardholderName: cardholderName,
-        dateCreated: dateCreated,
-        dateApproved: dateApproved,
+        dateCreated: dateCreated ? new Date(dateCreated) : null,
+        dateApproved: dateApproved ? new Date(dateApproved) : null,
+        rawResponse, // Guardar respuesta completa de MP (order o errorData)
       },
     });
 
-    console.log("✅ Payment registered:", {
+    console.log("✅ Order and Payment registered:", {
+      orderId: dbOrder.id,
       paymentId: payment.id,
       prospectId,
-      orderStatus,
+      orderStatus: orderStatusEnum,
       paymentStatus,
       mpOrderId,
       mpPaymentId,
@@ -331,6 +393,7 @@ export async function POST(request: Request) {
         date_approved: dateApproved,
         order_id: mpOrderId,
         payment_id: mpPaymentId,
+        orderId: dbOrder.id,
         paymentId: payment.id,
         external_reference: prospectId,
       });
@@ -342,6 +405,7 @@ export async function POST(request: Request) {
         status_detail: statusDetail || "Pago en proceso",
         order_id: mpOrderId,
         payment_id: mpPaymentId,
+        orderId: dbOrder.id,
         paymentId: payment.id,
         external_reference: prospectId,
       });
@@ -353,6 +417,7 @@ export async function POST(request: Request) {
         status_detail: statusDetail || "Pago rechazado",
         order_id: mpOrderId,
         payment_id: mpPaymentId,
+        orderId: dbOrder.id,
         paymentId: payment.id,
         external_reference: prospectId,
         error: getRejectionMessage(statusDetail),
@@ -373,6 +438,19 @@ export async function POST(request: Request) {
       code: error.code,
       meta: error.meta,
     });
+    console.error(
+      "MP raw error:",
+      JSON.stringify(
+        {
+          message: error?.message,
+          cause: error?.cause,
+          response: error?.response,
+          status: error?.status,
+        },
+        null,
+        2,
+      ),
+    );
 
     let errorMessage = "Error interno del servidor";
     if (error instanceof Error) {

@@ -24,19 +24,23 @@ export default async function PendingPage({
   let planPrice = 0;
 
   if (paymentId) {
-    payment = await prisma.payments.findFirst({
+    payment = await prisma.orderPayments.findFirst({
       where: { mpPaymentId: paymentId },
+      include: {
+        order: {
+          include: {
+            prospect: true,
+          },
+        },
+      },
     });
 
-    if (payment?.prospectId) {
-      const prospect = await prisma.prospects.findUnique({
-        where: { id: payment.prospectId },
-      });
-      email = prospect?.email;
+    if (payment?.order?.prospectId) {
+      email = payment.order.prospect?.email;
     }
 
     if (payment) {
-      planName = payment.description || "Plan Station24";
+      planName = payment.order?.description || "Plan Station24";
       planPrice = payment.transactionAmount
         ? Number(payment.transactionAmount) / 100
         : 0;

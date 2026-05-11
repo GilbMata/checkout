@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Copy,
   CreditCard,
-  Download,
   Dumbbell,
   Mail,
   Receipt,
@@ -19,6 +18,7 @@ import { useMemo, useState } from "react";
 type PaymentData = {
   payment_id: string;
   order_id: string;
+  orderId?: string;
   status: "approved";
   status_detail?: string;
   payment_method_id?: string;
@@ -77,6 +77,7 @@ export default function PaymentSuccess({
 
   // Get the payment/subscription ID for display
   const paymentId = payment?.payment_id || subscription?.preapproval_id || "";
+  const orderId = payment?.orderId || payment?.order_id || "";
 
   // Format date for payments
   const formattedDate = useMemo(() => {
@@ -359,12 +360,12 @@ export default function PaymentSuccess({
                       {isSubscription ? "Suscripción" : "Orden"}
                     </p>
                     <p className="text-sm text-zinc-300 font-mono">
-                      {paymentId.slice(0, 12)}...
+                      {orderId.slice(0, 12)}...
                     </p>
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(paymentId);
+                      navigator.clipboard.writeText(orderId);
                       setCopiedId(true);
                       setTimeout(() => setCopiedId(false), 2000);
                     }}
@@ -468,7 +469,7 @@ export default function PaymentSuccess({
 
             {/* Action Buttons */}
             <div className="pt-4 space-y-3">
-              {paymentId && (
+              {/* {paymentId && (
                 <Button
                   onClick={handleDownload}
                   disabled={isDownloading}
@@ -478,13 +479,13 @@ export default function PaymentSuccess({
                   <Download className="w-4 h-4 mr-2" />
                   {isDownloading ? "Descargando..." : "Descargar recibo"}
                 </Button>
-              )}
+              )} */}
 
               <Button
                 onClick={() =>
                   continueUrl && (window.location.href = continueUrl)
                 }
-                className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full h-12 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 Ir a Station24
               </Button>

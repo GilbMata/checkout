@@ -1,7 +1,11 @@
 "use client";
 
-import { ensureMercadoPagoInitialized } from "@/lib/mercadoPagoInit";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ensureMercadoPagoInitialized,
+  getInitializedKey,
+  isMercadoPagoReady,
+} from "@/lib/mercadoPagoInit";
 import { CardPayment } from "@mercadopago/sdk-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -115,9 +119,7 @@ function buildExternalReference(planData: PlanData, phone: string): string {
  * Obtiene el endpoint correcto según el tipo de pago
  */
 function getPaymentEndpoint(recurrent: boolean): string {
-  return recurrent
-    ? "/api/payment/mercadopago/recurrent"
-    : "/api/payment/mercadopago/order";
+  return recurrent ? "/api/mp/recurrent" : "/api/mp/order";
 }
 
 /**
@@ -194,9 +196,6 @@ export default function CardPaymentBrick({
   const [isMPReady, setIsMPReady] = useState(false);
   const mpInitializedRef = useRef(false);
 
-  console.log("🚀 ~ CardPaymentBrick ~ planData:", planData);
-  console.log("🚀 ~ CardPaymentBrick ~ recurrent:", planData.recurrent);
-
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
       console.error("Payment error:", error);
@@ -226,12 +225,16 @@ export default function CardPaymentBrick({
 
         // Dev-only logging
         if (process.env.NODE_ENV === "development") {
-          console.log(`[CardPayment - ${planData.recurrent ? "Recurrent" : "Order"}] Submitting:`, {
-            hasToken: !!(cardPaymentData as CardPaymentData).token,
-            amount: (cardPaymentData as CardPaymentData).transaction_amount,
-            paymentMethod: (cardPaymentData as CardPaymentData).payment_method_id,
-            cardLastFour: extraData?.lastFourDigits,
-          });
+          console.log(
+            `[CardPayment - ${planData.recurrent ? "Recurrent" : "Order"}] Submitting:`,
+            {
+              hasToken: !!(cardPaymentData as CardPaymentData).token,
+              amount: (cardPaymentData as CardPaymentData).transaction_amount,
+              paymentMethod: (cardPaymentData as CardPaymentData)
+                .payment_method_id,
+              cardLastFour: extraData?.lastFourDigits,
+            },
+          );
         }
 
         // Construir payload dinámicamente según el tipo
@@ -297,7 +300,15 @@ export default function CardPaymentBrick({
         onProcessingChange?.(false);
       }
     },
-    [planData, userData, onSuccess, onPending, onRejected, handleApiError, onProcessingChange],
+    [
+      planData,
+      userData,
+      onSuccess,
+      onPending,
+      onRejected,
+      handleApiError,
+      onProcessingChange,
+    ],
   );
 
   // ========================================================================
@@ -313,20 +324,34 @@ export default function CardPaymentBrick({
       return;
     }
 
-    let mounted = true;
+    console.log(
+      "[CardPaymentBrick] Iniciando MercadoPago con key:",
+      mpKey.substring(0, 10) + "...",
+    );
+
+    // Si ya está inicializado globalmente, marcar listo inmediatamente
+    if (isMercadoPagoReady() && getInitializedKey() === mpKey) {
+      console.log(
+        "[CardPaymentBrick] Ya estaba inicializado, marcando listo inmediatamente",
+      );
+      setIsMPReady(true);
+      return;
+    }
 
     ensureMercadoPagoInitialized(mpKey)
       .then(() => {
-        if (mounted) setIsMPReady(true);
+        console.log(
+          "[CardPaymentBrick] MercadoPago inicializado exitosamente!",
+        );
+        setIsMPReady(true);
       })
       .catch((err) => {
-        console.error("MP init error:", err);
-        if (mounted) setInternalError("Error al cargar Mercado Pago");
+        console.error("[CardPaymentBrick] MP init error:", err);
+        setInternalError(
+          "Error al cargar Mercado Pago: " +
+            (err instanceof Error ? err.message : String(err)),
+        );
       });
-
-    return () => {
-      mounted = false;
-    };
   }, [mpKey]);
 
   // ========================================================================
@@ -416,9 +441,6 @@ export default function CardPaymentBrick({
                   borderRadiusMedium: "12px",
                   borderRadiusLarge: "16px",
                   borderRadiusSmall: "8px",
-                  fontSizeBase: "14px",
-                  primaryColor: "#ec6100",
-                  outlineClear: "true",
                 },
               },
             },
@@ -426,10 +448,15 @@ export default function CardPaymentBrick({
           locale="es-MX"
           onSubmit={handleSubmit}
           onReady={() => {
-            console.debug(`[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick ready`);
+            console.debug(
+              `[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick ready`,
+            );
           }}
           onError={(error: unknown) => {
-            console.error(`[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick error:`, error);
+            console.error(
+              `[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick error:`,
+              error,
+            );
             const message =
               error instanceof Error
                 ? error.message

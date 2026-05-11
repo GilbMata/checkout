@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "de": "cloudflared tunnel --url http://localhost:3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -14,7 +15,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
+    "db:studio": "prisma studio --url=postgresql://postgres:000@localhost:5432/station24",
     "db:reset": "prisma migrate reset "
   },
   "dependencies": {

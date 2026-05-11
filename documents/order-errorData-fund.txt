@@ -1,0 +1,106 @@
+{
+  "id": "ORDTST01KRAGYF5879ZT3WGYQJYCDBRT",
+  "type": "online",
+  "processing_mode": "automatic",
+  "external_reference": "24_3312486283",
+  "description": "Membresía Station 24",
+  "total_amount": "5490.00",
+  "total_paid_amount": "5490.00",
+  "country_code": "MEX",
+  "user_id": "3310907182",
+  "status": "failed",
+  "status_detail": "failed",
+  "capture_mode": "automatic_async",
+  "currency": "MXN",
+  "created_date": "2026-05-11T03:23:00.67Z",
+  "last_updated_date": "2026-05-11T03:23:02.25Z",
+  "integration_data": {
+    "application_id": "6727552262306845"
+  },
+  "config": {
+    "online": {
+      "transaction_security": {
+        "validation": "never"
+      }
+    }
+  },
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAY01KRAGYF5XZRJ1A42WF5AVYYQ5",
+        "amount": "5490.00",
+        "paid_amount": "5490.00",
+        "reference_id": "000bm022f7",
+        "status": "failed",
+        "status_detail": "insufficient_amount",
+        "payment_method": {
+          "id": "visa",
+          "type": "credit_card",
+          "token": "50eedff8f951597457c95745477d026e",
+          "statement_descriptor": "STATION24",
+          "installments": 1,
+          "transaction_security": {
+            "validation": "never"
+          }
+        }
+      }
+    ]
+  },
+  "items": [
+    {
+      "category_id": "gym_fitness",
+      "title": "PLAN PREMIUM ANUAL",
+      "description": "WEB ANUAL - NUE/QRO (2023)",
+      "unit_price": "5490.00",
+      "external_code": "2645",
+      "quantity": 1
+    }
+  ]
+}
+{
+  "action": "order.failed",
+  "api_version": "v1",
+  "application_id": "6727552262306845",
+  "data": {
+    "currency_id": "MXN",
+    "external_reference": "24_3312486283",
+    "id": "ORDTST01KRAQHT7T54KV7AWM8Z6FJBFX",
+    "items": [
+      {
+        "external_code": "2645",
+        "external_position": "",
+        "quantity": 1,
+        "unit_measure": ""
+      }
+    ],
+    "status": "failed",
+    "status_detail": "failed",
+    "total_amount": "5490.00",
+    "total_paid_amount": "5490.00",
+    "transactions": {
+      "payments": [
+        {
+          "amount": "5490.00",
+          "id": "PAY01KRAQHT8FW269EVA6C3WX511E",
+          "paid_amount": "5490.00",
+          "payment_method": {
+            "id": "visa",
+            "installments": 1,
+            "type": "credit_card"
+          },
+          "reference": {
+            "id": "000bm0z83l"
+          },
+          "status": "failed",
+          "status_detail": "insufficient_amount"
+        }
+      ]
+    },
+    "type": "online",
+    "version": 1
+  },
+  "date_created": "2026-05-11T05:18:27.715866078Z",
+  "live_mode": false,
+  "type": "order",
+  "user_id": "3310907182"
+}

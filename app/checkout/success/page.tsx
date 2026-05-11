@@ -58,8 +58,15 @@ export default async function SuccessPage({
 
   // Handle one-time payment
   if (paymentId) {
-    const payment = await prisma.payments.findFirst({
+    const payment = await prisma.orderPayments.findFirst({
       where: { mpPaymentId: paymentId },
+      include: {
+        order: {
+          include: {
+            prospect: true,
+          },
+        },
+      },
     });
 
     if (!payment) {
@@ -68,12 +75,7 @@ export default async function SuccessPage({
     }
 
     // Get prospect for email
-    if (payment.prospectId) {
-      const prospect = await prisma.prospects.findUnique({
-        where: { id: payment.prospectId },
-      });
-      email = prospect?.email;
-    }
+    email = payment.order?.prospect?.email;
 
     // Convert BigInt to number
     const txAmount = payment.transactionAmount
@@ -82,7 +84,7 @@ export default async function SuccessPage({
 
     paymentResult = {
       payment_id: payment.mpPaymentId || payment.id,
-      order_id: payment.mpPreferenceId || payment.id,
+      order_id: payment.mpOrderId || payment.id,
       status: "approved",
       status_detail: payment.statusDetail || undefined,
       payment_method_id: payment.paymentMethodId || undefined,
@@ -95,7 +97,7 @@ export default async function SuccessPage({
       payment_type_id: payment.paymentTypeId || undefined,
     };
 
-    planName = payment.description || "Plan Station24";
+    planName = payment.order?.description || "Plan Station24";
     planPrice = txAmount ? txAmount / 100 : 0;
     planCurrency = payment.currencyId || "MXN";
   }

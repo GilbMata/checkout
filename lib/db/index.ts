@@ -8,6 +8,9 @@ export type {
   EmailValidationLogs,
   MagicLinks,
   OtpRequests,
-  Payments,
+  Orders,
+  OrderPayments,
+  OrderStatus,
+  PaymentStatus,
   Prospects,
-} from "@prisma/client";
+} from "@/src/generated/prisma";

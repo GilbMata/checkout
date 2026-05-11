@@ -11,30 +11,31 @@ export async function GET(
   const { id: paymentId } = await params;
 
   // Obtener payment de la base de datos usando Prisma
-  const payment = await prisma.payments.findFirst({
+  const payment = await prisma.orderPayments.findFirst({
     where: { mpPaymentId: paymentId },
+    include: {
+      order: {
+        include: {
+          prospect: true,
+        },
+      },
+    },
   });
 
   if (!payment) {
     return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
   }
 
-  // Obtener email del prospect si existe
-  let email = "";
-  if (payment.prospectId) {
-    const prospect = await prisma.prospects.findUnique({
-      where: { id: payment.prospectId },
-    });
-    if (prospect) {
-      email = prospect.email;
-    }
-  }
+  // Obtener datos del prospect y order
+  const prospect = payment.order?.prospect;
+  const order = payment.order;
+  const email = prospect?.email || "";
+  const plan = order?.description || "Plan Station24";
 
   // Formatear datos para el PDF (transactionAmount stored as bigint in cents)
   const amount = payment.transactionAmount
     ? Number(payment.transactionAmount) / 100
     : 0;
-  const plan = payment.description || "Plan Station24";
   const date = payment.dateApproved
     ? new Date(payment.dateApproved).toLocaleString("es-MX")
     : new Date().toLocaleString("es-MX");

@@ -295,7 +295,7 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
 
     const result = await executeWithRetry<boolean>(
       {
-        url: apiUrlOTP,
+        url: otpApiUrl,
         method: "POST",
         headers: {
           "Content-Type": "application/json",

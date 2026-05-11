@@ -351,7 +351,7 @@ export async function POST(request: Request) {
         frequencyType: autoRecurring.frequency_type || null,
 
         // Amount
-        transactionAmount: Math.round(Number(data.amount) * 100), // Convertir a centavos
+        transactionAmount: BigInt(Math.round(Number(data.amount) * 100)), // Convertir a centavos
         currencyId: autoRecurring.currency_id || data.currency,
 
         // Billing dates

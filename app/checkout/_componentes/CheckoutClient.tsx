@@ -9,7 +9,6 @@ import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { useEffect, useState } from "react";
 import LoadComp from "./LoadComp";
 import PlanCheckout2 from "./PlanCheckout2";
-let mpInitialized = false;
 
 export default function CheckoutClient({
   plan,
@@ -22,20 +21,8 @@ export default function CheckoutClient({
 }) {
   const [loading, setLoading] = useState(true);
   const { step, setPlan, setBranch, setStep, setProspect } = useCheckoutStore();
-  const mpkey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS;
 
   useEffect(() => {
-    // if (!mpInitialized && mpkey) {
-    //   try {
-    //     initMercadoPago(mpkey, {
-    //       locale: "es-MX",
-    //     });
-    //     mpInitialized = true;
-    //   } catch (err) {
-    //     console.error("MP init error:", err);
-    //   }
-    // }
-
     const init = async () => {
       try {
         if (plan?.idMembership) {

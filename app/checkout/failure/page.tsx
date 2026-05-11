@@ -38,19 +38,23 @@ export default async function FailurePage({
   let paymentStatusFromDb: string = "rejected";
 
   if (params.payment_id) {
-    const payment = await prisma.payments.findFirst({
+    const payment = await prisma.orderPayments.findFirst({
       where: { mpPaymentId: params.payment_id },
+      include: {
+        order: {
+          include: {
+            prospect: true,
+          },
+        },
+      },
     });
 
-    if (payment?.prospectId) {
-      const prospect = await prisma.prospects.findUnique({
-        where: { id: payment.prospectId },
-      });
-      email = prospect?.email;
+    if (payment?.order?.prospectId) {
+      email = payment.order.prospect?.email;
     }
 
     if (payment) {
-      planName = payment.description || "Plan Station24";
+      planName = payment.order?.description || "Plan Station24";
       threeDsStatus = payment.threeDsStatus || undefined;
       threeDsStatusDetail = payment.threeDsStatusDetail || undefined;
       paymentStatusFromDb = payment.status;

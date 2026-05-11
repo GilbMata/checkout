@@ -15,8 +15,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-let mpInitialized = false;
-
 // ========================================================================
 // Types
 // ========================================================================

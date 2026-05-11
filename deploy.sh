@@ -1,26 +1,25 @@
 #!/bin/bash
+set -e  # Salir en primer error
 
 cd /home/administrator/checkout
 
-# Pull latest code
+echo "=== Pulling latest code ==="
 git pull origin main
 
-# Install dependencies (only if package.json changed)
+echo "=== Installing dependencies ==="
 npm install
 
-# Build the application
-npm run build
-
-# Generate Prisma client
+echo "=== Generating Prisma client ==="
 npm run db:generate
 
-# Push database schema changes
+echo "=== Building application ==="
+npm run build
+
+echo "=== Pushing database schema ==="
 npm run db:push
 
-# Restart PM2
+echo "=== Restarting PM2 ==="
 pm2 restart app
-
-# Save PM2 state
 pm2 save
 
 echo "Deployment completed at $(date)" >> /home/administrator/checkout/deploy.log

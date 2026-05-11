@@ -18,7 +18,7 @@ const whatsappClient = createPlaticaClient({
   channelId: process.env.PLATICA_CHANNEL_ID!,
   apiKey: process.env.PLATICA_API_KEY!,
   apiUrl: process.env.PLATICA_API_URL!,
-  apiUrlOTP: process.env.PLATICA_API_URL,
+  apiUrlOTP: process.env.PLATICA_API_URLOTP!,
 });
 
 interface SendOTPParams {
