@@ -6,6 +6,7 @@ import {
   getInitializedKey,
   isMercadoPagoReady,
 } from "@/lib/mercadoPagoInit";
+import { getMPPublicKey } from "@/lib/mp-credentials";
 import { CardPayment } from "@mercadopago/sdk-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -315,10 +316,7 @@ export default function CardPaymentBrick({
   // Inicialización de Mercado Pago (requerida para el Brick)
   // ========================================================================
   const mpKey = useMemo(
-    () =>
-      planData.recurrent
-        ? process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_SUBSCRIPTIONS
-        : process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_ORDERS,
+    () => getMPPublicKey(planData.recurrent ? "subscriptions" : "orders"),
     [planData.recurrent],
   );
 

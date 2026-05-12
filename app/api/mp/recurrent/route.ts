@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
+import { getMPAccessToken, getEnvironmentName } from "@/lib/mp-credentials";
 import {
   recurrentPaymentSchema,
   updateCardSchema,
@@ -16,8 +17,12 @@ import {
 } from "mercadopago";
 import { NextResponse } from "next/server";
 
-const MP_ACCESS_TOKEN_SUBSCRIPTIONS =
-  process.env.MP_ACCESS_TOKEN_SUBSCRIPTIONS!;
+// Obtener el token según el entorno
+const MP_ACCESS_TOKEN_SUBSCRIPTIONS = getMPAccessToken("subscriptions");
+
+// Logging para debug
+console.log(`[MP Recurrent] Entorno: ${getEnvironmentName()}`);
+
 // Configuración del cliente de MercadoPago
 const mpConfig = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN_SUBSCRIPTIONS,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/index";
+import { getMPAccessToken, getEnvironmentName } from "@/lib/mp-credentials";
 import {
   orderPaymentInput,
   orderPaymentSchema,
@@ -8,7 +9,11 @@ import { MercadoPagoConfig, Order } from "mercadopago";
 import type { OrderCreateData } from "mercadopago/dist/clients/order/create/types";
 import { NextResponse } from "next/server";
 
-const MP_ACCESS_TOKEN_ORDERS = process.env.MP_ACCESS_TOKEN_ORDERS!;
+// Obtener el token según el entorno
+const MP_ACCESS_TOKEN_ORDERS = getMPAccessToken("orders");
+
+// Logging para debug
+console.log(`[MP Orders] Entorno: ${getEnvironmentName()}`);
 
 // Configuración del cliente de MercadoPago
 const mpConfig = new MercadoPagoConfig({
