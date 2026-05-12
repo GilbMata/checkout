@@ -461,10 +461,28 @@ export default function CardPaymentBrick({
               `[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick error:`,
               error,
             );
-            const message =
-              error instanceof Error
-                ? error.message
-                : "Error en el formulario de pago";
+
+            // Analizar el tipo de error para dar mensaje apropiado
+            let message = "Error en el formulario de pago";
+            
+            if (error && typeof error === "object") {
+              const err = error as Record<string, unknown>;
+              
+              // Error específico de Secure Fields
+              if (err.cause === "fields_setup_failed_after_3_tries") {
+                message = "Error al cargar el formulario de pago. Esto puede ser causado por: " +
+                  "bloqueadores de cookies/publicidad, o configuración del navegador. " +
+                  "Por favor, desactiva extensiones de navegador e intenta de nuevo.";
+                console.error("[CardPayment] Secure Fields error - check cookies/browser extensions");
+              } else if (err.cause === "fields_setup_failed") {
+                message = "Error al cargar los campos seguros. Por favor, recarga la página.";
+              } else if (err.message) {
+                message = String(err.message);
+              }
+            } else if (error instanceof Error) {
+              message = error.message;
+            }
+            
             setInternalError(message);
             onError(message);
             onProcessingChange?.(false);
