@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
+  console.log("🚀 ~ GET ~ token:", token);
 
   if (!token) {
     // Token no proporcionado - mostrar página de error

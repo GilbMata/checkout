@@ -82,16 +82,19 @@ export async function saveMagicToken(
   subscriptionId?: string,
 ) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-
-  await prisma.magicLinks.create({
-    data: {
-      token,
-      userId,
-      type,
-      subscriptionId,
-      expiresAt,
-    },
-  });
+  try {
+    await prisma.magicLinks.create({
+      data: {
+        token,
+        userId,
+        type,
+        subscriptionId,
+        expiresAt,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 export async function getUserFromToken(token: string) {

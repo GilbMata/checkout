@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth/session";
 import { getBranchAction, getMembershipAction } from "../actions/evoActions";
 import CheckoutClient from "./_componentes/CheckoutClient";
+import MPCProvider from "@/components/providers/MPCProvider";
 import WelcomePage from "./_componentes/WelcomePage";
 
 interface SearchParams {
@@ -69,5 +70,9 @@ export default async function CheckoutPage({
   const session = await getSession();
   // console.log("🚀 ~ CheckoutPage ~ session:", session);
 
-  return <CheckoutClient plan={plan} branch={branch} session={session} />;
+  return (
+    <MPCProvider>
+      <CheckoutClient plan={plan} branch={branch} session={session} />
+    </MPCProvider>
+  );
 }

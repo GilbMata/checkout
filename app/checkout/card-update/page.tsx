@@ -91,14 +91,18 @@ export default async function CardUpdatePage({ searchParams }: PageProps) {
         prospectEmail: data.prospectEmail,
         prospectCurp: data.prospectCurp ?? undefined,
         status: String(data.status),
-        lastPaymentStatus: data.lastPaymentStatus ? String(data.lastPaymentStatus) : undefined,
+        lastPaymentStatus: data.lastPaymentStatus
+          ? String(data.lastPaymentStatus)
+          : undefined,
         nextBillingDate: data.nextBillingDate,
         lastBillingDate: data.lastBillingDate,
         failedAttempts: data.failedAttempts,
         totalInstallments: data.totalInstallments ?? undefined,
         pendingInstallments: data.pendingInstallments ?? undefined,
         lastPaymentAttemptAt: data.lastPaymentAttemptAt,
-        transactionAmount: data.transactionAmount ? Number(data.transactionAmount) / 100 : undefined,
+        transactionAmount: data.transactionAmount
+          ? Number(data.transactionAmount) / 100
+          : undefined,
       }}
       planInfo={planInfo}
     />

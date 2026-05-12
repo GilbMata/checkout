@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/index";
-import { getMPAccessToken, getEnvironmentName } from "@/lib/mp-credentials";
+import { getEnvironmentName, getMPAccessToken } from "@/lib/mp-credentials";
 import {
   orderPaymentInput,
   orderPaymentSchema,
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
 
     try {
       order = await orderClient.create(orderData);
-      console.log("🚀 ~ POST ~ order:", order);
+      // console.log("🚀 ~ POST ~ order:", order);
 
       orderStatus = order.status;
       statusDetail = order.status_detail;
@@ -451,7 +451,10 @@ export async function POST(request: Request) {
       console.error("=== ERROR DETAILS ===");
       console.error("Errors:", JSON.stringify(mpResponse.errors, null, 2));
       if (mpResponse.errors[0]?.details) {
-        console.error("Error details:", JSON.stringify(mpResponse.errors[0].details, null, 2));
+        console.error(
+          "Error details:",
+          JSON.stringify(mpResponse.errors[0].details, null, 2),
+        );
       }
     }
 

@@ -8,7 +8,6 @@ import StepPayment from "@/app/checkout/_componentes/StepPayment";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { useEffect, useState } from "react";
 import LoadComp from "./LoadComp";
-import PlanCheckout2 from "./PlanCheckout2";
 
 export default function CheckoutClient({
   plan,
@@ -90,7 +89,7 @@ export default function CheckoutClient({
 
         <div className="md:sticky md:top-0 md:h-screen p-6">
           <PlanCheckout />
-          <PlanCheckout2 />
+          {/* <PlanCheckout2 /> */}
         </div>
       </main>
     </div>

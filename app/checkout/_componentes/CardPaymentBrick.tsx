@@ -1,14 +1,10 @@
 "use client";
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ensureMercadoPagoInitialized,
-  getInitializedKey,
-  isMercadoPagoReady,
-} from "@/lib/mercadoPagoInit";
+import { ensureMercadoPagoInitialized } from "@/lib/mercadoPagoInit";
 import { getMPPublicKey } from "@/lib/mp-credentials";
 import { CardPayment } from "@mercadopago/sdk-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // ============================================================================
 // Types
@@ -195,7 +191,7 @@ export default function CardPaymentBrick({
 }: CardPaymentBrickProps) {
   const [internalError, setInternalError] = useState<string | null>(null);
   const [isMPReady, setIsMPReady] = useState(false);
-  const mpInitializedRef = useRef(false);
+  const mpkey = getMPPublicKey(planData.recurrent ? "subscriptions" : "orders");
 
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
@@ -313,44 +309,55 @@ export default function CardPaymentBrick({
   );
 
   // ========================================================================
-  // Inicialización de Mercado Pago (requerida para el Brick)
+  // Initialize Mercado Pago (idempotent, waits for SDK to be ready)
   // ========================================================================
-  const mpKey = useMemo(
-    () => getMPPublicKey(planData.recurrent ? "subscriptions" : "orders"),
-    [planData.recurrent],
-  );
-
   useEffect(() => {
-    if (!mpKey) {
-      console.warn("Mercado Pago public key no disponible");
-      return;
-    }
-    // Si ya está inicializado globalmente con la misma key
-    // solo marcar listo (funciona en remounts de StrictMode)
-    if (isMercadoPagoReady() && getInitializedKey() === mpKey) {
-      setIsMPReady(true);
+    if (!mpkey) {
+      setInternalError("Configuración de pagos no disponible");
       return;
     }
 
-    // Evitar múltiples llamadas a ensureInitialized en el mismo mount
-    if (mpInitializedRef.current) return;
-    mpInitializedRef.current = true;
+    let mounted = true;
 
-    ensureMercadoPagoInitialized(mpKey)
+    ensureMercadoPagoInitialized(mpkey)
       .then(() => {
-        setIsMPReady(true);
+        if (mounted) setIsMPReady(true);
       })
       .catch((err) => {
-        mpInitializedRef.current = false;
-        setInternalError(
-          "Error al cargar Mercado Pago: " +
-            (err instanceof Error ? err.message : String(err)),
-        );
+        console.error("MP init error:", err);
+        if (mounted) setInternalError("Error al cargar Mercado Pago");
       });
-  }, [mpKey]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [mpkey]);
 
   // ========================================================================
-  // Render: Estado de error interno
+  // Render: Loading state — waiting for MP SDK
+  // ========================================================================
+  if (!isMPReady) {
+    return (
+      <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
+        <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
+          <CardTitle className="text-xl font-semibold tracking-tight">
+            <span className="text-orange-500">Cargando...</span>
+            <span className="block text-sm font-normal text-gray-400 mt-1">
+              Preparando formulario de pago...
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <div className="px-6 py-8 text-center text-gray-400">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // ========================================================================
+  // Render: Error state
   // ========================================================================
   if (internalError) {
     return (
@@ -361,25 +368,8 @@ export default function CardPaymentBrick({
   }
 
   // ========================================================================
-  // Render: Cargando Mercado Pago
-  // ========================================================================
-  if (!isMPReady) {
-    return (
-      <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
-        <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
-          <CardTitle className="text-xl font-semibold">
-            <span className="text-orange-500">Cargando...</span>
-          </CardTitle>
-        </CardHeader>
-        <div className="p-6 text-center text-gray-400">
-          Preparando el sistema de pagos...
-        </div>
-      </Card>
-    );
-  }
-
-  // ========================================================================
-  // Render: Formulario de pago unificado
+  // Render: Formulario de pago
+  // El MPCProvider ya se encargo de inicializar Mercado Pago
   // ========================================================================
   const isRecurrent = planData.recurrent;
 
@@ -461,28 +451,10 @@ export default function CardPaymentBrick({
               `[CardPayment - ${isRecurrent ? "Recurrent" : "Order"}] Brick error:`,
               error,
             );
-
-            // Analizar el tipo de error para dar mensaje apropiado
-            let message = "Error en el formulario de pago";
-            
-            if (error && typeof error === "object") {
-              const err = error as Record<string, unknown>;
-              
-              // Error específico de Secure Fields
-              if (err.cause === "fields_setup_failed_after_3_tries") {
-                message = "Error al cargar el formulario de pago. Esto puede ser causado por: " +
-                  "bloqueadores de cookies/publicidad, o configuración del navegador. " +
-                  "Por favor, desactiva extensiones de navegador e intenta de nuevo.";
-                console.error("[CardPayment] Secure Fields error - check cookies/browser extensions");
-              } else if (err.cause === "fields_setup_failed") {
-                message = "Error al cargar los campos seguros. Por favor, recarga la página.";
-              } else if (err.message) {
-                message = String(err.message);
-              }
-            } else if (error instanceof Error) {
-              message = error.message;
-            }
-            
+            const message =
+              error instanceof Error
+                ? error.message
+                : "Error en el formulario de pago";
             setInternalError(message);
             onError(message);
             onProcessingChange?.(false);

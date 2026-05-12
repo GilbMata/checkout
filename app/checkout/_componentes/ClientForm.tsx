@@ -224,16 +224,16 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
         // BYPASS OTP - Solo development + prospect existente + phone específico
         // Skip OTP y navegar directo a Payment
         // ====================================================================
-        if (
-          process.env.NODE_ENV === "development" &&
-          phoneNor === "3312486283"
-        ) {
-          console.log("🔓 ~ Bypass OTP (dev) - skip a payment");
-          setProspect(prospect as any);
-          setStep("payment");
-          toast.info("Bypass OTP (dev) - navegando directo a payment");
-          return;
-        }
+        // if (
+        //   process.env.NODE_ENV === "development" &&
+        //   phoneNor === "3312486283"
+        // ) {
+        //   console.log("🔓 ~ Bypass OTP (dev) - skip a payment");
+        //   setProspect(prospect as any);
+        //   setStep("payment");
+        //   toast.info("Bypass OTP (dev) - navegando directo a payment");
+        //   return;
+        // }
 
         // Flujo normal OTP
         await sendOTP({ prospectId: prospect.id }).catch((err) => {
