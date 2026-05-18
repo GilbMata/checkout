@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import type { VoucherDiscount } from "@/lib/evoApi";
 
-type Step = "email" | "otp" | "payment" | "";
+type Step = "phone-only" | "full-form" | "email" | "otp" | "payment" | "";
 
 interface CheckoutState {
   step: Step;
   email: string;
   phone: string;
+  areaCode: string; // Código de área del teléfono
   plan: Membership | null;
   prospect: Prospect | null;
   branch: Branch | null;
@@ -16,9 +17,14 @@ interface CheckoutState {
   voucherCode: string;
   voucherDiscount: VoucherDiscount | null;
 
+  // Turnstile state
+  turnstileToken: string;
+  turnstileVerified: boolean;
+
   setStep: (step: Step) => void;
   setEmail: (email: string) => void;
   setPhone: (phone: string) => void;
+  setAreaCode: (areaCode: string) => void;
   setPlan: (plan: Membership) => void;
   setProspect: (prospect: Prospect) => void;
   clearPlan: () => void;
@@ -27,22 +33,28 @@ interface CheckoutState {
   setVoucherCode: (code: string) => void;
   setVoucherDiscount: (discount: VoucherDiscount | null) => void;
   clearVoucher: () => void;
+  setTurnstileToken: (token: string) => void;
+  setTurnstileVerified: (verified: boolean) => void;
 }
 
 export const useCheckoutStore = create<CheckoutState>((set) => ({
-  step: "",
+  step: "phone-only",
   email: "",
   phone: "",
+  areaCode: "",
   prospectId: "",
   prospect: null,
   plan: null,
   branch: null,
   voucherCode: "",
   voucherDiscount: null,
+  turnstileToken: "",
+  turnstileVerified: false,
   setBranch: (branch) => set({ branch }),
   setStep: (step) => set({ step }),
   setEmail: (email) => set({ email }),
   setPhone: (phone) => set({ phone }),
+  setAreaCode: (areaCode) => set({ areaCode }),
   setProspect: (prospect) => set({ prospect }),
   setProspectId: (id) => set({ prospectId: id }),
   setPlan: (plan) => set({ plan }),
@@ -50,6 +62,8 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   setVoucherCode: (code) => set({ voucherCode: code }),
   setVoucherDiscount: (discount) => set({ voucherDiscount: discount }),
   clearVoucher: () => set({ voucherCode: "", voucherDiscount: null }),
+  setTurnstileToken: (token) => set({ turnstileToken: token }),
+  setTurnstileVerified: (verified) => set({ turnstileVerified: verified }),
 }));
 
 export interface Prospect {

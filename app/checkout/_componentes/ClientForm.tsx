@@ -1,611 +1,76 @@
 "use client";
 
-import { getMemberbyPhoneAction } from "@/app/actions/evoActions";
-import {
-  createProspectAction,
-  getProspectByEmailAction,
-  getProspectByPhoneAction,
-} from "@/app/actions/prospects";
-import { FloatingInput } from "@/components/ui/FloatingInput";
-import { FloatingLabel } from "@/components/ui/FloatingInput2";
-import { Button } from "@/components/ui/button";
-import { DisposableEmailAlert } from "@/components/ui/disposable-email-alert";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-// import { sendOTP } from "@/lib/api/auth";
-import { normalizeCURP, parseCURP } from "@/lib/curp2";
-import { cn } from "@/lib/utils";
-import {
-  registrationSchema,
-  type RegistrationFormData,
-} from "@/lib/validations";
-import { useCheckoutStore } from "@/store/useCheckoutStore";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { FormProvider, useForm } from "react-hook-form";
-// @ts-ignore
-import "react-phone-number-input/style.css";
-import { toast } from "sonner";
-// import { Card, CardHeader } from "../ui/card";
+import { useState } from "react";
 
-import { sendOTP } from "@/app/actions/send-otp";
-import { Card, CardHeader } from "@/components/ui/card";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { CalendarIcon } from "lucide-react";
-import PhoneInput from "react-phone-number-input/react-hook-form";
+import { FullFormFields, PhoneForm } from "./ClientFormFields";
+import StepOTP from "./StepOTP";
 
+type FormStep = "phone" | "full" | "otp";
+
+/**
+ * ClientForm - Orquestador del formulario de registro
+ *
+ * Maneja la transición entre:
+ * - PhoneForm (Form 1): Teléfono + Turnstile → buscar Evo/local
+ * - FullFormFields (Form 2): Datos restantes + Turnstile → crear prospecto
+ * - StepOTP: Verificación de código
+ *
+ * Flujo:
+ * 1. Usuario ve PhoneForm
+ * 2. Completa teléfono → Turnstile valida → busca en Evo/local
+ * 3. Si encuentra prospecto → StepOTP
+ * 4. Si NO encuentra → FullFormFields
+ * 5. Completa datos → Turnstile valida → crea prospecto → StepOTP
+ *
+ * Nota: Este componente usa estado LOCAL para manejar sus pasos internos.
+ * NO interactúa con el store global (useCheckoutStore) para evitar conflictos
+ * con otros componentes que también usan el store.
+ */
 export default function ClientForm({ initialData }: { initialData?: any }) {
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [emailValidating, setEmailValidating] = useState(false);
-  const [emailValid, setEmailValid] = useState(false);
-  const [phoneValid, setPhoneValid] = useState(false);
-  const [showDisposableAlert, setShowDisposableAlert] = useState(false);
-  // const [emailValid, setEmailValid] = useState(true);
-  const { setStep, setEmail, setPhone, setProspect, plan } = useCheckoutStore();
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-  const [autoFilled, setAutoFilled] = useState(false);
+  const [step, setStep] = useState<FormStep>("phone");
+  const [phoneData, setPhoneData] = useState<{
+    phone: string;
+    areaCode: string;
+  } | null>(null);
 
-  const form = useForm<RegistrationFormData>({
-    resolver: zodResolver(registrationSchema),
-    mode: "onChange",
-    defaultValues: {
-      curp: "",
-      firstName: "",
-      lastName: "",
-      gender: "",
-      birthDate: "",
-      email: "",
-      phone: "",
-    },
-  });
+  // Callback cuando el teléfono no se encuentra en Evo ni prospectos locales
+  const handlePhoneNotFound = (phone: string, areaCode: string) => {
+    setPhoneData({ phone, areaCode });
+    setStep("full");
+  };
 
-  const {
-    handleSubmit,
-    watch,
-    control,
-    setValue,
-    setError,
-    clearErrors,
-    setFocus,
-    formState,
-  } = form;
-  const { isDirty, dirtyFields } = formState;
-  // console.log(
-  //   "🚀 ~ ClientForm ~ form.formState.errors:",
-  //   form.formState.errors,
-  // );
+  // Callback cuando se crea el prospecto exitosamente
+  const handleProspectCreated = (prospect: any) => {
+    setStep("otp");
+  };
 
-  useEffect(() => {
-    const value = watch("email");
-    console.log("🚀 ~ ClientForm ~ value:", value);
-    if (!value) return;
-    const timeout = setTimeout(async () => {
-      const isValid = await form.trigger("email");
-      if (!isValid) return;
-      validateEmail(value);
-    }, 500);
+  // Render según el paso actual
+  const renderStep = () => {
+    switch (step) {
+      case "phone":
+        return <PhoneForm onNotFound={handlePhoneNotFound} />;
 
-    return () => clearTimeout(timeout);
-  }, [watch("email")]);
+      case "full":
+        if (!phoneData) {
+          // Safety check - si no hay datos del teléfono, volver al paso 1
+          setStep("phone");
+          return null;
+        }
+        return (
+          <FullFormFields
+            phone={phoneData.phone}
+            areaCode={phoneData.areaCode}
+            onSubmitSuccess={handleProspectCreated}
+          />
+        );
 
-  useEffect(() => {
-    setFocus("phone");
-  }, [setFocus]);
+      case "otp":
+        return <StepOTP />;
 
-  useEffect(() => {
-    const value = watch("phone");
-    // console.log("🚀 ~ ClientForm ~ value:", value?.length);
-    // if (!value || value.length <= 11) return;
-    const timeout = setTimeout(async () => {
-      if (!dirtyFields?.phone) return;
-      const isValid = await form.trigger("phone");
-      if (!isValid) return;
-      if (value) validatePhone(value);
-    }, 1000);
-    clearErrors("phone");
-    return () => clearTimeout(timeout);
-  }, [watch("phone")]);
-
-  useEffect(() => {
-    const emailValue = watch("email");
-    const timeout = setTimeout(() => {
-      const emailError = form.formState.errors.email;
-      if (emailError?.message?.includes("temporal")) {
-        setShowDisposableAlert(true);
-      } else {
-        setShowDisposableAlert(false);
-      }
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [watch("email"), form.formState.errors.email]);
-
-  const handleCURPChange = (value: string) => {
-    const curp = normalizeCURP(value);
-
-    setValue("curp", curp, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-
-    if (curp.length === 18) {
-      const data = parseCURP(curp);
-      console.log("🚀 ~ handleCURPChange ~ data:", data);
-      setValue("birthDate", data.birthDateString);
-      setValue("gender", data.gender);
-      setAutoFilled(true);
-      setTimeout(() => setAutoFilled(false), 1500);
+      default:
+        return <PhoneForm onNotFound={handlePhoneNotFound} />;
     }
   };
 
-  const validateEmail = async (email: string) => {
-    if (!phoneValid) return;
-    try {
-      toast.loading("Validando email...");
-      const prospect = await getProspectByEmailAction(email);
-
-      if (prospect) {
-        console.debug("🚀 ~ Existe el prospecto");
-        toast.warning(" El correo ya existe con otro número");
-        // El prospecto existe - enviar OTP
-        // await sendOTP({ prospectId: prospect.id });
-        // setEmail(email);
-        // setPhone(prospect.phone || "");
-        // setProspectId(prospect.id);
-        // setStep("otp");
-        return;
-      }
-
-      // const member = await getMemberAction(email);
-
-      // if (member) {
-      //   console.debug("🚀 ~ Existe el member");
-      //   // El miembro existe - crear prospecto y enviar OTP
-      //   const phoneNumber = member.phone || "";
-      //   const newProspect = await createProspectAction({
-      //     email: member.email || email,
-      //     curp: "",
-      //     firstName: member.firstName || "",
-      //     lastName: member.lastName || "",
-      //     genero: member.gender || "",
-      //     birthDate: member.birthDate || "",
-      //     areaCode: phoneNumber.slice(0, 3),
-      //     phone: phoneNumber.slice(3, phoneNumber.length),
-      //     planId: planId,
-      //   });
-
-      // Guardar prospectId en el store
-      // setProspectId(newProspect.id);
-
-      // await sendOTP({ prospectId: newProspect.id });
-      // setEmail(member.email || email);
-      // setPhone(phoneNumber);
-      // setStep("otp");
-      //   return;
-      // }
-
-      setEmailValid(true);
-    } catch (err) {
-      console.error(err);
-      toast.error("Error API");
-    } finally {
-      toast.dismiss();
-    }
-  };
-
-  const validatePhone = async (phone: string) => {
-    const phoneNor = phone.slice(3, phone.length);
-    const phoneArea = phone.slice(0, 3);
-    try {
-      toast.loading("Validando teléfono...", { id: "phone-validation" });
-      //local
-      const prospect = await getProspectByPhoneAction(phoneNor);
-      // console.log("🚀 ~ validatePhone ~ prospect:", prospect);
-
-      if (prospect && prospect.id) {
-        // ====================================================================
-        // BYPASS OTP - Solo development + prospect existente + phone específico
-        // Skip OTP y navegar directo a Payment
-        // ====================================================================
-        // if (
-        //   process.env.NODE_ENV === "development" &&
-        //   phoneNor === "3312486283"
-        // ) {
-        //   console.log("🔓 ~ Bypass OTP (dev) - skip a payment");
-        //   setProspect(prospect as any);
-        //   setStep("payment");
-        //   toast.info("Bypass OTP (dev) - navegando directo a payment");
-        //   return;
-        // }
-
-        // Flujo normal OTP
-        await sendOTP({ prospectId: prospect.id }).catch((err) => {
-          console.error(err);
-          toast.error("Error al enviar OTP", { id: "phone-validation" });
-        });
-        setProspect(prospect as any);
-        toast.success("OTP enviado correctamente");
-        toast.dismiss("phone-validation");
-        setStep("otp");
-        return;
-      }
-
-      const member = await getMemberbyPhoneAction(phoneNor);
-      if (member) {
-        // El miembro existe - crear prospecto y enviar OTP
-        const newCustomer = await createProspectAction({
-          email: member.email,
-          curp: member.curp,
-          firstName: member.firstName,
-          lastName: member.lastName,
-          gender: member.gender,
-          birthDate: member.birthDate,
-          areaCode: phoneArea,
-          phone: phoneNor,
-          planId: String(plan?.idMembership),
-
-          idMember: member.idMember,
-          idBranch: member.idBranch,
-          branchName: member.branchName,
-          accessBlocked: member.accessBlocked,
-          blockedReason: member.blockedReason,
-          documentType: member.documentType,
-          documentNumber: member.documentNumber,
-          documentId: member.documentId,
-          status: member.status,
-          membershipStatus: member.membershipStatus,
-          // paymentPending: member.paymentPending,
-        });
-        setProspect(newCustomer as any);
-
-        await sendOTP({ prospectId: newCustomer.id });
-
-        // setEmail(member.email || "");
-        // setPhone(phoneNumber);
-        setStep("otp");
-        toast.success("OTP enviado correctamente");
-        toast.dismiss("phone-validation");
-        return;
-      }
-
-      setPhoneValid(true);
-    } catch (err) {
-      console.error(err);
-      toast.error("Error API", { id: "phone-validation" });
-    } finally {
-      toast.dismiss("phone-validation");
-    }
-  };
-
-  const onSubmit = async (data: RegistrationFormData) => {
-    try {
-      const phoneNumber = data.phone || "";
-      toast.loading(" Registrando usuario...", { id: "user-registration" });
-      const prospect = await createProspectAction({
-        email: data.email,
-        curp: data.curp,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        gender: data.gender,
-        birthDate: data.birthDate,
-        areaCode: phoneNumber.slice(0, 3),
-        phone: phoneNumber.slice(3, phoneNumber.length),
-        planId: String(plan?.idMembership),
-      });
-
-      setProspect(prospect as any);
-
-      await sendOTP({ prospectId: prospect.id });
-      setStep("otp");
-      toast.success("Usuario registrado correctamente");
-      toast.dismiss("user-registration");
-    } catch (error: any) {
-      console.error("Error creating prospect:", error);
-      toast.dismiss("user-registration");
-      const errorMessage = error?.message || "Error al registrar usuario";
-      toast.error(errorMessage);
-    }
-  };
-
-  return (
-    // <Card className="px- md:px-6 lg:px-8 bg-[#1e1e1e] ">
-    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
-      <CardHeader className="space-y-4 px-6 pt-6">
-        <div className="space-y-1">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
-            Crea tu cuenta
-          </h1>
-
-          <p className="text-sm md:text-base text-zinc-400">
-            Completa tu registro para continuar con tu plan
-          </p>
-        </div>
-
-        {/* <div className="pt-2">
-          <p className="text-sm text-zinc-500">
-            ¿Ya tienes cuenta?{" "}
-            <button className="text-orange-400 hover:text-orange-300 font-medium transition-all hover:underline underline-offset-4">
-              Iniciar sesión
-            </button>
-          </p>
-        </div> */}
-      </CardHeader>
-      <FormProvider {...form}>
-        <Form form={form} onSubmit={onSubmit}>
-          <div className=" flex flex-col gap-3 px-8">
-            {/* Phone */}
-            <FormField
-              control={control}
-              name="phone"
-              render={({ field, fieldState }) => (
-                <FormItem className="flex flex-col items-start">
-                  {/* <FormLabel className="text-gray-700 font-medium text-md">
-                    Teléfono
-                  </FormLabel> */}
-                  <FormControl>
-                    <PhoneInput
-                      autoFocus
-                      // country={"mx"}
-                      defaultCountry="MX"
-                      value={field.value || ""}
-                      onChange={(value?: string | undefined) =>
-                        field.onChange(value || "")
-                      }
-                      autoComplete="on"
-                      name="phone"
-                      className="w-full"
-                      inputComponent={FloatingInput}
-                      // @ts-ignore
-                      label="Teléfono *"
-                      // focusInputOnCountrySelection
-                      // rules={{ required: true }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <motion.div
-              initial={false}
-              animate={{
-                opacity: phoneValid ? 1 : 0,
-                height: phoneValid ? "auto" : 0,
-                y: phoneValid ? 0 : -10,
-              }}
-              transition={{
-                duration: 0.3,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-              className="overflow-hidden"
-            >
-              <div className=" flex flex-col  gap-6 pt-2">
-                <FormField
-                  control={control}
-                  name="curp"
-                  render={({ field, fieldState }) => (
-                    <FormItem>
-                      {/* <FormLabel>
-                      CURP <span className="text-red-500 font-medium">*</span>
-                    </FormLabel> */}
-                      <FormControl>
-                        <FloatingInput
-                          label="CURP *"
-                          {...field}
-                          value={field.value}
-                          onChange={(e) => handleCURPChange(e.target.value)}
-                          // error={fieldState.error?.message}
-                          maxLength={18}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={control}
-                  name="firstName"
-                  render={({ field, fieldState }) => (
-                    <FormItem>
-                      <FloatingInput
-                        label="Nombre *"
-                        {...field}
-                        // error={fieldState.error?.message}
-                        // value={field.value ?? ""}
-                        // className="h-12 border-gray-300 "
-                      />
-                      <FloatingLabel htmlFor="floating-customize">
-                        Customize
-                      </FloatingLabel>
-                      {/* </FormControl> */}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* lastName */}
-                <FormField
-                  control={control}
-                  name="lastName"
-                  render={({ field, fieldState }) => (
-                    <FormItem>
-                      {/* <FormLabel className="text-gray-700 font-medium">Apellido *</FormLabel> */}
-                      <FormControl>
-                        <FloatingInput label="Apellido *" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols- md:grid-cols-2 gap-4 md:gap-6">
-                  {/* Genero */}
-                  <FormField
-                    control={control}
-                    name="gender"
-                    render={({ field, fieldState }) => (
-                      <FormItem
-                        className={cn(
-                          " transition-all duration-400",
-                          autoFilled &&
-                            "animate-in fade-in slide-in-from-bottom-2 ",
-                        )}
-                      >
-                        <FormLabel>Genero</FormLabel>
-                        <FormControl className="  ">
-                          <Select
-                            readOnly
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <SelectTrigger className=" bg-transparent!  w-full h-12 border-0 border-b-2 rounded-none">
-                              <SelectValue
-                                placeholder="Selecciona genero"
-                                className=""
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                <SelectItem value="Masculino">
-                                  Masculino
-                                </SelectItem>
-                                <SelectItem value="Femenino">
-                                  Femenino
-                                </SelectItem>
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* birthDate */}
-                  <FormField
-                    control={control}
-                    name="birthDate"
-                    render={({ field }) => {
-                      return (
-                        <FormItem
-                          className={cn(
-                            "w-full transition-all duration-300",
-                            autoFilled &&
-                              "animate-in fade-in slide-in-from-bottom-2 ",
-                          )}
-                        >
-                          <FormLabel className="">
-                            <span>Fecha de nacimiento</span>
-                          </FormLabel>
-                          <div
-                            // role="button"
-                            className={`w-full bg-transparent px-0 py-1 outline-none transition-all rounded-none text-left font-normal border-0 border-b-2 flex  ${
-                              !field.value && "text-muted-foreground"
-                            }`}
-                          >
-                            {field.value ? (
-                              format(
-                                new Date(field.value + "T00:00:00"),
-                                "PPP",
-                                {
-                                  locale: es,
-                                },
-                              )
-                            ) : (
-                              <span>Selecciona una fecha</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </div>
-
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
-                  />
-                </div>
-
-                <FormField
-                  control={control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      {/* <FormLabel className="text-gray-700 font-medium">Correo electrónico *</FormLabel> */}
-                      <FormControl>
-                        <FloatingInput
-                          label="Correo electrónico *"
-                          type="email"
-                          // value={field.value || ""}
-                          //     onChange={(value?: string | undefined) =>
-                          //   field.onChange(value || "")
-                          // }
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                      {showDisposableAlert && (
-                        <DisposableEmailAlert className="mt-2" />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <Button
-                  type="submit"
-                  disabled={!form.formState.isValid || isPending}
-                  className="w-full h-12 mt-4 hover:bg-orange-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isPending ? "Validando..." : "Continuar"}
-                </Button>
-                <p className="text-xs text-gray-400 text-center">
-                  Tus datos personales están seguros y serán utilizados
-                  únicamente para el registro de tu membresía.
-                </p>
-              </div>
-              {/* </div> */}
-
-              {/* <div className="flex justify-end gap-3 mb-4">
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-              >
-                Cancelar
-              </Button>
-
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-linear-to-r from-orange-400 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {isSubmitting ? "Guardando..." : "Guardar"}
-              </Button>
-
-            </div> */}
-            </motion.div>
-          </div>
-        </Form>
-      </FormProvider>
-      {/* </ScrollArea> */}
-    </Card>
-  );
+  return <div className="w-full">{renderStep()}</div>;
 }

@@ -24,13 +24,13 @@ export default function StepEmail() {
   };
 
   return (
-    <div className="">
+    <>
       {/* <h2 className="text-xl font-semibold">Ingresa tu correo</h2> */}
       <ClientForm />
 
       {/* <Button onClick={handleContinue} disabled={loading}>
         Continuar
       </Button> */}
-    </div>
+    </>
   );
 }

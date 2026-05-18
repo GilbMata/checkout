@@ -20,20 +20,21 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
       icon,
       className,
       classNameL,
-      value,
+      value: externalValue,
       error: externalError,
       ...props
     },
     ref,
   ) => {
-    const { formState } = useFormContext();
+    const { formState, getValues } = useFormContext();
 
-    // 🔥 obtiene error automáticamente del form o usa el externo
+    // Obtener error automáticamente del form o usar el externo
     const formError = name ? get(formState.errors, name) : null;
     const error = externalError || formError;
 
-    // const hasValue = value !== undefined && value !== "";
-    const hasValue = !!value;
+    // Obtener valor del form si tiene name, sino usar valor externo
+    const internalValue = name ? getValues(name) : externalValue;
+    const hasValue = internalValue !== undefined && internalValue !== "" && internalValue !== null;
 
     return (
       <div className="relative w-full">
@@ -41,7 +42,7 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
         <input
           ref={ref}
           name={name}
-          value={value}
+          value={internalValue ?? ""}
           {...props}
           aria-invalid={!!error}
           className={cn(

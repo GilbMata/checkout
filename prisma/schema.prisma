@@ -60,7 +60,7 @@ enum DocumentType {
 
 model Prospects {
   id              String   @id @default(uuid()) @db.Uuid
-  email           String   @unique
+  email           String
   curp            String   @unique
   firstName       String   @map("first_name")
   lastName        String   @map("last_name")
@@ -80,6 +80,11 @@ model Prospects {
   status          MembershipStatus @default(prospect) @map("status")
   membershipStatus String?  @map("membership_status")
   paymentPending  Boolean  @default(true) @map("payment_pending")
+  syncEvoStatus     String?  @map("sync_evo_status")     // pending, syncing, synced, failed
+  syncEvoError      String?  @map("sync_evo_error")     // mensaje de error si falló
+  syncEvoAttemptedAt DateTime? @map("sync_evo_attempted_at") @db.Timestamptz
+  syncEvoIdProspect Int?     @map("sync_evo_id_prospect") // ID del prospecto en Evo
+  syncEvoIdSale     Int?     @map("sync_evo_id_sale")     // ID de la venta en Evo
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -91,6 +96,7 @@ model Prospects {
   @@index([status])
   @@index([membershipStatus])
   @@index([planId])
+  @@index([syncEvoStatus])
   @@map("prospects")
 }
 

@@ -119,7 +119,7 @@ export default function PlanCheckout() {
         <CardHeader className="flex flex-row justify-between items-start gap-4 p-0">
           <div>
             <CardTitle className="text-base md:text-lg font-semibold">
-              {plan.displayName}
+              {plan.displayName ?? plan.nameMembership}
             </CardTitle>
             <CardDescription className="text-xs md:text-sm text-zinc-400 mt-1">
               {duration}

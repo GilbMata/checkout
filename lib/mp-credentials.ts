@@ -11,7 +11,10 @@
  */
 export function isProductionEnvironment(): boolean {
   // Solo producción si ambas condiciones se cumplen
-  if (process.env.NODE_ENV === "production" && process.env.MP_ENV === "production") {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.MP_ENV === "PRODUCTION"
+  ) {
     return true;
   }
 

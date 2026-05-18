@@ -7,8 +7,9 @@ export async function POST(req: Request) {
     const { email, otp } = await req.json();
     console.debug("🚀 ~ POST ~ email, otp :", email, otp);
 
-    const user = await prisma.prospects.findUnique({
-      where: { email },
+    const user = await prisma.prospects.findFirst({
+      where: { email: email.toLowerCase().trim() },
+      orderBy: { createdAt: 'desc' },
     });
 
     console.debug("🚀 ~ POST ~ user:", user);

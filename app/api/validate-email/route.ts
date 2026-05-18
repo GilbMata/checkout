@@ -1,21 +1,13 @@
-import { validateEmail } from "@/lib/email-validation";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 /**
- * Email Validation API Route
- *
- * Provides real-time email validation via HTTP for client-side
- * validation (e.g., with debounce while user types).
- *
- * For form submissions, use the validateEmailAction server action instead.
- *
+ * ZeroBounce Email Validation API Route
+ * 
+ * Docs: https://www.zerobounce.net/docs/api-documentation/
+ * Free tier: 100 validaciones/mes
+ * 
  * Rate limiting: 30 requests per minute per IP
  */
-
-const requestSchema = z.object({
-  email: z.string().email("Correo electrónico inválido"),
-});
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 30;
@@ -41,7 +33,7 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     // Get client IP
     const forwardedFor = request.headers.get("x-forwarded-for");
@@ -58,26 +50,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse and validate request body
-    const body = await request.json();
-    const parseResult = requestSchema.safeParse(body);
+    // Get email from query params
+    const email = request.nextUrl.searchParams.get("email");
 
-    if (!parseResult.success) {
+    if (!email) {
       return NextResponse.json(
-        { error: parseResult.error.issues[0].message },
+        { error: "Email es requerido" },
         { status: 400 },
       );
     }
 
-    const { email } = parseResult.data;
+    const apiKey = process.env.ZEROBOUNCE_API_KEY;
 
-    // Perform validation
-    const result = validateEmail(email);
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "ZeroBounce no configurado" },
+        { status: 500 },
+      );
+    }
 
-    // Return result
-    return NextResponse.json(result, { status: 200 });
+    // Call ZeroBounce API
+    const url = `https://api.zerobounce.net/v2/validate?email=${encodeURIComponent(email)}&apikey=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[ZeroBounce] API error: ${response.status}`);
+      return NextResponse.json(
+        { error: "Error validando email" },
+        { status: response.status },
+      );
+    }
+
+    const data = await response.json();
+
+    // Return ZeroBounce response directly
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
-    console.error("Email validation API error:", error);
+    console.error("[ZeroBounce] Validation error:", error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 },
@@ -86,9 +101,6 @@ export async function POST(request: NextRequest) {
 }
 
 // Health check endpoint
-export async function GET() {
-  return NextResponse.json({
-    status: "ok",
-    timestamp: Date.now(),
-  });
+export async function HEAD() {
+  return new NextResponse(null, { status: 200 });
 }

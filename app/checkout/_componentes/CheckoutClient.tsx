@@ -31,8 +31,16 @@ export default function CheckoutClient({
             const phone = session.phone;
             if (phone) {
               const prospect = await getProspectByPhoneAction(phone);
-              setProspect(prospect as any);
-              setStep("payment");
+              if (prospect) {
+                setProspect(prospect as any);
+                setStep("payment");
+              } else {
+                // Session existe pero prospect no está en DB - ir a flujo de registro
+
+                setStep("email");
+              }
+            } else {
+              setStep("email");
             }
           } else {
             setStep("email");
@@ -77,8 +85,8 @@ export default function CheckoutClient({
         title="Cargando..."
         description="Por favor espera mientras cargamos tu plan de entrenamiento..."
       />
-      <main className="flex flex-1 flex-col md:flex-row overflow-hidde justify-center bg-black">
-        <div className="p-6 md:flex- md:overflow-y-auto md:self-start">
+      <main className="flex flex-1 flex-col md:flex-row overflow-hidden justify-center bg-black">
+        <div className="p-6 md:flex-1">
           {/* 👇 siempre montado, invisible durante carga */}
           <div className={loading ? "invisible" : ""}>
             {step === "email" && <StepEmail />}

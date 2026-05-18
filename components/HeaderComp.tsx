@@ -68,14 +68,15 @@ export default function HeaderComp({ session }: { session?: SessionData }) {
             {session && (
               <Popover>
                 <PopoverTrigger>
-                  <button
+                  <div
+                    role="button"
                     title={displayName}
                     className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors cursor-pointer"
                   >
                     <span className="text-white text-sm font-bold">
                       {initials}
                     </span>
-                  </button>
+                  </div>
                 </PopoverTrigger>
                 <PopoverContent
                   className="w-56 bg-zinc-900 border-zinc-700"

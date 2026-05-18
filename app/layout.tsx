@@ -1,9 +1,9 @@
 import CookieConsent from "@/components/CookieConsent";
 import Header from "@/components/HeaderComp";
-import { Toaster } from "@/components/ui/sonner";
 import { getSession } from "@/lib/auth/session";
 import { Metadata } from "next";
 import { Montserrat, Poppins } from "next/font/google";
+import { Toaster } from "sonner";
 // @ts-ignore
 import "./globals.css";
 
@@ -37,20 +37,24 @@ export default async function RootLayout({
 
   return (
     <html lang="es">
-      <body
-        className={`${montserrat.className} bg-black  text-white  backdrop-blur-md`}
-      >
+      <body className={`${montserrat.className} bg-black  text-white`}>
         <Header session={session as any} />
         {children}
         <CookieConsent />
 
         <Toaster
-          position="top-center"
+          position="bottom-center"
           expand
           closeButton
           toastOptions={{
             className:
-              "!border !border-orange-500 bg-zinc-900 text-white rounded-xl shadow-lg backdrop-blur-md",
+              "!border !border-orange-500 bg-zinc-900 text-white rounded-xl shadow-lg backdrop-blur-md bg-gray",
+            style: {
+              zIndex: 9999,
+              background: "#18181b", // zinc-900
+              color: "white",
+              border: "1px solid #f97316", // orange-500
+            },
           }}
         />
       </body>

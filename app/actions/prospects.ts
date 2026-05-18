@@ -133,8 +133,10 @@ export async function getProspectByPhoneAction(phone: string) {
 
 export async function getProspectByEmailAction(email: string) {
   try {
-    const prospect = await prisma.prospects.findUnique({
-      where: { email },
+    // Buscar por email con findFirst (ya que email no es único)
+    const prospect = await prisma.prospects.findFirst({
+      where: { email: email.toLowerCase().trim() },
+      orderBy: { createdAt: 'desc' }, // Obtener el más reciente
     });
 
     return prospect;

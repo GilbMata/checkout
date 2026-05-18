@@ -12,7 +12,7 @@ import {
 import { useCheckoutStore } from "@/store/useCheckoutStore";
 import { Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // ========================================================================
@@ -233,6 +233,7 @@ export default function StepPayment() {
 
   // Obtener datos del plan y voucher desde el store
   const { prospect, plan, voucherDiscount } = useCheckoutStore();
+  console.log("🚀 ~ StepPayment ~ plan:", plan);
   if (!plan) {
     throw new Error("Plan no encontrado");
   }
@@ -256,29 +257,52 @@ export default function StepPayment() {
       ? "test_user_mx@testuser.com"
       : prospect?.email;
 
-  const userData = {
-    phone: prospect?.phone,
-    area: prospect?.areaCode,
-    email: email,
-    curp: prospect?.curp,
-    firstName: prospect?.firstName,
-    lastName: prospect?.lastName,
-  };
+  // ✅ Memorizar userData — solo cambia si prospect cambia
+  const userData = useMemo(
+    () => ({
+      phone: prospect.phone,
+      area: prospect.areaCode,
+      email:
+        process.env.NODE_ENV === "development"
+          ? "test_user_mx@testuser.com"
+          : prospect.email,
+      curp: prospect.curp,
+      firstName: prospect.firstName,
+      lastName: prospect.lastName,
+    }),
+    [
+      prospect.phone,
+      prospect.areaCode,
+      prospect.email,
+      prospect.curp,
+      prospect.firstName,
+      prospect.lastName,
+    ],
+  );
 
   const externalReference = plan?.idBranch + "_" + userData.phone;
   const recurrence = plan?.membershipType?.includes("recurrence");
 
-  const planData = {
-    id: String(plan?.idMembership),
-    description,
-    amount: finalAmount,
-    currency: "MXN",
-    recurrent: recurrence,
-    membershipType: plan?.membershipType,
-    displayName: plan?.displayName,
-    branch: String(plan?.idBranch),
-    externalReference,
-  };
+  // ✅ Memorizar planData — solo cambia si plan o descuento cambia
+  const planData = useMemo(() => {
+    const basePromo = Number(plan.valuePromotionalPeriod ?? 0);
+    const basePrice = Number(plan.value ?? 0);
+    const baseAmount = basePromo > 0 ? basePromo : basePrice;
+    const finalAmount = voucherDiscount
+      ? Math.round(voucherDiscount.totalFinalValue * 100) / 100
+      : baseAmount;
+
+    return {
+      id: String(plan.idMembership),
+      description: plan.description ?? plan.nameMembership,
+      amount: finalAmount,
+      currency: "MXN",
+      recurrent: plan.membershipType?.includes("recurrence") ?? false,
+      displayName: plan.displayName ?? plan.nameMembership,
+      branch: String(plan.idBranch),
+      externalReference: `${plan.idBranch}_${prospect.phone}`,
+    };
+  }, [plan, voucherDiscount, prospect.phone]);
 
   return (
     <>
@@ -286,6 +310,8 @@ export default function StepPayment() {
       {/* Componente unificado CardPaymentBrick - detecta automáticamente */}
       {/* si es Order o Suscripción basado en planData.recurrent */}
       {/* ======================================================================== */}
+
+      {/* <div key={brickKey} className="px-3 py-4"> */}
       <CardPaymentBrick
         planData={planData}
         userData={userData}
@@ -295,6 +321,7 @@ export default function StepPayment() {
         onRejected={handleRejected}
         onProcessingChange={setIsProcessing}
       />
+      {/* </div> */}
 
       {/* Loader overlay mientras procesa el pago */}
       {isProcessing && <ProcessingOverlay isVisible={isProcessing} />}

@@ -1,10 +1,9 @@
 "use client";
 
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { ensureMercadoPagoInitialized } from "@/lib/mercadoPagoInit";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMPPublicKey } from "@/lib/mp-credentials";
-import { CardPayment } from "@mercadopago/sdk-react";
-import { useCallback, useEffect, useState } from "react";
+import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
+import { memo, useCallback, useState } from "react";
 
 // ============================================================================
 // Types
@@ -101,18 +100,6 @@ function extractErrorMessage(response: PaymentResponse): string {
 }
 
 /**
- * Construye la externalReference según el tipo de pago
- * - Suscripciones (recurrent): branch + "_" + phone
- * - Orders (no recurrent): branch + "_" + phone
- */
-function buildExternalReference(planData: PlanData, phone: string): string {
-  if (planData.externalReference) {
-    return planData.externalReference;
-  }
-  return `${planData.branch}_${phone}`;
-}
-
-/**
  * Obtiene el endpoint correcto según el tipo de pago
  */
 function getPaymentEndpoint(recurrent: boolean): string {
@@ -146,7 +133,7 @@ function buildApiPayload(
     payment_type: paymentTypeId,
     installments: Number(installments),
     issuer_id: issuer_id || undefined,
-    external_reference: buildExternalReference(planData, userData.phone),
+    external_reference: planData.externalReference,
     card_last_four: cardLastFour,
     cardholder_name: cardholderName,
     token,
@@ -180,7 +167,7 @@ function buildApiPayload(
 // Component - Unified CardPaymentBrick
 // ============================================================================
 
-export default function CardPaymentBrick({
+function CardPaymentBrick({
   userData,
   planData,
   onSuccess,
@@ -190,8 +177,10 @@ export default function CardPaymentBrick({
   onProcessingChange,
 }: CardPaymentBrickProps) {
   const [internalError, setInternalError] = useState<string | null>(null);
-  const [isMPReady, setIsMPReady] = useState(false);
   const mpkey = getMPPublicKey(planData.recurrent ? "subscriptions" : "orders");
+
+  // Inicialización directa, sincrónica, idempotente
+  initMercadoPago(mpkey, { locale: "es-MX" });
 
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
@@ -241,8 +230,6 @@ export default function CardPaymentBrick({
           planData,
           userData,
         );
-
-        console.log("🚀 ~ CardPaymentBrick ~ apiPayload:", apiPayload);
 
         // Endpoint dinámico según tipo de pago
         const endpoint = getPaymentEndpoint(planData.recurrent);
@@ -309,54 +296,6 @@ export default function CardPaymentBrick({
   );
 
   // ========================================================================
-  // Initialize Mercado Pago (idempotent, waits for SDK to be ready)
-  // ========================================================================
-  useEffect(() => {
-    if (!mpkey) {
-      setInternalError("Configuración de pagos no disponible");
-      return;
-    }
-
-    let mounted = true;
-
-    ensureMercadoPagoInitialized(mpkey)
-      .then(() => {
-        if (mounted) setIsMPReady(true);
-      })
-      .catch((err) => {
-        console.error("MP init error:", err);
-        if (mounted) setInternalError("Error al cargar Mercado Pago");
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [mpkey]);
-
-  // ========================================================================
-  // Render: Loading state — waiting for MP SDK
-  // ========================================================================
-  if (!isMPReady) {
-    return (
-      <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
-        <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
-          <CardTitle className="text-xl font-semibold tracking-tight">
-            <span className="text-orange-500">Cargando...</span>
-            <span className="block text-sm font-normal text-gray-400 mt-1">
-              Preparando formulario de pago...
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <div className="px-6 py-8 text-center text-gray-400">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  // ========================================================================
   // Render: Error state
   // ========================================================================
   if (internalError) {
@@ -367,16 +306,12 @@ export default function CardPaymentBrick({
     );
   }
 
-  // ========================================================================
-  // Render: Formulario de pago
-  // El MPCProvider ya se encargo de inicializar Mercado Pago
-  // ========================================================================
   const isRecurrent = planData.recurrent;
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden">
+    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white rounded-2xl shadow-xl overflow-hidden gap-0">
       {/* Header */}
-      <CardHeader className="px-6 pt-3 pb-4 border-b border-gray-700">
+      <CardHeader className="px-6 pt-3  border-b border-gray-700">
         <CardTitle className="text-xl font-semibold tracking-tight">
           {isRecurrent ? (
             <>
@@ -397,21 +332,17 @@ export default function CardPaymentBrick({
       </CardHeader>
 
       {/* Formulario del Brick */}
-      <div className="px-3 py-4">
+      {/* <div className="px-"> */}
+      <CardContent>
         <CardPayment
           initialization={{
             amount: planData.amount,
             payer: {
-              email: isRecurrent ? userData.email : "",
-              // Para México (MLM), el formulario de pago de MP NO incluye campos de identificación
-              // a diferencia de Argentina, Brasil, Colombia, etc. Por eso no es necesario
-              // pre-inicializar el campo identification para Orders.
-              // Para Suscripciones (recurrent), necesitamos pasar la identificación porque
-              // la suscripción se crea primero y el cargo se hace después.
+              email: userData.email,
               ...(isRecurrent
                 ? {
                     identification: {
-                      type: "OTRO", // Tipo genérico válido para México
+                      type: "OTRO",
                       number: userData.curp,
                     },
                   }
@@ -460,7 +391,18 @@ export default function CardPaymentBrick({
             onProcessingChange?.(false);
           }}
         />
-      </div>
+        {/* </div> */}
+      </CardContent>
     </Card>
   );
 }
+
+export default memo(CardPaymentBrick, (prev, next) => {
+  return (
+    prev.planData.id === next.planData.id &&
+    prev.planData.amount === next.planData.amount &&
+    prev.planData.recurrent === next.planData.recurrent &&
+    prev.userData.email === next.userData.email &&
+    prev.userData.curp === next.userData.curp
+  );
+});

@@ -31,6 +31,7 @@ export async function ensureMercadoPagoInitialized(
     if (initializationPromise) {
       return initializationPromise;
     }
+    return;
     // Si promise es null por alguna razón, dejamos que se re-inicialice
   }
 

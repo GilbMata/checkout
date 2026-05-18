@@ -10,9 +10,13 @@
  * Payment statuses: created, processed, action_required, at_terminal, expired, refunded, canceled, failed
  */
 import prisma from "@/lib/db/prisma";
+import { syncProspectToEvo } from "@/lib/evoSync";
 import { OrderStatus, PaymentStatus } from "@/src/generated/prisma";
 import crypto from "crypto";
 import { NextRequest } from "next/server";
+
+// Feature flag para sincronización con Evo
+const EVO_SYNC_ENABLED = process.env.EVO_SYNC_ENABLED === "true";
 
 // ============================================================================
 // Constantes - Webhook Security
@@ -92,13 +96,13 @@ function validateWebhookSignature(
   requestId: string,
 ): boolean {
   if (!WEBHOOK_SECRET) {
-    console.warn("⚠️ MP_WEBHOOK_SECRET no configurado - saltando validación");
+    console.log("⚠️ MP_WEBHOOK_SECRET no configurado - saltando validación");
     return true;
   }
 
   try {
     if (!signature) {
-      console.warn("⚠️ Sin firma en request");
+      console.log("⚠️ Sin firma en request");
       return false;
     }
 
@@ -191,7 +195,7 @@ async function processOrderNotification(mpData: any) {
     items: mpData.items || [],
     payer: mpData.payer || null,
     transactions: mpData.transactions || null,
-    status_detail: mpData.status_detail, // Guardar también el status_detail de la order
+    status_detail: mpData.status_detail,
     // Completar con más info relevante
     integration_data: mpData.integration_data || null,
     config: mpData.config || null,
@@ -209,7 +213,7 @@ async function processOrderNotification(mpData: any) {
 
   // Buscar orden existente por mpOrderId O externalReference
   // Esto maneja el caso donde el webhook llega antes de que el POST termine de guardar
-  const existingOrder = await prisma.orders.findFirst({
+  let existingOrder = await prisma.orders.findFirst({
     where: {
       OR: [
         { mpOrderId: String(mpData.id) },
@@ -217,6 +221,19 @@ async function processOrderNotification(mpData: any) {
       ],
     },
   });
+
+  // Si no encuentra, esperar y reintentar una vez
+  if (!existingOrder) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    existingOrder = await prisma.orders.findFirst({
+      where: {
+        OR: [
+          { mpOrderId: String(mpData.id) },
+          { externalReference: mpData.external_reference || undefined },
+        ],
+      },
+    });
+  }
 
   const prospectId = existingOrder?.prospectId || null;
 
@@ -235,8 +252,9 @@ async function processOrderNotification(mpData: any) {
     });
 
     // Buscar y actualizar payment
+    const paymentId = mpData.transactions?.payments?.[0]?.id;
     const existingPayment = await prisma.orderPayments.findFirst({
-      where: { orderId: existingOrder.id },
+      where: { mpPaymentId: String(paymentId) },
     });
 
     if (existingPayment) {
@@ -311,6 +329,36 @@ async function processOrderNotification(mpData: any) {
       data: { paymentPending: false },
     });
     console.log("✅ Prospect actualizado a member");
+
+    // Sincronizar con Evo
+    if (EVO_SYNC_ENABLED) {
+      const res = await prisma.prospects.findUnique({
+        where: {
+          id: prospectId,
+        },
+        select: {
+          idMember: true,
+        },
+      });
+      const isMember = !!res?.idMember;
+      console.log("El cliente ya es miembro:", isMember);
+
+      if (!isMember) {
+        await prisma.prospects.update({
+          where: { id: prospectId },
+          data: { syncEvoStatus: "pending" },
+        });
+        // Sync fire & forget — no bloquea la respuesta a MP
+        syncProspectToEvo(prospectId).catch((err) =>
+          console.error("❌ [Webhook] Evo sync failed:", err),
+        );
+      }
+    } else {
+      console.log(
+        "⏭️ [EvoSync] EVO_SYNC_ENABLED=false, saltando sync para:",
+        prospectId,
+      );
+    }
   }
 
   // Log detallado del estado
@@ -356,7 +404,7 @@ export async function POST(req: Request) {
 
     if (WEBHOOK_SECRET && xSignature) {
       if (!validateWebhookSignature(xSignature, entityId, xRequestId)) {
-        console.warn("⚠️ Firma inválida");
+        console.log("⚠️ Firma inválida");
         if (process.env.NODE_ENV === "production") {
           return Response.json(
             { received: true, error: "Invalid signature" },
@@ -382,7 +430,7 @@ export async function POST(req: Request) {
       console.error("❌ No se pudieron obtener datos de MP");
       return Response.json(
         { received: true, error: "Failed to fetch MP data" },
-        { status: 500 },
+        { status: 200 },
       );
     }
 

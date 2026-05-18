@@ -1,7 +1,10 @@
 "use client";
 
+import { useState, useCallback } from "react";
+
 import { sendOTP } from "@/app/actions/send-otp";
 import { verifyOTPAction } from "@/app/actions/verify-otp";
+import { verifyTurnstileToken } from "@/app/actions/verify-turnstile";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,9 +18,9 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { TurnstileWidget } from "@/components/ui/TurnstileWidget";
 import { useOtpTimer } from "@/hooks/useOtpTimer";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
-import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface Props {
@@ -27,10 +30,13 @@ interface Props {
 // export default function StepOTP({ planId }: Props) {
 export default function StepOTP() {
   const { setStep, prospect } = useCheckoutStore();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const [showResendTurnstile, setShowResendTurnstile] = useState(false);
+  
   const { seconds, isActive, reset } = useOtpTimer(60);
-  // setStep("payment");
 
   const phone = prospect?.phone ?? "";
   const customerId = prospect?.id;
@@ -65,17 +71,66 @@ export default function StepOTP() {
     }
   };
 
-  const handleResend = async () => {
-    if (isActive) return;
-    if (loading) return;
+  // Callbacks de Turnstile para el reenvío
+  const handleResendTurnstileVerify = useCallback((token: string) => {
+    setTurnstileToken(token);
+    setTurnstileReady(true);
+  }, []);
+
+  const handleResendTurnstileError = useCallback((error: string) => {
+    console.error("[StepOTP] Turnstile error:", error);
+    toast.error("Error de verificación de seguridad");
+    setTurnstileReady(false);
+  }, []);
+
+  const handleResendTurnstileExpired = useCallback(() => {
+    setTurnstileToken("");
+    setTurnstileReady(false);
+  }, []);
+
+  const handleResendClick = () => {
+    // Mostrar Turnstile para reenviar OTP
+    setShowResendTurnstile(true);
+    setTurnstileToken("");
+    setTurnstileReady(false);
+  };
+
+  const handleResendWithTurnstile = async () => {
+    if (!turnstileToken || !turnstileReady) {
+      toast.error("Completando verificación de seguridad...");
+      return;
+    }
+
+    if (isActive || loading) return;
+
+    setLoading(true);
+    toast.loading("Verificando...", { id: "otp-resend" });
+
     try {
-      setLoading(true);
-      if (customerId)
-        await sendOTP({ prospectId: customerId }).then((res) => {
-          if (res) toast.success("Código reenviado");
-        });
+      // Validar Turnstile
+      const isValid = await verifyTurnstileToken(turnstileToken);
+
+if (!isValid) {
+          toast.dismiss("otp-resend");
+          toast.error("Verificación de seguridad fallida. Intenta de nuevo.");
+          setTurnstileToken("");
+          setTurnstileReady(false);
+          return;
+        }
+
+        if (customerId) {
+          await sendOTP({ prospectId: customerId }).then((res) => {
+            if (res) toast.success("Código reenviado");
+          });
+        }
+      
       reset();
+      setShowResendTurnstile(false);
+      setTurnstileToken("");
+      setTurnstileReady(false);
+      toast.dismiss("otp-resend");
     } catch {
+      toast.dismiss("otp-resend");
       toast.error("Error al reenviar");
     } finally {
       setLoading(false);
@@ -169,7 +224,7 @@ export default function StepOTP() {
         </Button>
 
         {/* Resend */}
-        <div className="text-center">
+        <div className="text-center space-y-3">
           {isActive ? (
             <div className="space-y-1">
               <p className="text-white text-sm">No has recibido el código. </p>
@@ -178,9 +233,37 @@ export default function StepOTP() {
                 <span className="text-orange-400 font-medium">{seconds}s</span>
               </p>
             </div>
+          ) : showResendTurnstile ? (
+            <>
+              <TurnstileWidget
+                onVerify={handleResendTurnstileVerify}
+                onError={handleResendTurnstileError}
+                onExpired={handleResendTurnstileExpired}
+                action="resend-otp"
+                className="min-h-[50px]"
+              />
+              <Button
+                onClick={handleResendWithTurnstile}
+                disabled={loading || !turnstileReady}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                {loading ? "Enviando..." : "Confirmar y reenviar"}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowResendTurnstile(false);
+                  setTurnstileToken("");
+                  setTurnstileReady(false);
+                }}
+                className="text-zinc-400 hover:text-white"
+              >
+                Cancelar
+              </Button>
+            </>
           ) : (
             <Button
-              onClick={handleResend}
+              onClick={handleResendClick}
               disabled={loading}
               className=" bg-orange-500 hover:bg-orange-600"
             >

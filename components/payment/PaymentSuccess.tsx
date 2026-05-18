@@ -57,6 +57,7 @@ interface Props {
   subscription?: SubscriptionData;
   plan: Plan;
   email?: string;
+  memberId?: number;
   continueUrl?: string;
   receiptUrl?: string;
 }
@@ -66,6 +67,7 @@ export default function PaymentSuccess({
   subscription,
   plan,
   email,
+  memberId,
   continueUrl,
   receiptUrl,
 }: Props) {
@@ -330,6 +332,23 @@ export default function PaymentSuccess({
                 </>
               )}
 
+              {cardDisplay && (
+                <div className="flex items-center justify-between p-3 bg-zinc-800/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-zinc-500" />
+                    <span className="text-sm text-zinc-400">
+                      Método de pago
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="border-orange-500/50 text-orange-400 bg-orange-500/10"
+                  >
+                    {cardDisplay.cardBrand}
+                  </Badge>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 {formattedDate && !isSubscription && (
                   <div className="flex items-center gap-2 p-3 bg-zinc-800/30 rounded-lg">
@@ -357,7 +376,7 @@ export default function PaymentSuccess({
                   <Receipt className="w-4 h-4 text-orange-400" />
                   <div>
                     <p className="text-xs text-zinc-500">
-                      {isSubscription ? "Suscripción" : "Orden"}
+                      {isSubscription ? "Suscripción" : "ID de Orden"}
                     </p>
                     <p className="text-sm text-zinc-300 font-mono">
                       {orderId.slice(0, 12)}...
@@ -385,7 +404,7 @@ export default function PaymentSuccess({
                     <Receipt className="w-4 h-4 text-orange-400" />
                     <div>
                       <p className="text-xs text-zinc-500">
-                        {isSubscription ? "Preapproval ID" : "Pago ID"}
+                        {isSubscription ? "Preapproval ID" : "ID de pago"}
                       </p>
                       <p className="text-sm text-zinc-300 font-mono">
                         {paymentId.slice(0, 12)}...
@@ -418,24 +437,23 @@ export default function PaymentSuccess({
                     </div>
                   </div>
                 )}
-              </div>
 
-              {cardDisplay && (
-                <div className="flex items-center justify-between p-3 bg-zinc-800/30 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-zinc-500" />
-                    <span className="text-sm text-zinc-400">
-                      Método de pago
-                    </span>
+                {memberId && (
+                  <div className="flex items-center gap-2 p-3 bg-zinc-800/30 rounded-lg">
+                    <div className="w-4 h-4 rounded-full bg-orange-400/20 flex items-center justify-center">
+                      <span className="text-xs font-bold text-orange-400">
+                        #
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">ID de miembro</p>
+                      <p className="text-sm text-orange-400 font-mono">
+                        {memberId}
+                      </p>
+                    </div>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className="border-orange-500/50 text-orange-400 bg-orange-500/10"
-                  >
-                    {cardDisplay.cardBrand}
-                  </Badge>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Activities included */}

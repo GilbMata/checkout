@@ -1,7 +1,7 @@
 import { getSession } from "@/lib/auth/session";
 import { getBranchAction, getMembershipAction } from "../actions/evoActions";
+import { PlanNotFound } from "@/components/ui/plan-not-found";
 import CheckoutClient from "./_componentes/CheckoutClient";
-import MPCProvider from "@/components/providers/MPCProvider";
 import WelcomePage from "./_componentes/WelcomePage";
 
 interface SearchParams {
@@ -43,36 +43,14 @@ export default async function CheckoutPage({
   }
 
   if (!plan) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            Plan no encontrado
-          </h1>
-          <p className="text-gray-600 mb-2">
-            Serás redirigido en 5 segundos...
-          </p>
-          <a
-            href="https://station24.com.mx/unete"
-            className="inline-block mt-4 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Ir ahora
-          </a>
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `setTimeout(function(){window.location.href='https://station24.com.mx/unete'},5000)`,
-            }}
-          />
-        </div>
-      </div>
-    );
+    return <PlanNotFound />;
   }
   const session = await getSession();
   // console.log("🚀 ~ CheckoutPage ~ session:", session);
 
   return (
-    <MPCProvider>
-      <CheckoutClient plan={plan} branch={branch} session={session} />
-    </MPCProvider>
+    // <MPCProvider>
+    <CheckoutClient plan={plan} branch={branch} session={session} />
+    // </MPCProvider>
   );
 }

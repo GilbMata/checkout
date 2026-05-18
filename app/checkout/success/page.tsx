@@ -55,6 +55,7 @@ export default async function SuccessPage({
   let planPrice = 0;
   let planCurrency = "MXN";
   let email: string | undefined;
+  let memberid: number | undefined;
 
   // Handle one-time payment
   if (paymentId) {
@@ -76,6 +77,7 @@ export default async function SuccessPage({
 
     // Get prospect for email
     email = payment.order?.prospect?.email;
+    memberid = payment.order?.prospect?.idMember ?? undefined;
 
     // Convert BigInt to number
     const txAmount = payment.transactionAmount
@@ -88,7 +90,7 @@ export default async function SuccessPage({
       status: "approved",
       status_detail: payment.statusDetail || undefined,
       payment_method_id: payment.paymentMethodId || undefined,
-      transaction_amount: txAmount ? txAmount / 100 : undefined,
+      transaction_amount: txAmount ? txAmount : undefined,
       date_approved: payment.dateApproved
         ? payment.dateApproved.toISOString()
         : undefined,
@@ -97,8 +99,12 @@ export default async function SuccessPage({
       payment_type_id: payment.paymentTypeId || undefined,
     };
 
-    planName = payment.order?.description || "Plan Station24";
-    planPrice = txAmount ? txAmount / 100 : 0;
+    const metadata = payment.order?.metadata as any;
+    planName =
+      metadata?.items[0].title ||
+      payment.order?.description ||
+      "Plan Station24";
+    planPrice = txAmount ? txAmount : 0;
     planCurrency = payment.currencyId || "MXN";
   }
 
@@ -119,6 +125,7 @@ export default async function SuccessPage({
         where: { id: subscription.prospectId },
       });
       email = prospect?.email || subscription.payerEmail || undefined;
+      memberid = prospect?.idMember || undefined;
     }
 
     // Convert BigInt to number
@@ -142,7 +149,9 @@ export default async function SuccessPage({
     };
 
     planName =
-      subscription.description || subscription.planDescription || "Plan Station24";
+      subscription.description ||
+      subscription.planDescription ||
+      "Plan Station24";
     planPrice = txAmount ? txAmount / 100 : 0;
     planCurrency = subscription.currencyId || "MXN";
   }
@@ -165,6 +174,7 @@ export default async function SuccessPage({
         currency: planCurrency,
       }}
       email={email}
+      memberId={memberid}
       continueUrl="https://station24.com.mx/"
       receiptUrl={receiptUrl}
     />

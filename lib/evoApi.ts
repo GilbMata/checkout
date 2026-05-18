@@ -1,5 +1,6 @@
 // lib/evo.ts
 import "server-only";
+import { evoRequest } from "./evoRequest";
 
 const baseUrl = process.env.EVO_API_URL!;
 const auth = Buffer.from(
@@ -156,6 +157,8 @@ export async function getMemberByPhone(phone: string) {
   ).toString("base64");
 
   const url = new URL("/api/v2/members", baseUrl);
+  const ur = new URL(`${baseUrl}/api/v2/members`);
+
   url.searchParams.set("phone", phone);
 
   const res = await fetch(url.toString(), {
@@ -614,4 +617,346 @@ export async function verifyVoucher(
     totalFinalValue:
       data.finalValue ?? data.finalMembershipValue ?? data.membershipValue ?? 0,
   };
+}
+
+// ============================================================================
+// Prospect → Member: Crear, Vender, Convertir
+// ============================================================================
+
+// ① Buscar prospecto en Evo por teléfono
+export interface ProspectEvoFound {
+  idProspect: number;
+  name: string;
+  lastName: string;
+  email: string;
+  cellphone: string;
+  cpf: string;
+}
+
+/**
+ * Busca un prospecto en Evo por número de teléfono.
+ * Retorna null si no lo encuentra.
+ *
+ * @example
+ * const prospect = await findProspectInEvoByPhone("3322114455");
+ * if (prospect) {
+ *   // Existe → actualizar
+ * } else {
+ *   // No existe → crear
+ * }
+ */
+export async function findProspectInEvoByPhone(
+  phone: string,
+): Promise<ProspectEvoFound | null> {
+  const url = new URL(`${baseUrl}/api/v1/prospects`);
+  url.searchParams.set("phone", phone);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Authorization: `Basic ${auth}` },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] findProspectByPhone error ${res.status}:`, text);
+    throw new Error(`EVO find prospect error: ${res.status}`);
+  }
+
+  const data = (await res.json()) as Array<Record<string, unknown>>;
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  const first = data[0];
+  return {
+    idProspect: first.idProspect as number,
+    name: (first.name as string) ?? "",
+    lastName: (first.lastName as string) ?? "",
+    email: (first.email as string) ?? "",
+    cellphone: (first.cellphone as string) ?? "",
+    cpf: (first.document as string) ?? "",
+  };
+}
+
+// ② Actualizar prospecto existente en Evo
+export interface UpdateProspectInEvoParams {
+  idProspect: number;
+  name?: string;
+  lastName?: string;
+  email?: string;
+  cellphone?: string;
+  ddi?: string;
+  birthday?: string;
+  gender?: string;
+  idBranch?: number;
+}
+
+export interface UpdateProspectInEvoResponse {
+  idProspect: number;
+}
+
+/**
+ * Actualiza los datos de un prospecto existente en Evo.
+ *
+ * @example
+ * await updateProspectInEvo({
+ *   idProspect: 123,
+ *   name: "Juan",
+ *   lastName: "Pérez Actualizado",
+ *   email: "juan@email.com",
+ * });
+ */
+export async function updateProspectInEvo(
+  data: UpdateProspectInEvoParams,
+): Promise<UpdateProspectInEvoResponse> {
+  const body: Record<string, unknown> = {
+    idProspect: data.idProspect,
+  };
+
+  if (data.name !== undefined) body.name = data.name;
+  if (data.lastName !== undefined) body.lastName = data.lastName;
+  if (data.email !== undefined) body.email = data.email;
+  if (data.cellphone !== undefined) body.cellphone = data.cellphone;
+  if (data.ddi !== undefined) body.ddi = data.ddi;
+  if (data.birthday !== undefined) body.birthday = data.birthday;
+  if (data.gender !== undefined) body.gender = data.gender;
+  if (data.idBranch !== undefined) body.idBranch = data.idBranch;
+
+  const res = await fetch(`${baseUrl}/api/v1/prospects`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] updateProspectInEvo error ${res.status}:`, text);
+    throw new Error(`EVO update prospect error: ${res.status}`);
+  }
+
+  const result = (await res.json()) as { idProspect: number };
+  return { idProspect: result.idProspect };
+}
+
+// ③ Crear prospecto en Evo
+export interface CreateProspectInEvoParams {
+  name: string;
+  lastName: string;
+  email: string;
+  idBranch: number;
+  cellphone: string;
+  cpf: string;
+  ddi?: string;
+  birthday?: string;
+  gender?: string;
+}
+
+export interface CreateProspectInEvoResponse {
+  idProspect: number;
+}
+
+/**
+ * Crea un prospecto en Evo.
+ *
+ * @example
+ * const { idProspect } = await createProspectInEvo({
+ *   name: "Juan",
+ *   lastName: "Pérez",
+ *   email: "juan@example.com",
+ *   idBranch: 1,
+ *   cellphone: "3322114455",
+ *   cpf: "XAXX010101HNEXXNA00",
+ * });
+ */
+export async function createProspectInEvo(
+  data: CreateProspectInEvoParams,
+): Promise<CreateProspectInEvoResponse> {
+  const body: Record<string, unknown> = {
+    name: data.name,
+    lastName: data.lastName,
+    email: data.email,
+    idBranch: data.idBranch,
+    cellphone: data.cellphone,
+    cpf: data.cpf,
+  };
+
+  if (data.ddi) body.ddi = data.ddi;
+  if (data.birthday) body.birthday = data.birthday;
+  if (data.gender) body.gender = data.gender;
+
+  const res = await fetch(`${baseUrl}/api/v1/prospects`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] createProspectInEvo error ${res.status}:`, text);
+    throw new Error(`EVO create prospect error: ${res.status}`);
+  }
+
+  const result = (await res.json()) as { idProspect: number };
+  return { idProspect: result.idProspect };
+}
+
+// ④ Registrar venta en Evo
+export interface CreateSaleInEvoParams {
+  idBranch?: number;
+  idMembership: number;
+  idProspect?: number;
+  idPaymentMethod?: number;
+  totalInstallments?: number;
+  payment: number;
+  memberData?: {
+    idMember: number;
+  };
+  cardData?: {
+    paymentMethodId: string;
+    totalInstallments?: number;
+  };
+  voucher?: string;
+  flbNoDebt?: boolean;
+}
+
+export async function createSaleInEvo(
+  data: CreateSaleInEvoParams,
+): Promise<unknown> {
+  const body: Record<string, unknown> = {
+    idMembership: data.idMembership,
+    // flbNoDebt: data.flbNoDebt ?? true,
+  };
+
+  if (data.idBranch) body.idBranch = data.idBranch;
+  if (data.idProspect) body.idProspect = data.idProspect;
+  if (data.idPaymentMethod) body.idPaymentMethod = data.idPaymentMethod;
+  if (data.voucher) body.voucher = data.voucher;
+  if (data.totalInstallments) body.totalInstallments = data.totalInstallments;
+  if (data.payment) body.payment = data.payment;
+  if (data.memberData) body.memberData = data.memberData;
+
+  if (data.cardData) {
+    body.cardData = {
+      paymentMethodId: data.cardData.paymentMethodId,
+      totalInstallments: data.cardData.totalInstallments ?? 1,
+    };
+  }
+
+  // const res = await fetch(`${baseUrl}/api/v2/sales`, {
+  //   method: "POST",
+  //   headers: {
+  //     Authorization: `Basic ${auth}`,
+  //     "Content-Type": "application/json",
+  //     // "Content-Type": "application/json-patch+json",
+
+  //     culture: "pt-BR",
+  //   },
+  //   body: JSON.stringify(body),
+  // });
+
+  const saleResult = await evoRequest(
+    "/api/v2/sales?showContractHTML=false",
+    "POST",
+    body,
+    auth,
+  );
+  // console.log("🚀 ~ createSaleInEvo ~ saleResult:", saleResult);
+
+  const idVenda = (saleResult as any)?.idVenda;
+  const idRecibo = (saleResult as any)?.idRecibo;
+
+  return {
+    success: true,
+    idVenda,
+    idRecibo,
+  };
+}
+
+// ⑤ Convertir prospecto a miembro
+export interface ConvertProspectToMemberResponse {
+  idMember: number;
+}
+
+/**
+ * Convierte un prospecto en Evo a miembro activo.
+ *
+ * @example
+ * const { idMember } = await convertProspectToMember(123, 1);
+ */
+export async function convertProspectToMember(
+  idProspect: number,
+  idBranch: number,
+): Promise<ConvertProspectToMemberResponse> {
+  const url = new URL(`${baseUrl}/api/v1/prospects/convert`);
+  url.searchParams.set("idProspect", String(idProspect));
+  url.searchParams.set("idBranch", String(idBranch));
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: { Authorization: `Basic ${auth}` },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] convertProspectToMember error ${res.status}:`, text);
+    throw new Error(`EVO convert error: ${res.status}`);
+  }
+
+  const result = (await res.json()) as { idMember: number };
+  return { idMember: result.idMember };
+}
+
+// ⑥ Obtener cuentas bancarias por branch
+export async function getBankAccounts(idBranch: number): Promise<any[]> {
+  const params = new URLSearchParams();
+  params.set("idBranch", String(idBranch));
+
+  const result = await evoRequest(
+    `/api/v1/bank-accounts?${params.toString()}`,
+    "GET",
+    undefined,
+    auth,
+  );
+  return result as any[];
+}
+
+// ⑦ Obtener receivables de una venta
+export async function getReceivablesBySale(idSale: number): Promise<any[]> {
+  const params = new URLSearchParams();
+  params.set("idSale", String(idSale));
+
+  const result = await evoRequest(
+    `/api/v1/receivables?${params.toString()}`,
+    "GET",
+    undefined,
+    auth,
+  );
+
+  const response = result as any;
+  return response?.lista || response?.list || [];
+}
+
+// ⑧ Marcar receivables como pagados
+export async function markReceivablesAsReceived(
+  idsReceivables: number[],
+  idBankAccount: number,
+): Promise<any> {
+  const body = {
+    idsReceivables,
+    idBankAccount,
+  };
+
+  return await evoRequest(
+    "/api/v1/receivables/mark-received",
+    "PUT",
+    body,
+    auth,
+  );
 }

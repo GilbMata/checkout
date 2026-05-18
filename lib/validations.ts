@@ -1,4 +1,3 @@
-import { isDisposable } from "@isdisposable/js";
 import { z } from "zod";
 import { validateCURP, validateCURPStructrual } from "./curp2";
 
@@ -17,11 +16,9 @@ export const curpSchema = z
 export const emailSchema = z
   .string()
   .min(1, "El correo electrónico es requerido")
-  .email("Correo electrónico inválido")
-  .refine(
-    (val) => !isDisposable(val),
-    "Los correos temporales no están permitidos. Usa un correo personal.",
-  );
+  .email("Correo electrónico inválido");
+// El check de disposable se maneja manualmente en el componente
+// para mostrar DisposableEmailAlert en lugar del mensaje de error
 
 export const registrationSchema = z.object({
   curp: curpSchema,
