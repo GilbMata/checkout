@@ -253,7 +253,7 @@ export default function StepPayment() {
 
   const description = plan?.description ? plan?.description : plan?.displayName;
   const email =
-    process.env.NODE_ENV === "development"
+    process.env.MP_ENV === "test"
       ? "test_user_mx@testuser.com"
       : prospect?.email;
 
@@ -262,10 +262,7 @@ export default function StepPayment() {
     () => ({
       phone: prospect.phone,
       area: prospect.areaCode,
-      email:
-        process.env.NODE_ENV === "development"
-          ? "test_user_mx@testuser.com"
-          : prospect.email,
+      email: email,
       curp: prospect.curp,
       firstName: prospect.firstName,
       lastName: prospect.lastName,
