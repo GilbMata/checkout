@@ -8,6 +8,7 @@ export function generateOTP() {
 
 export async function saveOTP(userId: string, otp: string) {
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+  console.log("🚀 ~ saveOTP ~ expiresAt:", expiresAt);
 
   await prisma.otpRequests.create({
     data: {
@@ -33,6 +34,7 @@ export async function verifyOTP(userId: string, otp: string) {
       expiresAt: { gt: now },
     },
   });
+  console.log("🚀 ~ verifyOTP ~ result:", result);
 
   return !!result;
 }

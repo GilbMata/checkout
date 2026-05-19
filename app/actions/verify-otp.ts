@@ -12,6 +12,7 @@ interface VerifyOTPParams {
 export async function verifyOTPAction(params: VerifyOTPParams) {
   try {
     const { phone, otp } = params;
+    console.log("🚀 ~ verifyOTPAction ~  phone, otp:", phone, otp);
 
     const user = await prisma.prospects.findFirst({
       where: { phone },

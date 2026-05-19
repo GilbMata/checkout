@@ -1071,7 +1071,9 @@ export async function getReceivableStatus(
   params.set("skip", "0");
   params.set("take", "50");
 
-  console.log(`[EVO] getReceivableStatus → GET /api/v1/receivables?${params.toString()}`);
+  console.log(
+    `[EVO] getReceivableStatus → GET /api/v1/receivables?${params.toString()}`,
+  );
 
   const result = await evoRequest(
     `/api/v1/receivables?${params.toString()}`,
@@ -1082,7 +1084,7 @@ export async function getReceivableStatus(
 
   // La respuesta puede ser un array directo o un objeto con lista/list/ids
   let rawList: any[] = [];
-  
+
   if (Array.isArray(result)) {
     rawList = result;
   } else if (result && typeof result === "object") {
@@ -1091,11 +1093,16 @@ export async function getReceivableStatus(
   }
 
   if (!Array.isArray(rawList)) {
-    console.warn(`[EVO] getReceivableStatus: respuesta no es array, es:`, typeof rawList);
+    console.warn(
+      `[EVO] getReceivableStatus: respuesta no es array, es:`,
+      typeof rawList,
+    );
     return [];
   }
 
-  console.log(`[EVO] getReceivableStatus(${idSale}) → ${rawList.length} receivables raw`);
+  console.log(
+    `[EVO] getReceivableStatus(${idSale}) → ${rawList.length} receivables raw`,
+  );
 
   const receivables: ReceivableItem[] = rawList.map((r: any) => ({
     idReceivable: r.idReceivable,
@@ -1128,7 +1135,10 @@ export async function getReceivableStatus(
   console.log(
     `[EVO] Receivables encontrados: ${receivables.length}`,
     receivables
-      .map((r: ReceivableItem) => `[id=${r.idReceivable}, status=${r.status.id} (${statusNames[r.status.id] || r.status.name}), monto=${r.ammount}, pagado=${r.ammountPaid ?? 0}]`)
+      .map(
+        (r: ReceivableItem) =>
+          `[id=${r.idReceivable}, status=${r.status.id} (${statusNames[r.status.id] || r.status.name}), monto=${r.ammount}, pagado=${r.ammountPaid ?? 0}]`,
+      )
       .join(" | "),
   );
 
@@ -1146,7 +1156,5 @@ export async function getReceivableStatus(
 export function areReceivablesPaid(receivables: ReceivableItem[]): boolean {
   if (receivables.length === 0) return false;
 
-  return receivables.every(
-    (r) => r.status.id === RECEIVABLE_STATUS.RECEIVED,
-  );
+  return receivables.every((r) => r.status.id === RECEIVABLE_STATUS.RECEIVED);
 }

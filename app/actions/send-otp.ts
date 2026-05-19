@@ -35,18 +35,6 @@ export async function sendOTP(params: SendOTPParams): Promise<{
   // const { traceId } = useCheckoutStore();
   const otp = generateOTP();
 
-  if (process.env.PLATICA === "false") {
-    // logger.debug({
-    //   eventType: "ACCESS",
-    //   traceId,
-    //   payload: {
-    //     msg: `[Platica] Desactivado via env`,
-    //     OTP: otp,
-    //   },
-    // });
-    console.log("🚀 ~ PLATICA Desactivado ~ otp:", otp);
-    return { success: true, method: "PLATICA Desactivado via env" };
-  }
   try {
     const method = (process.env.OTP_DEFAULT_METHOD || "whatsapp") as OTPMethod;
 
@@ -69,6 +57,18 @@ export async function sendOTP(params: SendOTPParams): Promise<{
     const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
 
     if (method === "whatsapp") {
+      if (process.env.PLATICA === "false") {
+        // logger.debug({
+        //   eventType: "ACCESS",
+        //   traceId,
+        //   payload: {
+        //     msg: `[Platica] Desactivado via env`,
+        //     OTP: otp,
+        //   },
+        // });
+        console.log("🚀 ~ PLATICA Desactivado ~ otp:", otp);
+        return { success: true, method: "PLATICA Desactivado via env" };
+      }
       const result = await whatsappClient.sendOTP(prospect.phone, otp);
       if (!result.ok) {
         return { success: false, method, error: result.error };
