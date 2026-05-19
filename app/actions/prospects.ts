@@ -174,3 +174,36 @@ export async function updateProspectToMemberAction(id: string) {
     throw new Error("No se pudo actualizar el prospecto");
   }
 }
+
+/**
+ * Actualiza el CURP de un prospecto existente.
+ * Útil cuando el miembro de Evo no tenía CURP y se collecta después del OTP.
+ */
+export async function updateProspectCurpAction(id: string, curp: string) {
+  try {
+    // Validar que el CURP no esté ya en uso por otro prospecto
+    const existing = await prisma.prospects.findUnique({
+      where: { curp },
+    });
+
+    if (existing && existing.id !== id) {
+      throw new Error("El CURP ya está registrado por otro prospecto");
+    }
+
+    const updated = await prisma.prospects.update({
+      where: { id },
+      data: {
+        curp,
+        documentNumber: curp,
+      },
+    });
+
+    return { success: true, prospect: updated };
+  } catch (error: any) {
+    console.error("Error updating prospect CURP:", error);
+    if (error.message.includes("ya está registrado")) {
+      throw error;
+    }
+    throw new Error("No se pudo actualizar el CURP");
+  }
+}

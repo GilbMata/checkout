@@ -72,5 +72,5 @@ export default function ClientForm({ initialData }: { initialData?: any }) {
     }
   };
 
-  return <div className="w-full">{renderStep()}</div>;
+  return <div className="">{renderStep()}</div>;
 }

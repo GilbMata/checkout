@@ -9,6 +9,13 @@ export default function StepEmail() {
   const [loading, setLoading] = useState(false);
   const { setStep, setEmail } = useCheckoutStore();
 
+  //  logger.info({
+  //    eventType: "PAYMENT_INITIATED",
+  //    traceId,
+  //    userId: session?.user?.id, // ajusta según tu estructura de session
+  //    payload: { planId, planName: plan.name },
+  //  });
+
   const handleContinue = async () => {
     // setLoading(true);
 

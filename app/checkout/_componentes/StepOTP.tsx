@@ -29,7 +29,7 @@ interface Props {
 
 // export default function StepOTP({ planId }: Props) {
 export default function StepOTP() {
-  const { setStep, prospect } = useCheckoutStore();
+  const { setStep, setNeedsCurp, prospect, needsCurp } = useCheckoutStore();
   const [isPending, setIsPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
@@ -63,7 +63,14 @@ export default function StepOTP() {
         return;
       }
       toast.success("Acceso correcto");
-      setStep("payment");
+      
+      // If needs CURP, redirect to curp step, otherwise go to payment
+      if (needsCurp) {
+        setNeedsCurp(false); // Reset the flag after consuming it
+        setStep("curp");
+      } else {
+        setStep("payment");
+      }
     } catch (error: any) {
       console.error("OTP error:", error);
     } finally {

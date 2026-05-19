@@ -11,7 +11,7 @@ import { prisma } from "@/lib/db/index";
 import { sendOtpEmail } from "@/lib/otpsend/email/send-email";
 import { createPlaticaClient } from "@/lib/whatsapp-sender";
 
-export type OTPMethod = "whatsapp" | "email";
+export type OTPMethod = "whatsapp" | "email" | "PLATICA Desactivado via env";
 
 // Crear cliente WhatsApp una sola vez
 const whatsappClient = createPlaticaClient({
@@ -32,10 +32,23 @@ export async function sendOTP(params: SendOTPParams): Promise<{
   method: OTPMethod;
   error?: string;
 }> {
+  // const { traceId } = useCheckoutStore();
+  const otp = generateOTP();
+
+  if (process.env.PLATICA === "false") {
+    // logger.debug({
+    //   eventType: "ACCESS",
+    //   traceId,
+    //   payload: {
+    //     msg: `[Platica] Desactivado via env`,
+    //     OTP: otp,
+    //   },
+    // });
+    console.log("🚀 ~ PLATICA Desactivado ~ otp:", otp);
+    return { success: true, method: "PLATICA Desactivado via env" };
+  }
   try {
     const method = (process.env.OTP_DEFAULT_METHOD || "whatsapp") as OTPMethod;
-    const otp = generateOTP();
-    console.log("🚀 ~ sendOTP ~ otp:", otp);
 
     let userId = params.prospectId;
 

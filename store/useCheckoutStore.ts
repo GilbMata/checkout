@@ -1,7 +1,7 @@
-import { create } from "zustand";
 import type { VoucherDiscount } from "@/lib/evoApi";
+import { create } from "zustand";
 
-type Step = "phone-only" | "full-form" | "email" | "otp" | "payment" | "";
+type Step = "phone-only" | "full-form" | "email" | "otp" | "curp" | "payment" | "";
 
 interface CheckoutState {
   step: Step;
@@ -12,6 +12,7 @@ interface CheckoutState {
   prospect: Prospect | null;
   branch: Branch | null;
   prospectId: string;
+  traceId: string;
 
   // Voucher state
   voucherCode: string;
@@ -21,6 +22,10 @@ interface CheckoutState {
   turnstileToken: string;
   turnstileVerified: boolean;
 
+  // CURP state - flag to indicate CURP is needed after OTP
+  needsCurp: boolean;
+
+  setTraceId: (traceId: string) => void;
   setStep: (step: Step) => void;
   setEmail: (email: string) => void;
   setPhone: (phone: string) => void;
@@ -35,6 +40,7 @@ interface CheckoutState {
   clearVoucher: () => void;
   setTurnstileToken: (token: string) => void;
   setTurnstileVerified: (verified: boolean) => void;
+  setNeedsCurp: (needsCurp: boolean) => void;
 }
 
 export const useCheckoutStore = create<CheckoutState>((set) => ({
@@ -50,6 +56,9 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   voucherDiscount: null,
   turnstileToken: "",
   turnstileVerified: false,
+  needsCurp: false,
+  traceId: "",
+  setTraceId: (traceId) => set({ traceId }),
   setBranch: (branch) => set({ branch }),
   setStep: (step) => set({ step }),
   setEmail: (email) => set({ email }),
@@ -64,6 +73,7 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   clearVoucher: () => set({ voucherCode: "", voucherDiscount: null }),
   setTurnstileToken: (token) => set({ turnstileToken: token }),
   setTurnstileVerified: (verified) => set({ turnstileVerified: verified }),
+  setNeedsCurp: (needsCurp) => set({ needsCurp }),
 }));
 
 export interface Prospect {

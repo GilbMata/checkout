@@ -85,6 +85,8 @@ model Prospects {
   syncEvoAttemptedAt DateTime? @map("sync_evo_attempted_at") @db.Timestamptz
   syncEvoIdProspect Int?     @map("sync_evo_id_prospect") // ID del prospecto en Evo
   syncEvoIdSale     Int?     @map("sync_evo_id_sale")     // ID de la venta en Evo
+  syncEvoIdReceivable Int?   @map("sync_evo_id_receivable") // ID del receivable en Evo
+  syncEvoChargeDate DateTime? @map("sync_evo_charge_date")  // Fecha de cobro del receivable
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

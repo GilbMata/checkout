@@ -953,10 +953,200 @@ export async function markReceivablesAsReceived(
     idBankAccount,
   };
 
-  return await evoRequest(
-    "/api/v1/receivables/mark-received",
-    "PUT",
-    body,
+  console.log(
+    `[EVO] markReceivablesAsReceived → ids: ${JSON.stringify(idsReceivables)}, bankAccount: ${idBankAccount}`,
+  );
+
+  try {
+    const result = await evoRequest(
+      "/api/v1/receivables/mark-received",
+      "PUT",
+      body,
+      auth,
+    );
+
+    const response = result as any;
+    console.log(
+      `[EVO] markReceivablesAsReceived response:`,
+      response?.result ?? JSON.stringify(response),
+    );
+
+    return response;
+  } catch (error: any) {
+    const evoError = error?.response as any;
+    const mensagens = evoError?.mensagens
+      ? evoError.mensagens.join("; ")
+      : "Sin mensaje de Evo";
+
+    console.error(
+      `[EVO] markReceivablesAsReceived FAILED: ${mensagens}`,
+      JSON.stringify(evoError),
+    );
+
+    throw new Error(`Evo mark-received failed: ${mensagens}`);
+  }
+}
+
+// ============================================================================
+// Tipos para Receivables
+// ============================================================================
+
+export interface ReceivableStatus {
+  id: number;
+  name: string;
+}
+
+export interface ReceivableItem {
+  idReceivable: number;
+  description: string;
+  registrationDate: string;
+  dueDate: string;
+  receivingDate: string | null;
+  competenceDate: string;
+  cancellationDate: string | null;
+  ammount: number;
+  ammountPaid: number;
+  status: ReceivableStatus;
+  currentInstallment: number;
+  totalInstallments: number;
+  idSale: number;
+  chargeDate: string;
+  bankAccount: { id: number; name: string } | null;
+  paymentType: { id: number; name: string } | null;
+  conciliated: boolean;
+  updateDate: string;
+}
+
+/** Status IDs de receivables según documentación de Evo */
+export const RECEIVABLE_STATUS = {
+  OPEN: 1, // Em aberto
+  RECEIVED: 2, // Recebido (pagado)
+  CANCELED: 3, // Cancelado
+  OVERDUE: 4, // Atrasado
+} as const;
+
+// ============================================================================
+// ⑨ Obtener venta por ID
+// ============================================================================
+
+/**
+ * Obtiene una venta específica de Evo por su ID.
+ * Retorna null si la venta no existe.
+ */
+export async function getSaleById(idSale: number): Promise<unknown | null> {
+  try {
+    const result = await evoRequest(
+      `/api/v2/sales/${idSale}`,
+      "GET",
+      undefined,
+      auth,
+    );
+
+    console.log(`[EVO] getSaleById(${idSale}) → venta encontrada`);
+    return result;
+  } catch (error: any) {
+    if (error?.status === 400 || error?.status === 404) {
+      console.log(`[EVO] getSaleById(${idSale}) → venta no encontrada`);
+      return null;
+    }
+
+    const msg = error?.message ?? "Error desconocido";
+    console.error(`[EVO] getSaleById(${idSale}) error:`, msg);
+    throw error;
+  }
+}
+
+// ============================================================================
+// ⑩ Obtener status de receivables de una venta (versión tipada)
+// ============================================================================
+
+/**
+ * Obtiene los receivables de una venta con tipado completo.
+ */
+export async function getReceivableStatus(
+  idSale: number,
+): Promise<ReceivableItem[]> {
+  const params = new URLSearchParams();
+  params.set("idSale", String(idSale));
+  params.set("skip", "0");
+  params.set("take", "50");
+
+  console.log(`[EVO] getReceivableStatus → GET /api/v1/receivables?${params.toString()}`);
+
+  const result = await evoRequest(
+    `/api/v1/receivables?${params.toString()}`,
+    "GET",
+    undefined,
     auth,
+  );
+
+  // La respuesta puede ser un array directo o un objeto con lista/list/ids
+  let rawList: any[] = [];
+  
+  if (Array.isArray(result)) {
+    rawList = result;
+  } else if (result && typeof result === "object") {
+    const response = result as any;
+    rawList = response?.lista || response?.list || response?.ids || [];
+  }
+
+  if (!Array.isArray(rawList)) {
+    console.warn(`[EVO] getReceivableStatus: respuesta no es array, es:`, typeof rawList);
+    return [];
+  }
+
+  console.log(`[EVO] getReceivableStatus(${idSale}) → ${rawList.length} receivables raw`);
+
+  const receivables: ReceivableItem[] = rawList.map((r: any) => ({
+    idReceivable: r.idReceivable,
+    description: r.description ?? "",
+    registrationDate: r.registrationDate ?? "",
+    dueDate: r.dueDate ?? "",
+    receivingDate: r.receivingDate ?? null,
+    competenceDate: r.competenceDate ?? "",
+    cancellationDate: r.cancellationDate ?? null,
+    ammount: r.ammount ?? 0,
+    ammountPaid: r.ammountPaid ?? 0,
+    status: r.status ?? { id: 0, name: "Desconocido" },
+    currentInstallment: r.currentInstallment ?? 0,
+    totalInstallments: r.totalInstallments ?? 0,
+    idSale: r.idSale ?? 0,
+    chargeDate: r.chargeDate ?? "",
+    bankAccount: r.bankAccount ?? null,
+    paymentType: r.paymentType ?? null,
+    conciliated: r.conciliated ?? false,
+    updateDate: r.updateDate ?? "",
+  }));
+
+  const statusNames: Record<number, string> = {
+    1: "Pendiente",
+    2: "Recibido",
+    3: "Cancelado",
+    4: "Atrasado",
+  };
+
+  console.log(
+    `[EVO] Receivables encontrados: ${receivables.length}`,
+    receivables
+      .map((r: ReceivableItem) => `[id=${r.idReceivable}, status=${r.status.id} (${statusNames[r.status.id] || r.status.name}), monto=${r.ammount}, pagado=${r.ammountPaid ?? 0}]`)
+      .join(" | "),
+  );
+
+  return receivables;
+}
+
+// ============================================================================
+// ⑪ Verificar si todos los receivables están pagados
+// ============================================================================
+
+/**
+ * Verifica si todos los receivables tienen status "Recebido" (id === 2).
+ * Status IDs: 1=open, 2=received, 3=canceled, 4=overdue
+ */
+export function areReceivablesPaid(receivables: ReceivableItem[]): boolean {
+  if (receivables.length === 0) return false;
+
+  return receivables.every(
+    (r) => r.status.id === RECEIVABLE_STATUS.RECEIVED,
   );
 }

@@ -1,35 +1,37 @@
 /**
  * Evo Sync — Orquestación Prospect → Member en Evo
  *
- * Este módulo se encarga de sincronizar un prospecto local (que pagó)
- * con el sistema Evo una vez que MercadoPago confirma el pago.
+ * Flujo idempotente: verifica el estado actual antes de crear recursos.
  *
- * Flujo:
- *   1. Verificar idempotencia (si ya tiene idMember, no hacer nada)
- *   2. Marcar syncEvoStatus = "syncing"
- *   3. Buscar prospecto en Evo por teléfono (findProspectInEvoByPhone)
- *      → Si existe → actualizar datos (updateProspectInEvo)
- *      → Si NO existe → crear nuevo (createProspectInEvo)
- *   4. Crear venta en Evo (createSaleInEvo)
- *   5. Obtener receivables de la venta (getReceivablesBySale)
- *   6. Obtener cuenta bancaria por branch (getBankAccounts)
- *   7. Marcar receivables como pagados (markReceivablesAsReceived)
- *   8. Convertir a miembro en Evo (convertProspectToMember)
- *   9. Actualizar BD local con idMember y status = "member"
+ * 1. Si tiene idMember en DB:
+ *    a. Verifica syncEvoIdSale → consulta receivables en Evo
+ *    b. Si todos están "Recebido" → retorna success (ya pagado)
+ *    c. Si NO están pagados → ejecuta solo el flujo de pago
+ *
+ * 2. Si NO tiene idMember:
+ *    a. Busca miembro por teléfono en Evo
+ *    b. Si existe → usa su idMember, continúa desde verificación de pago
+ *    c. Si NO existe → crea prospecto → crea venta → flujo de pago
+ *
+ * La venta en Evo ya convierte el prospecto a miembro automáticamente.
+ * convertProspectToMember se mantiene disponible pero NO se usa en el flujo.
  *
  * Feature flag: EVO_SYNC_ENABLED=false desactiva la sincronización con Evo.
  */
 import { prisma } from "@/lib/db";
 import {
-  convertProspectToMember,
+  areReceivablesPaid,
   createProspectInEvo,
   createSaleInEvo,
   findProspectInEvoByPhone,
   getBankAccounts,
   getMemberByPhone,
-  getReceivablesBySale,
+  getReceivableStatus,
+  getSaleById,
   markReceivablesAsReceived,
+  RECEIVABLE_STATUS,
   type CreateProspectInEvoParams,
+  type ReceivableItem,
   type UpdateProspectInEvoParams,
 } from "@/lib/evoApi";
 
@@ -48,7 +50,8 @@ export interface SyncResult {
   idMember?: number;
   error?: string;
   skipped?: boolean;
-  action?: "created" | "updated"; // Indica si fue creación o actualización
+  action?: "created" | "updated";
+  alreadyPaid?: boolean; // Indica si ya estaba pagado antes del sync
 }
 
 // ============================================================================
@@ -56,12 +59,7 @@ export interface SyncResult {
 // ============================================================================
 
 /**
- * Sincroniza un prospecto local con Evo: busca por teléfono, crea o actualiza
- * el prospecto en Evo y lo convierte en miembro.
- *
- * Solo se ejecuta si:
- *   - EVO_SYNC_ENABLED = true
- *   - El prospecto no tiene aún idMember (idempotencia)
+ * Sincroniza un prospecto local con Evo de forma idempotente.
  *
  * @param prospectId - UUID del prospecto en BD local
  */
@@ -90,13 +88,7 @@ export async function syncProspectToEvo(
     return { success: false, error: msg };
   }
 
-  // ③ Idempotencia — si ya tiene idMember, ya está sincronizado
-  if (prospect.idMember) {
-    console.log(`✅ [EvoSync] Ya sincronizado, idMember: ${prospect.idMember}`);
-    return { success: true, idMember: prospect.idMember };
-  }
-
-  // ④ Verificar que tenga idBranch
+  // ③ Verificar que tenga idBranch
   if (!prospect.idBranch) {
     const msg = "Prospect sin idBranch, no se puede sincronizar con Evo";
     console.error(`❌ [EvoSync] ${msg}: ${prospectId}`);
@@ -104,7 +96,7 @@ export async function syncProspectToEvo(
     return { success: false, error: msg };
   }
 
-  // ⑤ Marcar como syncing
+  // ④ Marcar como syncing
   await prisma.prospects.update({
     where: { id: prospectId },
     data: {
@@ -115,175 +107,312 @@ export async function syncProspectToEvo(
   });
 
   try {
-    // ⑥ Construir datos para Evo
-    const genderMap: Record<string, string> = {
-      male: "M",
-      female: "F",
-      other: "P",
-    };
-    const evoGender = prospect.gender
-      ? (genderMap[prospect.gender] ?? "P")
-      : undefined;
-
-    // ⑦ Buscar prospecto en Evo por teléfono
-    console.log(
-      `📤 [EvoSync] Buscando prospecto en Evo por phone: ${prospect.phone}`,
-    );
-    const existingProspect = await findProspectInEvoByPhone(prospect.phone);
-
-    let idProspectEvo: number;
+    let idMemberEvo: number | undefined;
+    let idProspectEvo: number | undefined;
     let action: "created" | "updated" = "created";
 
-    if (existingProspect) {
-      // ⑧a Prospecto existe en Evo → actualizar datos
+    // ========================================================================
+    // CASO 1: Ya tiene idMember en DB
+    // ========================================================================
+    if (prospect.idMember) {
       console.log(
-        `✅ [EvoSync] Prospect encontrado en Evo, idProspectEvo: ${existingProspect.idProspect}, actualizando...`,
+        `🔍 [EvoSync] Ya tiene idMember: ${prospect.idMember}, verificando pago...`,
       );
-      const updateData: UpdateProspectInEvoParams = {
-        idProspect: existingProspect.idProspect,
-        name: prospect.firstName,
-        lastName: prospect.lastName,
-        email: prospect.email,
-        cellphone: prospect.phone,
-        ddi: prospect.areaCode ?? undefined,
-        birthday: prospect.birthDate?.toISOString() ?? undefined,
-        gender: evoGender,
-        idBranch: prospect.idBranch,
+
+      idMemberEvo = prospect.idMember;
+
+      // Verificar si tiene syncEvoIdSale
+      if (prospect.syncEvoIdSale) {
+        const saleExists = await getSaleById(prospect.syncEvoIdSale);
+
+        if (saleExists) {
+          // La venta existe → verificar receivables
+          const receivables = await getReceivableStatus(prospect.syncEvoIdSale);
+
+          if (areReceivablesPaid(receivables)) {
+            // ✅ Ya está todo pagado
+            console.log(
+              `✅ [EvoSync] Venta ${prospect.syncEvoIdSale} ya pagada. No se requiere acción.`,
+            );
+            return {
+              success: true,
+              idMember: idMemberEvo,
+              alreadyPaid: true,
+            };
+          }
+
+          // Receivables NO pagados → ejecutar flujo de pago
+          console.log(
+            `💰 [EvoSync] Venta ${prospect.syncEvoIdSale} tiene receivables sin pagar. Ejecutando flujo de pago...`,
+          );
+          await executePaymentFlow(
+            prospectId,
+            prospect.syncEvoIdSale,
+            prospect.idBranch,
+            receivables,
+          );
+
+          return {
+            success: true,
+            idMember: idMemberEvo,
+            alreadyPaid: false,
+          };
+        }
+
+        // La venta NO existe en Evo → limpiar IDs y crear nueva
+        console.log(
+          `⚠️ [EvoSync] syncEvoIdSale ${prospect.syncEvoIdSale} no existe en Evo. Limpiando IDs...`,
+        );
+        await prisma.prospects.update({
+          where: { id: prospectId },
+          data: {
+            syncEvoIdSale: null,
+            syncEvoIdReceivable: null,
+            syncEvoChargeDate: null,
+          },
+        });
+      }
+
+      // No tiene syncEvoIdSale o fue limpiado → crear venta
+      const saleResult = await createSaleInEvo({
+        idMembership: Number(prospect.planId),
+        idProspect: undefined, // Ya es miembro
+        memberData: { idMember: prospect.idMember },
+        totalInstallments: 1,
+        payment: null as unknown as number, // null = LinkCheckout
+      });
+
+      const idSale = (saleResult as any)?.idVenda;
+      if (!idSale) {
+        throw new Error("No se pudo crear la venta en Evo");
+      }
+
+      console.log(`✅ [EvoSync] Venta creada: idSale=${idSale}`);
+
+      await prisma.prospects.update({
+        where: { id: prospectId },
+        data: { syncEvoIdSale: idSale },
+      });
+
+      // Ejecutar flujo de pago
+      await executePaymentFlow(prospectId, idSale, prospect.idBranch);
+
+      return {
+        success: true,
+        idMember: idMemberEvo,
+        alreadyPaid: false,
       };
-
-      idProspectEvo = existingProspect.idProspect;
-      action = "updated";
-      console.log(
-        `✅ [EvoSync] Prospect actualizado en Evo, idProspectEvo: ${idProspectEvo}`,
-      );
-    } else {
-      // ⑧b Prospecto NO existe en Evo → crear nuevo
-      console.log(
-        `📤 [EvoSync] Prospect NO encontrado en Evo, creando nuevo...`,
-      );
-
-      const createData: CreateProspectInEvoParams = {
-        name: prospect.firstName,
-        lastName: prospect.lastName,
-        email: prospect.email,
-        idBranch: prospect.idBranch,
-        cellphone: prospect.phone,
-        cpf: prospect.curp,
-        ddi: prospect.areaCode ?? undefined,
-        birthday: prospect.birthDate?.toISOString() ?? undefined,
-        gender: evoGender,
-      };
-
-      const result = await createProspectInEvo(createData);
-      idProspectEvo = result.idProspect;
-      action = "created";
-      console.log(
-        `✅ [EvoSync] Prospect creado en Evo, idProspectEvo: ${idProspectEvo}`,
-      );
     }
 
-    // ⑨ Guardar syncEvoIdProspect en BD
+    // ========================================================================
+    // CASO 2: NO tiene idMember en DB
+    // ========================================================================
+    console.log(
+      `🔍 [EvoSync] Sin idMember. Buscando miembro por teléfono: ${prospect.phone}`,
+    );
+
+    // Buscar miembro existente en Evo
+    const existingMember = await getMemberByPhone(prospect.phone);
+
+    if (existingMember && existingMember.idMember) {
+      // Ya existe como miembro en Evo
+      idMemberEvo = existingMember.idMember;
+      console.log(
+        `✅ [EvoSync] Miembro encontrado en Evo: idMember=${idMemberEvo}`,
+      );
+
+      // Verificar si tiene syncEvoIdSale
+      if (prospect.syncEvoIdSale) {
+        const saleExists = await getSaleById(prospect.syncEvoIdSale);
+
+        if (saleExists) {
+          const receivables = await getReceivableStatus(prospect.syncEvoIdSale);
+
+          if (areReceivablesPaid(receivables)) {
+            // ✅ Ya está todo pagado → solo actualizar BD local
+            console.log(
+              `✅ [EvoSync] Venta ${prospect.syncEvoIdSale} ya pagada. Actualizando BD local...`,
+            );
+            await prisma.prospects.update({
+              where: { id: prospectId },
+              data: {
+                idMember: idMemberEvo,
+                syncEvoStatus: "synced",
+                status: "member",
+                membershipStatus: "member",
+                syncEvoError: null,
+              },
+            });
+
+            return {
+              success: true,
+              idMember: idMemberEvo,
+              alreadyPaid: true,
+            };
+          }
+
+          // Receivables NO pagados → ejecutar flujo de pago
+          console.log(
+            `💰 [EvoSync] Venta ${prospect.syncEvoIdSale} sin pagar. Ejecutando flujo de pago...`,
+          );
+          await executePaymentFlow(
+            prospectId,
+            prospect.syncEvoIdSale,
+            prospect.idBranch,
+            receivables,
+          );
+        } else {
+          // Venta no existe → crear nueva
+          const saleResult = await createSaleInEvo({
+            idMembership: Number(prospect.planId),
+            idProspect: undefined,
+            memberData: { idMember: idMemberEvo },
+            totalInstallments: 1,
+            payment: null as unknown as number,
+          });
+
+          const idSale = (saleResult as any)?.idVenda;
+          if (!idSale) {
+            throw new Error("No se pudo crear la venta en Evo");
+          }
+
+          console.log(`✅ [EvoSync] Venta creada: idSale=${idSale}`);
+
+          await prisma.prospects.update({
+            where: { id: prospectId },
+            data: { syncEvoIdSale: idSale },
+          });
+
+          await executePaymentFlow(prospectId, idSale, prospect.idBranch);
+        }
+      } else {
+        // No tiene syncEvoIdSale → crear prospecto + venta
+        const prospectResult = await ensureProspectInEvo({
+          firstName: prospect.firstName,
+          lastName: prospect.lastName,
+          email: prospect.email,
+          phone: prospect.phone,
+          areaCode: prospect.areaCode,
+          birthDate: prospect.birthDate,
+          gender: prospect.gender ?? null,
+          idBranch: prospect.idBranch,
+          curp: prospect.curp,
+        });
+        idProspectEvo = prospectResult.idProspect;
+        action = prospectResult.action;
+
+        const saleResult = await createSaleInEvo({
+          idMembership: Number(prospect.planId),
+          idProspect: idProspectEvo,
+          memberData: { idMember: 0 },
+          totalInstallments: 1,
+          payment: null as unknown as number,
+        });
+
+        const idSale = (saleResult as any)?.idVenda;
+        if (!idSale) {
+          throw new Error("No se pudo crear la venta en Evo");
+        }
+
+        console.log(`✅ [EvoSync] Venta creada: idSale=${idSale}`);
+
+        await prisma.prospects.update({
+          where: { id: prospectId },
+          data: {
+            syncEvoIdSale: idSale,
+            syncEvoIdProspect: idProspectEvo,
+          },
+        });
+
+        await executePaymentFlow(prospectId, idSale, prospect.idBranch);
+      }
+
+      // Actualizar BD local con idMember
+      await prisma.prospects.update({
+        where: { id: prospectId },
+        data: {
+          idMember: idMemberEvo,
+          syncEvoStatus: "synced",
+          status: "member",
+          membershipStatus: "member",
+          syncEvoError: null,
+        },
+      });
+
+      return {
+        success: true,
+        idMember: idMemberEvo,
+        alreadyPaid: false,
+      };
+    }
+
+    // ========================================================================
+    // CASO 2b: NO existe miembro en Evo → crear prospecto + venta
+    // ========================================================================
+    console.log(
+      `📤 [EvoSync] Miembro no encontrado en Evo. Creando prospecto...`,
+    );
+
+    const prospectResult = await ensureProspectInEvo({
+      firstName: prospect.firstName,
+      lastName: prospect.lastName,
+      email: prospect.email,
+      phone: prospect.phone,
+      areaCode: prospect.areaCode,
+      birthDate: prospect.birthDate,
+      gender: prospect.gender ?? null,
+      idBranch: prospect.idBranch,
+      curp: prospect.curp,
+    });
+    idProspectEvo = prospectResult.idProspect;
+    action = prospectResult.action;
+
+    // Crear venta en Evo
+    console.log(
+      `📤 [EvoSync] Creando venta, idProspectEvo=${idProspectEvo}, idMembership=${prospect.planId}`,
+    );
+
+    const saleResult = await createSaleInEvo({
+      idMembership: Number(prospect.planId),
+      idProspect: idProspectEvo,
+      memberData: { idMember: 0 },
+      totalInstallments: 1,
+      payment: null as unknown as number, // null = LinkCheckout
+    });
+
+    const idSale = (saleResult as any)?.idVenda;
+    if (!idSale) {
+      throw new Error("No se pudo crear la venta en Evo");
+    }
+
+    console.log(`✅ [EvoSync] Venta creada: idSale=${idSale}`);
+
     await prisma.prospects.update({
       where: { id: prospectId },
       data: {
+        syncEvoIdSale: idSale,
         syncEvoIdProspect: idProspectEvo,
       },
     });
 
-    // ⑩ Crear venta en Evo con idProspect
-    console.log(
-      `📤 [EvoSync] Creando venta en Evo, idProspectEvo: ${idProspectEvo}, idBranch: ${prospect.idBranch}, idMembership: ${prospect.planId}`,
-    );
+    // Ejecutar flujo de pago
+    await executePaymentFlow(prospectId, idSale, prospect.idBranch);
 
-    const res = (await createSaleInEvo({
-      // idBranch: prospect.idBranch!,
-      idMembership: Number(prospect.planId),
-      idProspect: idProspectEvo,
-      memberData: { idMember: 0 }, // Fijo
-      totalInstallments: 1, // Fijo
-      payment: 6, // Fijo (LinkCheckout)
-    })) as { idVenda: number; idRecibo: number };
+    // Verificar si ya es miembro (la venta debería haberlo convertido)
+    const memberAfterSale = await getMemberByPhone(prospect.phone);
 
-    console.log(
-      "✅ [EvoSync] Venta creada en Evo: idSale: ",
-      res.idVenda,
-      " - idRecivo: ",
-      res.idRecibo,
-    );
-
-    // ⑪ Guardar syncEvoIdSale en BD
-    if (res.idVenda) {
-      await prisma.prospects.update({
-        where: { id: prospectId },
-        data: {
-          syncEvoIdSale: res.idVenda,
-        },
-      });
-    }
-
-    // ⑫ Obtener receivables de la venta
-    console.log(
-      `📤 [EvoSync] Obteniendo receivables para idVenda: ${res.idVenda}`,
-    );
-    const receivables = await getReceivablesBySale(res.idVenda);
-    const receivableIds = receivables.map((r: any) => r.idReceivable);
-    console.log(
-      `📤 [EvoSync] Receivables encontrados: ${receivableIds.length}`,
-    );
-
-    if (receivableIds.length === 0) {
-      throw new Error("No se encontraron receivables para la venta");
-    }
-
-    // ⑬ Obtener cuenta bancaria por branch
-    console.log(
-      `📤 [EvoSync] Obteniendo cuenta bancaria para idBranch: ${prospect.idBranch}`,
-    );
-    const bankAccounts = await getBankAccounts(prospect.idBranch!);
-    const bankAccount = bankAccounts.find((b: any) => !b.inactive);
-    if (!bankAccount) {
-      throw new Error(
-        `No se encontró cuenta bancaria activa para branch ${prospect.idBranch}`,
-      );
-    }
-
-    // ⑭ Marcar receivables como pagados
-    console.log(
-      `📤 [EvoSync] Marcando receivables como pagados: ${receivableIds}`,
-    );
-    await markReceivablesAsReceived(receivableIds, bankAccount.idBankAccount);
-    console.log("✅ [EvoSync] Receivables marcados como pagados");
-
-    // ⑮ Verificar si ya es miembro por teléfono
-    console.log(
-      `📤 [EvoSync] Verificando si ya es miembro por teléfono: ${prospect.phone}`,
-    );
-    const existingMember = await getMemberByPhone(prospect.phone);
-
-    let idMemberEvo: number | undefined = undefined;
-
-    if (existingMember && existingMember.idMember) {
-      // Ya es miembro, usar ese ID
-      idMemberEvo = existingMember.idMember;
+    if (memberAfterSale && memberAfterSale.idMember) {
+      idMemberEvo = memberAfterSale.idMember;
       console.log(
-        `✅ [EvoSync] Ya existe como miembro en Evo, idMember: ${idMemberEvo}`,
+        `✅ [EvoSync] Miembro verificado después de venta: idMember=${idMemberEvo}`,
       );
     } else {
-      // No existe, convertir a miembro
-      console.log(
-        `📤 [EvoSync] Convirtiendo a miembro en Evo, idProspectEvo: ${idProspectEvo}, idBranch: ${prospect.idBranch}`,
-      );
-      const convertResult = await convertProspectToMember(
-        idProspectEvo,
-        prospect.idBranch!,
-      );
-      idMemberEvo = convertResult.idMember;
-      console.log(
-        `✅ [EvoSync] Miembro creado en Evo, idMemberEvo: ${idMemberEvo}`,
+      throw new Error(
+        "No se encontró el miembro después de crear la venta en Evo",
       );
     }
 
-    // ⑬ Actualizar BD local con idMember y status
+    // Actualizar BD local
     await prisma.prospects.update({
       where: { id: prospectId },
       data: {
@@ -296,12 +425,12 @@ export async function syncProspectToEvo(
     });
 
     console.log(
-      `✅ [EvoSync] Sync completo para ${prospectId}, idMemberEvo: ${idMemberEvo}, acción: ${action}`,
+      `✅ [EvoSync] Sync completo para ${prospectId}, idMember=${idMemberEvo}, acción=${action}`,
     );
+
     return { success: true, idMember: idMemberEvo, action };
   } catch (error: any) {
     const msg = error?.message ?? "Error desconocido";
-    // Serializar error: incluir contexto del prospecto y respuesta de Evo
     let errorJson = msg;
     try {
       const serialized = JSON.stringify(
@@ -330,6 +459,196 @@ export async function syncProspectToEvo(
     await markSyncFailed(prospectId, errorJson);
     return { success: false, error: msg };
   }
+}
+
+// ============================================================================
+// Flujo de pago — reutilizable
+// ============================================================================
+
+/**
+ * Ejecuta el flujo de pago para una venta en Evo:
+ * 1. Obtiene receivables (si no se proporcionan)
+ * 2. Verifica si ya están pagados → si sí, retorna
+ * 3. Guarda syncEvoIdReceivable + syncEvoChargeDate en BD
+ * 4. Obtiene cuenta bancaria activa
+ * 5. Marca receivables como pagados
+ * 6. Verifica que quedaron como "Recebido"
+ */
+async function executePaymentFlow(
+  prospectId: string,
+  idSale: number,
+  idBranch: number,
+  existingReceivables?: ReceivableItem[],
+): Promise<void> {
+  // 1. Obtener receivables
+  const receivables =
+    existingReceivables ?? (await getReceivableStatus(idSale));
+
+  if (receivables.length === 0) {
+    throw new Error(`No se encontraron receivables para la venta ${idSale}`);
+  }
+
+  // 2. Verificar si ya están pagados
+  if (areReceivablesPaid(receivables)) {
+    console.log(
+      `✅ [EvoSync] Venta ${idSale} ya tiene receivables pagados. Saltando flujo de pago.`,
+    );
+    return;
+  }
+
+  const receivableIds = receivables.map((r) => r.idReceivable);
+  console.log(
+    `💰 [EvoSync] Marcando ${receivableIds.length} receivable(s) como pagados: ${receivableIds.join(", ")}`,
+  );
+
+  // 3. Guardar ID del receivable y fecha de cobro en BD
+  const firstReceivable = receivables[0];
+  const chargeDate = firstReceivable.chargeDate
+    ? new Date(firstReceivable.chargeDate)
+    : null;
+
+  await prisma.prospects.update({
+    where: { id: prospectId },
+    data: {
+      syncEvoIdReceivable: firstReceivable.idReceivable,
+      syncEvoChargeDate: chargeDate,
+    },
+  });
+
+  console.log(
+    `[EvoSync] Guardado syncEvoIdReceivable=${firstReceivable.idReceivable}, chargeDate=${chargeDate?.toISOString()}`,
+  );
+
+  // 4. Obtener cuenta bancaria activa
+  const bankAccounts = await getBankAccounts(idBranch);
+  const bankAccount = bankAccounts.find((b: any) => !b.inactive);
+
+  if (!bankAccount) {
+    throw new Error(
+      `No se encontró cuenta bancaria activa para branch ${idBranch}`,
+    );
+  }
+
+  console.log(
+    `[EvoSync] Cuenta bancaria: id=${bankAccount.idBankAccount}, name=${bankAccount.name}`,
+  );
+
+  // 5. Marcar receivables como pagados
+  await markReceivablesAsReceived(receivableIds, bankAccount.idBankAccount);
+
+  // 6. Verificar que quedaron como "Recebido"
+  const verifiedReceivables = await getReceivableStatus(idSale);
+
+  if (!areReceivablesPaid(verifiedReceivables)) {
+    const unpaid = verifiedReceivables
+      .filter((r) => r.status.id !== RECEIVABLE_STATUS.RECEIVED)
+      .map((r) => `${r.idReceivable} (${r.status.name})`)
+      .join(", ");
+
+    throw new Error(
+      `Receivables no quedaron pagados después de mark-received: ${unpaid}`,
+    );
+  }
+
+  console.log(`✅ [EvoSync] Receivables verificados como pagados`);
+}
+
+// ============================================================================
+// Helper: Asegurar prospecto en Evo (crear o actualizar)
+// ============================================================================
+
+interface ProspectResult {
+  idProspect: number;
+  action: "created" | "updated";
+}
+
+/**
+ * Busca o crea un prospecto en Evo.
+ * Si ya existe, actualiza sus datos.
+ */
+async function ensureProspectInEvo(prospect: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  areaCode: string | null;
+  birthDate: Date | null;
+  gender: string | null;
+  idBranch: number;
+  curp: string;
+}): Promise<ProspectResult> {
+  const genderMap: Record<string, string> = {
+    male: "M",
+    female: "F",
+    other: "P",
+  };
+  const evoGender = prospect.gender
+    ? (genderMap[prospect.gender] ?? "P")
+    : undefined;
+
+  // Buscar prospecto en Evo por teléfono
+  console.log(
+    `📤 [EvoSync] Buscando prospecto en Evo por phone: ${prospect.phone}`,
+  );
+  const existingProspect = await findProspectInEvoByPhone(prospect.phone);
+
+  if (existingProspect) {
+    // Prospecto existe → actualizar datos
+    console.log(
+      `✅ [EvoSync] Prospect encontrado en Evo: idProspect=${existingProspect.idProspect}, actualizando...`,
+    );
+
+    const updateData: UpdateProspectInEvoParams = {
+      idProspect: existingProspect.idProspect,
+      name: prospect.firstName,
+      lastName: prospect.lastName,
+      email: prospect.email,
+      cellphone: prospect.phone,
+      ddi: prospect.areaCode ?? undefined,
+      birthday: prospect.birthDate?.toISOString() ?? undefined,
+      gender: evoGender,
+      idBranch: prospect.idBranch,
+    };
+
+    const result = await (
+      await import("@/lib/evoApi")
+    ).updateProspectInEvo(updateData);
+
+    console.log(
+      `✅ [EvoSync] Prospect actualizado en Evo: idProspect=${result.idProspect}`,
+    );
+
+    return {
+      idProspect: result.idProspect,
+      action: "updated",
+    };
+  }
+
+  // Prospecto NO existe → crear nuevo
+  console.log(`📤 [EvoSync] Prospect NO encontrado en Evo, creando nuevo...`);
+
+  const createData: CreateProspectInEvoParams = {
+    name: prospect.firstName,
+    lastName: prospect.lastName,
+    email: prospect.email,
+    idBranch: prospect.idBranch,
+    cellphone: prospect.phone,
+    cpf: prospect.curp,
+    ddi: prospect.areaCode ?? undefined,
+    birthday: prospect.birthDate?.toISOString() ?? undefined,
+    gender: evoGender,
+  };
+
+  const result = await createProspectInEvo(createData);
+
+  console.log(
+    `✅ [EvoSync] Prospect creado en Evo: idProspect=${result.idProspect}`,
+  );
+
+  return {
+    idProspect: result.idProspect,
+    action: "created",
+  };
 }
 
 // ============================================================================

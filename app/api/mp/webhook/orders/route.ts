@@ -330,29 +330,19 @@ async function processOrderNotification(mpData: any) {
     });
     console.log("✅ Prospect actualizado a member");
 
-    // Sincronizar con Evo
+    // Sincronizar con Evo siempre (el flujo es idempotente)
+    // - Si no tiene idMember → crea todo
+    // - Si ya tiene idMember → verifica estado del pago, marca si no está pagado
+    // - Si ya está todo pagado → retorna sin hacer nada
     if (EVO_SYNC_ENABLED) {
-      const res = await prisma.prospects.findUnique({
-        where: {
-          id: prospectId,
-        },
-        select: {
-          idMember: true,
-        },
+      await prisma.prospects.update({
+        where: { id: prospectId },
+        data: { syncEvoStatus: "pending" },
       });
-      const isMember = !!res?.idMember;
-      console.log("El cliente ya es miembro:", isMember);
-
-      if (!isMember) {
-        await prisma.prospects.update({
-          where: { id: prospectId },
-          data: { syncEvoStatus: "pending" },
-        });
-        // Sync fire & forget — no bloquea la respuesta a MP
-        syncProspectToEvo(prospectId).catch((err) =>
-          console.error("❌ [Webhook] Evo sync failed:", err),
-        );
-      }
+      // Sync fire & forget — no bloquea la respuesta a MP
+      syncProspectToEvo(prospectId).catch((err) =>
+        console.error("❌ [Webhook] Evo sync failed:", err),
+      );
     } else {
       console.log(
         "⏭️ [EvoSync] EVO_SYNC_ENABLED=false, saltando sync para:",

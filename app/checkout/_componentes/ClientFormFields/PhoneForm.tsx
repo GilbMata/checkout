@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { getMemberbyPhoneAction } from "@/app/actions/evoActions";
+import { getEvoMemberbyPhoneAction } from "@/app/actions/evoActions";
 import {
   createProspectAction,
   getProspectByPhoneAction,
@@ -22,6 +22,7 @@ import {
 import { useCheckoutStore, type Prospect } from "@/store/useCheckoutStore";
 
 // @ts-ignore
+import { LockIcon } from "lucide-react";
 import PhoneInput from "react-phone-number-input/react-hook-form";
 // @ts-ignore
 import "react-phone-number-input/style.css";
@@ -44,7 +45,8 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
   const [isPending, startTransition] = useTransition();
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const { setStep, setProspect, setPhone, plan } = useCheckoutStore();
+  const { setStep, setProspect, setPhone, setNeedsCurp, plan } =
+    useCheckoutStore();
 
   const form = useForm<Pick<RegistrationFormData, "phone">>({
     resolver: zodResolver(registrationSchema.pick({ phone: true })),
@@ -77,7 +79,7 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
 
     try {
       // Buscar miembro en Evo API
-      const member = await getMemberbyPhoneAction(phoneNor);
+      const member = await getEvoMemberbyPhoneAction(phoneNor);
 
       if (member) {
         // Miembro encontrado en Evo
@@ -87,10 +89,25 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
 
         if (existingProspect) {
           prospect = existingProspect as Prospect;
+          // Check if prospect already has CURP, if not set needsCurp flag
+          const hasValidCurp =
+            existingProspect.curp &&
+            existingProspect.curp.startsWith("TEMP_") === false;
+          if (!hasValidCurp) {
+            setNeedsCurp(true);
+          }
         } else {
+          // Check if member has a valid CURP
+          const hasValidCurp = member.curp && member.curp.length > 5;
+
+          // Generate placeholder CURP if missing (to satisfy DB constraint)
+          const curpValue = hasValidCurp
+            ? member.curp
+            : `TEMP_${Date.now()}_${phoneNor}`;
+
           const newProspect = await createProspectAction({
             email: member.email,
-            curp: member.curp || "",
+            curp: curpValue,
             firstName: member.firstName,
             lastName: member.lastName,
             gender: member.gender,
@@ -111,6 +128,11 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
           });
 
           prospect = newProspect as unknown as Prospect;
+
+          // Set needsCurp flag if member didn't have valid CURP
+          if (!hasValidCurp) {
+            setNeedsCurp(true);
+          }
         }
 
         setProspect(prospect);
@@ -128,6 +150,13 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
       const localProspect = await getProspectByPhoneAction(phoneNor);
 
       if (localProspect) {
+        // Check if local prospect has valid CURP
+        const hasValidCurp =
+          localProspect.curp && !localProspect.curp.startsWith("TEMP_");
+        if (!hasValidCurp) {
+          setNeedsCurp(true);
+        }
+
         setProspect(localProspect as unknown as Prospect);
         setPhone(phoneValue);
 
@@ -157,6 +186,7 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
     setProspect,
     setPhone,
     setStep,
+    setNeedsCurp,
     onNotFound,
   ]);
 
@@ -181,21 +211,27 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
   const isPhoneComplete = phone.length >= 12;
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
+    <Card className="bg-[#1e1e1e] text-white p-2 md:p-4 rounded-2xl shadow-xl space-y-6">
       <CardHeader className="space-y-4 px-6 pt-6">
         <div className="space-y-1">
+          <p className="text-xs font-bold tracking-widest uppercase text-orange-500">
+            Verificación
+          </p>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
             Ingresa tu teléfono
           </h1>
           <p className="text-sm md:text-base text-zinc-400">
-            Te enviaremos un código de verificación
+            para{" "}
+            <span className="text-zinc-300">
+              iniciar sesión o crear tu cuenta
+            </span>
+            .
           </p>
         </div>
       </CardHeader>
 
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-8">
-          {/* Teléfono */}
           <div className="flex flex-col items-start">
             <PhoneInput
               autoFocus
@@ -210,14 +246,11 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
               inputComponent={FloatingInput}
               label="Teléfono *"
             />
-            {form.formState.errors.phone && (
-              <p className="text-red-400 text-sm mt-1">
-                {form.formState.errors.phone.message}
-              </p>
-            )}
+            <p className="text-xs text-zinc-500 mt-2 ml-1">
+              Recibirás un mensaje de WhatsApp con tu código de acceso
+            </p>
           </div>
 
-          {/* Botón submit */}
           <Button
             type="submit"
             disabled={!isPhoneComplete || isVerifying || isPending}
@@ -230,8 +263,9 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
                 : "Continuar"}
           </Button>
 
-          <p className="text-xs text-gray-400 text-center">
-            Tus datos están seguros.
+          <p className="text-xs text-zinc-500 text-center flex items-center justify-center gap-1">
+            <LockIcon className="w-3 h-3" />
+            Solo usamos tu número para verificar tu identidad
           </p>
         </form>
       </FormProvider>

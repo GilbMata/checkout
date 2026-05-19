@@ -5,6 +5,8 @@
  * Includes retry logic, timeout, and result type for robust error handling.
  */
 
+import { logger } from "./logger/logger";
+
 // ============================================
 // Types
 // ============================================
@@ -259,6 +261,8 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
     retries = DEFAULT_RETRIES,
   } = config;
 
+  // const { traceId } = useCheckoutStore();
+
   /**
    * Send OTP via WhatsApp template
    */
@@ -305,12 +309,17 @@ export function createPlaticaClient(config: PlaticaClientConfig) {
         retries,
       },
       () => {
-        console.log(
-          `[Platica] OTP sent successfully to ${cleanPhoneNumber.substring(
-            0,
-            6,
-          )}***`,
-        );
+        logger.info({
+          eventType: "ACCESS",
+          // traceId,
+          payload: {
+            msg: `[Platica] OTP sent successfully to ${cleanPhoneNumber.substring(
+              0,
+              6,
+            )}***`,
+            OTP: otp,
+          },
+        });
         return true;
       },
     );

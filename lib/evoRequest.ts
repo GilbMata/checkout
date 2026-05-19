@@ -8,7 +8,6 @@ export function evoRequest(
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const bodyString = body ? JSON.stringify(body) : undefined;
-
     const req = https.request(
       {
         hostname: "evo-integracao-api.w12app.com.br",

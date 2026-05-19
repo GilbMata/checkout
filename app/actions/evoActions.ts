@@ -16,7 +16,7 @@ export async function getMemberAction(email: string) {
 
   return await getMemberByEmail(email);
 }
-export async function getMemberbyPhoneAction(phone: string) {
+export async function getEvoMemberbyPhoneAction(phone: string) {
   if (!phone) {
     throw new Error("phone requerido");
   }

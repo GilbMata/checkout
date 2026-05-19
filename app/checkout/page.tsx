@@ -1,6 +1,7 @@
-import { getSession } from "@/lib/auth/session";
-import { getBranchAction, getMembershipAction } from "../actions/evoActions";
 import { PlanNotFound } from "@/components/ui/plan-not-found";
+import { getSession } from "@/lib/auth/session";
+import { logger } from "@/lib/logger/logger";
+import { getBranchAction, getMembershipAction } from "../actions/evoActions";
 import CheckoutClient from "./_componentes/CheckoutClient";
 import WelcomePage from "./_componentes/WelcomePage";
 
@@ -15,6 +16,8 @@ export default async function CheckoutPage({
 }) {
   const params = await searchParams;
   const planId = params.planId;
+
+  const traceId = crypto.randomUUID();
 
   if (!planId) {
     return <WelcomePage />;
@@ -37,20 +40,38 @@ export default async function CheckoutPage({
       ) {
         branch = branchResponse.branch[0];
       }
+      logger.info({
+        eventType: "ACCESS",
+        traceId,
+        payload: { planId, idBranch, planName: plan.name },
+      });
     }
   } catch (err) {
-    console.error(err);
+    logger.error({
+      eventType: "SYSTEM_ERROR",
+      traceId,
+      success: false,
+      err: err instanceof Error ? err : new Error(String(err)),
+      payload: { planId },
+    });
   }
 
   if (!plan) {
+    logger.warn({
+      eventType: "SYSTEM_ERROR",
+      traceId,
+      payload: { planId, reason: "plan_not_found" },
+    });
     return <PlanNotFound />;
   }
   const session = await getSession();
-  // console.log("🚀 ~ CheckoutPage ~ session:", session);
 
   return (
-    // <MPCProvider>
-    <CheckoutClient plan={plan} branch={branch} session={session} />
-    // </MPCProvider>
+    <CheckoutClient
+      plan={plan}
+      branch={branch}
+      session={session}
+      traceId={traceId}
+    />
   );
 }
