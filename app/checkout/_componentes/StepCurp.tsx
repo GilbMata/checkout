@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { updateProspectCurpAction } from "@/app/actions/prospects";
+import { getProspectByCurpAction, updateProspectCurpAction } from "@/app/actions/prospects";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,8 +14,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FloatingInput } from "@/components/ui/FloatingInput";
+import { normalizeCURP, validateCURP, validateCURPStructrual } from "@/lib/curp2";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
-import { validateCURP, validateCURPStructrual } from "@/lib/curp2";
+
+const CURP_LENGTH = 18;
+const CURP_DEBOUNCE_MS = 500;
 
 export default function StepCurp() {
   const { setStep, prospect, setProspect } = useCheckoutStore();
@@ -28,28 +31,71 @@ export default function StepCurp() {
     },
   });
 
-  const { watch, reset } = form;
+  const { watch, setValue } = form;
   const curpValue = watch("curp");
 
-  // Validate CURP on change
-  const handleCurpChange = (value: string) => {
-    const upperValue = value.toUpperCase();
-    form.setValue("curp", upperValue, { shouldValidate: true });
-    
-    if (upperValue.length === 0) {
-      setError(null);
-    } else if (upperValue.length < 18) {
-      setError("La CURP debe tener 18 caracteres");
-    } else if (!validateCURPStructrual(upperValue)) {
-      setError("CURP inválida. Formato: 4 letras + 6 dígitos + 6 letras + 2 dígitos");
-    } else if (!validateCURP(upperValue)) {
-      setError("CURP inválida");
-    } else {
-      setError(null);
+  // Validación de CURP con debounce (mismo patrón que FullFormFields)
+  const handleCURPValidate = useCallback(
+    async (curp: string) => {
+      const normalized = normalizeCURP(curp);
+
+      // Validar estructura
+      if (!validateCURPStructrual(normalized)) {
+        setError(
+          "CURP inválida. Formato: 4 letras + 6 dígitos + 6 letras + 2 dígitos",
+        );
+        return;
+      }
+
+      // Validar dígito verificador y fecha
+      if (!validateCURP(normalized)) {
+        setError("CURP inválida");
+        return;
+      }
+
+      // Verificar duplicado en BD
+      try {
+        const existing = await getProspectByCurpAction(normalized);
+        if (existing) {
+          toast.warning("Este CURP ya está registrado");
+          setError("Este CURP ya está registrado");
+        } else {
+          setError(null);
+        }
+      } catch (err) {
+        console.error(
+          "[StepCurp] Error validando CURP:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    },
+    [],
+  );
+
+  // Debounce para evitar múltiples llamadas mientras escribe
+  useEffect(() => {
+    if (curpValue?.length !== CURP_LENGTH) {
+      if (curpValue?.length === 0) {
+        setError(null);
+      } else if (curpValue?.length < CURP_LENGTH) {
+        setError("La CURP debe tener 18 caracteres");
+      }
+      return;
     }
+
+    const timer = setTimeout(() => {
+      handleCURPValidate(curpValue);
+    }, CURP_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [curpValue, handleCURPValidate]);
+
+  const handleCurpChange = (value: string) => {
+    const normalized = normalizeCURP(value);
+    setValue("curp", normalized, { shouldValidate: true });
   };
 
-  const isCurpValid = curpValue?.length === 18 && error === null;
+  const isCurpValid = curpValue?.length === CURP_LENGTH && error === null;
 
   const onSubmit = async () => {
     if (!prospect?.id) {
@@ -65,23 +111,20 @@ export default function StepCurp() {
     setIsLoading(true);
     try {
       const result = await updateProspectCurpAction(prospect.id, curpValue);
-      
+
       if (result.success) {
         toast.success("CURP guardada correctamente");
-        
-        // Update the prospect in the store with the new CURP
-        if (prospect) {
-          setProspect({
-            ...prospect,
-            curp: curpValue,
-          });
-        }
-        
+
+        setProspect({
+          ...prospect,
+          curp: curpValue,
+        });
+
         setStep("payment");
       }
-    } catch (error: any) {
-      console.error("Error updating CURP:", error);
-      toast.error(error.message || "Error al guardar CURP");
+    } catch (err: any) {
+      console.error("Error updating CURP:", err);
+      toast.error(err.message || "Error al guardar CURP");
     } finally {
       setIsLoading(false);
     }
@@ -108,18 +151,13 @@ export default function StepCurp() {
                 label="CURP *"
                 value={curpValue || ""}
                 onChange={(e) => handleCurpChange(e.target.value)}
-                placeholder="XAAA010101HNEXXXA0"
                 autoComplete="off"
                 autoCapitalize="characters"
                 maxLength={18}
                 name="curp"
                 className="uppercase tracking-widest"
               />
-              {error && (
-                <p className="text-red-400 text-sm mt-1">
-                  {error}
-                </p>
-              )}
+              {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
             </div>
 
             {/* Helper text */}

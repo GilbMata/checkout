@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import { sendOTP } from "@/app/actions/send-otp";
 import { verifyOTPAction } from "@/app/actions/verify-otp";
@@ -35,7 +35,7 @@ export default function StepOTP() {
   const [turnstileToken, setTurnstileToken] = useState<string>("");
   const [turnstileReady, setTurnstileReady] = useState(false);
   const [showResendTurnstile, setShowResendTurnstile] = useState(false);
-  
+
   const { seconds, isActive, reset } = useOtpTimer(60);
 
   const phone = prospect?.phone ?? "";
@@ -63,7 +63,7 @@ export default function StepOTP() {
         return;
       }
       toast.success("Acceso correcto");
-      
+
       // If needs CURP, redirect to curp step, otherwise go to payment
       if (needsCurp) {
         setNeedsCurp(false); // Reset the flag after consuming it
@@ -117,20 +117,20 @@ export default function StepOTP() {
       // Validar Turnstile
       const isValid = await verifyTurnstileToken(turnstileToken);
 
-if (!isValid) {
-          toast.dismiss("otp-resend");
-          toast.error("Verificación de seguridad fallida. Intenta de nuevo.");
-          setTurnstileToken("");
-          setTurnstileReady(false);
-          return;
-        }
+      if (!isValid) {
+        toast.dismiss("otp-resend");
+        toast.error("Verificación de seguridad fallida. Intenta de nuevo.");
+        setTurnstileToken("");
+        setTurnstileReady(false);
+        return;
+      }
 
-        if (customerId) {
-          await sendOTP({ prospectId: customerId }).then((res) => {
-            if (res) toast.success("Código reenviado");
-          });
-        }
-      
+      if (customerId) {
+        await sendOTP({ prospectId: customerId }).then((res) => {
+          if (res) toast.success("Código reenviado");
+        });
+      }
+
       reset();
       setShowResendTurnstile(false);
       setTurnstileToken("");

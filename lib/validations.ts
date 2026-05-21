@@ -43,6 +43,15 @@ export const registrationSchema = z.object({
     .refine((val) => !val || val.replace(/\D/g, "").length >= 12, {
       message: "El número debe tener 10 dígitos",
     }),
+  // Address fields
+  address: z.string().min(1, "La calle es requerida"),
+  number: z.string().min(1, "El número es requerido"),
+  state: z.string().min(1, "El estado es requerido"),
+  city: z.string().min(1, "La ciudad es requerida"),
+  zipCode: z
+    .string()
+    .min(1, "El código postal es requerido")
+    .regex(/^\d{5}$/, "El código postal debe tener 5 dígitos"),
 });
 
 export const otpSchema = z.object({

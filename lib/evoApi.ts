@@ -181,6 +181,156 @@ export async function getMemberByPhone(phone: string) {
   return normalizeEvoMember(data);
 }
 
+// ============================================================================
+// Member by ID - Buscar miembro por ID
+// ============================================================================
+
+export async function getMemberById(idMember: number) {
+  const url = new URL("/api/v2/members", baseUrl);
+  url.searchParams.set("idsMembers", String(idMember));
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+    cache: "no-store",
+  });
+
+  if (res.status === 404 || res.status === 400) {
+    console.log(`[EVO] getMemberById(${idMember}) → no encontrado`);
+    return null;
+  }
+
+  if (!res.ok) {
+    throw new Error(`EVO error: ${res.status}`);
+  }
+
+  const rawData = await res.json();
+
+  if (!rawData || (Array.isArray(rawData) && rawData.length === 0)) {
+    return null;
+  }
+
+  const data: EvoMemberRaw = Array.isArray(rawData) ? rawData[0] : rawData;
+  return normalizeEvoMember(data);
+}
+
+// ============================================================================
+// Cart API - Obtener y crear carts
+// ============================================================================
+
+export interface CartItem {
+  idMembership?: number;
+  idService?: number;
+}
+
+export interface CartResponse {
+  idCartToken: string;
+  checkoutLink: string;
+  items: CartItem[];
+}
+
+export interface CreateCartParams {
+  idMember: number;
+  idMembership: number;
+  idBranch: number;
+}
+
+/**
+ * Obtiene el cart de un miembro por su ID.
+ * Retorna null si no tiene cart.
+ */
+export async function getCartByMember(
+  idMember: number,
+): Promise<CartResponse | null> {
+  const url = new URL("/api/v1/carts", baseUrl);
+  url.searchParams.set("idMember", String(idMember));
+
+  console.log(`[EVO] getCartByMember → GET ${url.toString()}`);
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+    cache: "no-store",
+  });
+
+  if (res.status === 404 || res.status === 400) {
+    console.log(`[EVO] getCartByMember(${idMember}) → no tiene cart`);
+    return null;
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] getCartByMember error ${res.status}:`, text);
+    throw new Error(`EVO getCart error: ${res.status}`);
+  }
+
+  const data = (await res.json()) as any;
+
+  console.log(`[EVO] getCartByMember(${idMember}) → cart encontrado:`, {
+    idCartToken: data.idCartToken,
+    checkoutLink: data.cartCheckoutLink,
+    itemsCount: data.items?.length,
+  });
+
+  return {
+    idCartToken: data.idCartToken ?? "",
+    checkoutLink: data.cartCheckoutLink ?? "",
+    items: data.items ?? [],
+  };
+}
+
+/**
+ * Crea un nuevo cart para un miembro con un item (membership).
+ */
+export async function createCart(
+  params: CreateCartParams,
+): Promise<CartResponse> {
+  const body = {
+    idMember: params.idMember,
+    idBranch: params.idBranch,
+    items: [
+      {
+        idMembership: params.idMembership,
+      },
+    ],
+  };
+
+  console.log(
+    `[EVO] createCart → POST /api/v1/carts`,
+    JSON.stringify(body, null, 2),
+  );
+
+  const res = await fetch(`${baseUrl}/api/v1/carts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] createCart error ${res.status}:`, text);
+    throw new Error(`EVO createCart error: ${res.status}`);
+  }
+
+  const data = (await res.json()) as any;
+
+  console.log(`[EVO] createCart → success:`, {
+    idCartToken: data.idCartToken,
+    checkoutLink: data.cartCheckoutLink,
+  });
+
+  return {
+    idCartToken: data.idCartToken ?? "",
+    checkoutLink: data.cartCheckoutLink ?? "",
+    items: data.items ?? [],
+  };
+}
+
 export async function getMembership(membershipId: string) {
   const url = new URL("/api/v2/membership", baseUrl);
   url.searchParams.set("idMembership", membershipId);
@@ -731,6 +881,7 @@ export async function updateProspectInEvo(
     },
     body: JSON.stringify(body),
   });
+  console.log("🚀 ~ updateProspectInEvo ~ res:", res);
 
   if (!res.ok) {
     const text = await res.text();
@@ -738,7 +889,8 @@ export async function updateProspectInEvo(
     throw new Error(`EVO update prospect error: ${res.status}`);
   }
 
-  const result = (await res.json()) as { idProspect: number };
+  const result = await res.json();
+  console.log("🚀 ~ updateProspectInEvo ~ result:", result);
   return { idProspect: result.idProspect };
 }
 
@@ -1054,6 +1206,45 @@ export async function getSaleById(idSale: number): Promise<unknown | null> {
     console.error(`[EVO] getSaleById(${idSale}) error:`, msg);
     throw error;
   }
+}
+
+// ============================================================================
+// ⑨ Obtener MemberMemberships  por idMember
+// ============================================================================
+
+/**
+ * Obtiene una venta específica de Evo por su ID.
+ * Retorna null si la venta no existe.
+ */
+export async function getMemberMemberships(
+  idMember: number,
+): Promise<unknown | null> {
+  const url = new URL(`${baseUrl}/api/v3/membermembership`);
+  url.searchParams.set("idMember", String(idMember));
+  console.log("🚀 ~ getMemberMemberships ~ url:", url);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Authorization: `Basic ${auth}` },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] getMemberMemberships error ${res.status}:`, text);
+    throw new Error(`EVO getMemberMemberships error: ${res.status}`);
+  }
+
+  const membermembership = await res.json();
+  if (membermembership.length === 0) {
+    return null;
+  }
+  const result = {
+    membershipStart: membermembership?.[0].membershipStart,
+    membershipEnd: membermembership?.[0].membershipEnd,
+    statusMemberMembership: membermembership?.[0].statusMemberMembership,
+  };
+  console.log("🚀 ~ getMemberMemberships ~ result:", result);
+  return result;
 }
 
 // ============================================================================

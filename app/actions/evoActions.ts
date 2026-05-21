@@ -1,10 +1,12 @@
 "use server";
 
 import { getProspectByEmail } from "@/lib/auth/prospect";
+import { prisma } from "@/lib/db/index";
 import {
   getBranchId,
   getMemberByEmail,
   getMemberByPhone,
+  getMemberMemberships,
   getMembership,
   getVouchers,
 } from "@/lib/evoApi";
@@ -90,4 +92,68 @@ export async function getVouchersAction(idBranch?: string) {
     console.error("Error en getVouchersAction:", error);
     throw new Error("No se pudo obtener los vouchers");
   }
+}
+
+/**
+ * Verifica si un prospecto ya tiene un ID de miembro y estatus "member" en BD.
+ * Si es miembro, consulta la información del plan vía Evo.
+ */
+export async function checkProspectMemberStatusAction(prospectId: string) {
+  const prospect = await prisma.prospects.findUnique({
+    where: { id: prospectId },
+    select: {
+      idMember: true,
+      status: true,
+      planId: true,
+      firstName: true,
+      lastName: true,
+    },
+  });
+
+  if (!prospect || !prospect.idMember || prospect.status !== "member") {
+    return { isMember: false as const };
+  }
+
+  let planInfo = null;
+  let MemberMemberships = null;
+  let branchName: string | null = null;
+
+  if (prospect.planId) {
+    try {
+      planInfo = await getMembership(prospect.planId);
+      planInfo = planInfo?.list?.[0];
+
+      // Obtener nombre de sucursal desde el plan
+      const idBranch = planInfo?.idBranch;
+      if (idBranch) {
+        try {
+          const branchData = await getBranchId(String(idBranch));
+          if (Array.isArray(branchData) && branchData.length > 0) {
+            branchName =
+              branchData[0]?.name || branchData[0]?.branchName || null;
+          } else if (branchData?.branch && Array.isArray(branchData.branch)) {
+            branchName =
+              branchData.branch[0]?.name ||
+              branchData.branch[0]?.branchName ||
+              null;
+          }
+        } catch (error) {
+          console.error("Error getBranchId:", error);
+        }
+      }
+
+      MemberMemberships = await getMemberMemberships(prospect.idMember);
+    } catch (error) {
+      console.error("Error en getMembership:", error);
+    }
+  }
+
+  return {
+    isMember: true as const,
+    firstName: prospect.firstName,
+    lastName: prospect.lastName,
+    planInfo,
+    branchName,
+    MemberMemberships,
+  };
 }

@@ -85,8 +85,16 @@ model Prospects {
   syncEvoAttemptedAt DateTime? @map("sync_evo_attempted_at") @db.Timestamptz
   syncEvoIdProspect Int?     @map("sync_evo_id_prospect") // ID del prospecto en Evo
   syncEvoIdSale     Int?     @map("sync_evo_id_sale")     // ID de la venta en Evo
-  syncEvoIdReceivable Int?   @map("sync_evo_id_receivable") // ID del receivable en Evo
-  syncEvoChargeDate DateTime? @map("sync_evo_charge_date")  // Fecha de cobro del receivable
+  syncEvoIdCartToken String? @map("sync_evo_id_cart_token") // Token del cart en Evo
+  syncEvoCartCheckoutLink String? @map("sync_evo_cart_checkout_link") // Link de checkout del cart
+
+  // Address fields
+  address         String?  @map("address")
+  number          String?  @map("number")
+  state           String?  @map("state")
+  city            String?  @map("city")
+  zipCode         String?  @map("zip_code")
+
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

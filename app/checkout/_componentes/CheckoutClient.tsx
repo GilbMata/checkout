@@ -1,7 +1,6 @@
 "use client";
 
 import { getProspectByPhoneAction } from "@/app/actions/prospects";
-import PlanCheckout from "@/app/checkout/_componentes/PlanCheckout";
 import StepCurp from "@/app/checkout/_componentes/StepCurp";
 import StepOTP from "@/app/checkout/_componentes/StepOTP";
 import StepPayment from "@/app/checkout/_componentes/StepPayment";
@@ -107,7 +106,7 @@ export default function CheckoutClient({
       />
       {/* <main className="flex flex-1 flex-col md:flex-row overflow-hidden justify-center bg-black"> */}
       <main className="flex flex-col md:flex-row justify-center md:space-x-3 bg-black">
-        <div className="p-6 md:w-lg">
+        <div className="p-6 md:w-l">
           {/* 👇 siempre montado, invisible durante carga */}
           <div className={loading ? "invisible" : ""}>
             {step === "email" && <ClientForm />}
@@ -117,10 +116,10 @@ export default function CheckoutClient({
           </div>
         </div>
 
-        <div className="p-6">
-          <PlanCheckout />
-          {/* <PlanCheckout2 /> */}
-        </div>
+        {/* <div className="p-6"> */}
+        {/* <PlanCheckout /> */}
+        {/* <PlanCheckout2 /> */}
+        {/* </div> */}
       </main>
     </div>
   );

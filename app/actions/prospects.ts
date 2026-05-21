@@ -25,6 +25,13 @@ type CreateProspectData = {
   documentId?: string;
   status?: string;
   membershipStatus?: string;
+
+  // Address fields
+  address?: string;
+  number?: string;
+  state?: string;
+  city?: string;
+  zipCode?: string;
 };
 
 export async function createProspectAction(data: CreateProspectData) {
@@ -87,6 +94,13 @@ export async function createProspectAction(data: CreateProspectData) {
         membershipStatus: data.membershipStatus ?? null,
         paymentPending: true,
         planId: data.planId ?? null,
+
+        // Address fields
+        address: data.address ?? null,
+        number: data.number ?? null,
+        state: data.state ?? null,
+        city: data.city ?? null,
+        zipCode: data.zipCode ?? null,
       },
     });
 

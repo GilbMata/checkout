@@ -86,6 +86,13 @@ export interface Prospect {
   curp: string;
   // paymentPending: string;
   idMember: number;
+
+  // Address fields
+  address?: string;
+  number?: string;
+  state?: string;
+  city?: string;
+  zipCode?: string;
 }
 export interface Branch {
   name: string;

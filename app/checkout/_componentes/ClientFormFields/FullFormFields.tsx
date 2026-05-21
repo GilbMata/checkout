@@ -1,12 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { CalendarIcon } from "lucide-react";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import React, { useCallback, useEffect, useState, useTransition } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-// import { toast } from "sonner";
 
 import {
   createProspectAction,
@@ -43,6 +39,42 @@ const CURP_DEBOUNCE_MS = 500;
 const AUTO_FILL_ANIMATION_MS = 1500;
 const EMAIL_DISPOSABLE_DEBOUNCE_MS = 500;
 
+// Estados de México
+const MEXICAN_STATES = [
+  { idState: 52, name: "Aguascalientes", abbreviation: "AS" },
+  { idState: 53, name: "Baja California", abbreviation: "BC" },
+  { idState: 54, name: "Baja California Sur", abbreviation: "BS" },
+  { idState: 55, name: "Campeche", abbreviation: "CC" },
+  { idState: 56, name: "Chiapas", abbreviation: "CS" },
+  { idState: 57, name: "Chihuahua", abbreviation: "CH" },
+  { idState: 58, name: "Coahuila", abbreviation: "CL" },
+  { idState: 59, name: "Colima", abbreviation: "CM" },
+  { idState: 60, name: "Ciudad de México", abbreviation: "DF" },
+  { idState: 61, name: "Durango", abbreviation: "DG" },
+  { idState: 62, name: "Guanajuato", abbreviation: "GT" },
+  { idState: 63, name: "Guerrero", abbreviation: "GR" },
+  { idState: 64, name: "Hidalgo", abbreviation: "HG" },
+  { idState: 65, name: "Jalisco", abbreviation: "JC" },
+  { idState: 66, name: "Estado de México", abbreviation: "MC" },
+  { idState: 67, name: "Michoacán", abbreviation: "MN" },
+  { idState: 68, name: "Morelos", abbreviation: "MS" },
+  { idState: 69, name: "Nayarit", abbreviation: "NT" },
+  { idState: 70, name: "Nuevo León", abbreviation: "NL" },
+  { idState: 71, name: "Oaxaca", abbreviation: "OC" },
+  { idState: 72, name: "Puebla", abbreviation: "PL" },
+  { idState: 73, name: "Querétaro", abbreviation: "QT" },
+  { idState: 74, name: "Quintana Roo", abbreviation: "QR" },
+  { idState: 75, name: "San Luis Potosí", abbreviation: "SP" },
+  { idState: 76, name: "Sinaloa", abbreviation: "SL" },
+  { idState: 77, name: "Sonora", abbreviation: "SR" },
+  { idState: 78, name: "Tabasco", abbreviation: "TC" },
+  { idState: 79, name: "Tamaulipas", abbreviation: "TS" },
+  { idState: 80, name: "Tlaxcala", abbreviation: "TL" },
+  { idState: 81, name: "Veracruz", abbreviation: "VZ" },
+  { idState: 82, name: "Yucatán", abbreviation: "YN" },
+  { idState: 83, name: "Zacatecas", abbreviation: "ZS" },
+];
+
 interface FullFormFieldsProps {
   phone: string;
   areaCode: string;
@@ -71,6 +103,12 @@ function mapToProspect(data: unknown): Prospect {
     email: String(d.email),
     curp: String(d.curp ?? ""),
     idMember: Number(d.idMember ?? d.idMembership ?? 0),
+    // Address fields
+    address: String(d.address ?? ""),
+    number: String(d.number ?? ""),
+    state: String(d.state ?? ""),
+    city: String(d.city ?? ""),
+    zipCode: String(d.zipCode ?? ""),
   };
 }
 
@@ -96,7 +134,7 @@ export function FullFormFields({
   const [showDisposableAlert, setShowDisposableAlert] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
 
-  const { setStep, setProspect, setEmail, plan } = useCheckoutStore();
+  const { setProspect, setEmail, plan } = useCheckoutStore();
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
@@ -110,16 +148,29 @@ export function FullFormFields({
       email: "",
       phone: phone, // Teléfono del paso anterior
       areaCode: areaCode,
+      // Address fields
+      address: "",
+      number: "",
+      state: "",
+      city: "",
+      zipCode: "",
     },
   });
 
-  const { control, watch, setValue, setError, clearErrors, formState } = form;
+  const { setValue, setError, clearErrors, formState } = form;
 
   // Usar estados locales para evitar re-renders excesivos
   const [curpValue, setCurpValue] = useState("");
   const [emailValue, setEmailValue] = useState("");
   const [firstNameValue, setFirstNameValue] = useState("");
   const [lastNameValue, setLastNameValue] = useState("");
+  const [genderValue, setGenderValue] = useState("");
+  const [birthDateValue, setBirthDateValue] = useState("");
+  const [addressValue, setAddressValue] = useState("");
+  const [numberValue, setNumberValue] = useState("");
+  const [cityValue, setCityValue] = useState("");
+  const [zipCodeValue, setZipCodeValue] = useState("");
+  const [selectedState, setSelectedState] = useState("");
 
   // useCallback para handleCURPValidate - evita recrear en cada render
   const handleCURPValidate = useCallback(
@@ -130,9 +181,11 @@ export function FullFormFields({
       const data = parseCURP(normalized);
       if (data.birthDateString) {
         setValue("birthDate", data.birthDateString, { shouldValidate: true });
+        setBirthDateValue(data.birthDateString);
       }
       if (data.gender) {
         setValue("gender", data.gender, { shouldValidate: true });
+        setGenderValue(data.gender);
       }
 
       // Animación de autocompletado
@@ -143,7 +196,10 @@ export function FullFormFields({
       try {
         const existing = await getProspectByCurpAction(normalized);
         if (existing) {
-          // CURP ya existe - podrías manejar esto según necesidad
+          toast.warning("Este CURP ya está registrado");
+          setError("curp", { message: "Este CURP ya está registrado" });
+        } else {
+          clearErrors("curp");
         }
       } catch (error) {
         console.error(
@@ -152,7 +208,7 @@ export function FullFormFields({
         );
       }
     },
-    [setValue],
+    [setValue, setError, clearErrors],
   );
 
   // Validación de CURP con debounce para evitar race conditions
@@ -199,7 +255,7 @@ export function FullFormFields({
   };
 
   const handleEmailChange = (value: string) => {
-    setValue("email", value, { shouldValidate: false });
+    setValue("email", value, { shouldValidate: true });
     setEmailValue(value);
   };
 
@@ -227,6 +283,16 @@ export function FullFormFields({
     setLastNameValue(capitalized);
   };
 
+  const handleGenderChange = (value: string) => {
+    setValue("gender", value, { shouldValidate: true, shouldDirty: true });
+    setGenderValue(value);
+  };
+
+  const handleBirthDateChange = (value: string) => {
+    setValue("birthDate", value, { shouldValidate: true, shouldDirty: true });
+    setBirthDateValue(value);
+  };
+
   // Callbacks de Turnstile
   const handleTurnstileVerify = useCallback((token: string) => {
     console.debug("[FullFormFields] Turnstile verified");
@@ -246,8 +312,27 @@ export function FullFormFields({
     setTurnstileReady(false);
   }, []);
 
-  // Submit del formulario
+  // Submit del formulario — validación manual para siempre dar feedback
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 1. Validar todos los campos
+    const isValid = await form.trigger();
+    if (!isValid) {
+      toast.error("Revisa los campos marcados en rojo");
+      return;
+    }
+
+    const data = form.getValues();
+    await onSubmit(data);
+  };
+
   const onSubmit = async (data: RegistrationFormData) => {
+    if (showDisposableAlert) {
+      toast.error("No se permiten correos temporales");
+      return;
+    }
+
     if (!turnstileToken) {
       toast.error("Completando verificación de seguridad...");
       return;
@@ -295,7 +380,6 @@ export function FullFormFields({
 
         // 3. Crear prospecto
         const phoneClean = phone.replace(/\D/g, "");
-        console.log("🚀 ~ onSubmit ~ phoneClean:", phoneClean);
         const phoneNor = phoneClean.slice(2);
         const phoneArea = phoneClean.slice(0, 2);
 
@@ -308,8 +392,14 @@ export function FullFormFields({
           birthDate: data.birthDate,
           areaCode: phoneArea,
           phone: phoneNor,
-          planId: String(plan?.idMembership),
+          planId: plan?.idMembership ? String(plan.idMembership) : undefined,
           idBranch: plan?.idBranch,
+          // Address fields
+          address: data.address,
+          number: data.number,
+          state: data.state,
+          city: data.city,
+          zipCode: data.zipCode,
         });
 
         // 4. Enviar OTP
@@ -349,11 +439,12 @@ export function FullFormFields({
     });
   };
 
-  const isFormValid = form.formState.isValid;
-  const canShowTurnstile = isFormValid && !isPending;
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6">
+    <Card className="w-full max-w-xl mx-auto bg-linear-to-br from-zinc-900/95 to-zinc-800/95 backdrop-blur-xl border border-zinc-700/50 text-white rounded-2xl shadow-2xl overflow-hidden">
+      {/* <Card className="w-full max-w-lg mx-auto bg-[#1e1e1e] text-white p-4 md:p-6 rounded-2xl shadow-xl space-y-6"> */}
+      <div className="h-1.5 bg-linear-to-r from-orange-500 via-orange-400 to-orange-600" />
+
       <CardHeader className="space-y-4 px-6 pt-6">
         <div className="space-y-1">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
@@ -366,15 +457,17 @@ export function FullFormFields({
       </CardHeader>
 
       <FormProvider {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-8">
-          {/* CURP */}
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 px-2 md:px-6"
+        >
+          {/* Fila 1: CURP */}
           <div
             className={cn(
               "transition-all duration-300",
               autoFilled && "animate-in fade-in slide-in-from-bottom-2",
             )}
           >
-            {/* <label className="text-sm text-zinc-400 mb-1 block">CURP</label> */}
             <FloatingInput
               label="CURP *"
               value={curpValue}
@@ -384,20 +477,14 @@ export function FullFormFields({
             />
           </div>
 
-          {/* Nombre */}
-          <div>
-            {/* <label className="text-sm text-zinc-400 mb-1 block">Nombre</label> */}
+          {/* Fila 2: Nombre + Apellido */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <FloatingInput
               label="Nombre *"
               value={firstNameValue}
               onChange={(e) => handleFirstNameChange(e.target.value)}
               name="firstName"
             />
-          </div>
-
-          {/* Apellido */}
-          <div>
-            {/* <label className="text-sm text-zinc-400 mb-1 block">Apellido</label> */}
             <FloatingInput
               label="Apellido *"
               value={lastNameValue}
@@ -406,90 +493,123 @@ export function FullFormFields({
             />
           </div>
 
-          {/* Gender + BirthDate */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Gender */}
-            <div
-              className={cn(
-                "transition-all duration-300",
-                autoFilled && "animate-in fade-in slide-in-from-bottom-2",
-              )}
-            >
-              <label className="text-sm text-zinc-400 mb-1 block">
-                Género
-                {autoFilled && (
-                  <span className="ml-1 text-xs text-orange-400">
-                    (autocompletado)
-                  </span>
+          {/* Fila 3: Género + Fecha Nacimiento */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            <FloatingInput
+              label="Género"
+              value={genderValue}
+              onChange={(e) => handleGenderChange(e.target.value)}
+              name="gender"
+            />
+            <FloatingInput
+              label="Fecha de nacimiento"
+              value={birthDateValue}
+              onChange={(e) => handleBirthDateChange(e.target.value)}
+              name="birthDate"
+            />
+          </div>
+
+          {/* Fila 4: Teléfono */}
+          <div>
+            <div className="relative w-full">
+              <input
+                readOnly
+                tabIndex={-1}
+                value={phone}
+                className="peer w-full h-11 px-0 py-3 text-white border-0 border-b-2 bg-zinc-800/30 text-sm outline-none pointer-events-none"
+              />
+              <label className="absolute left-0 -top-2 text-xs text-zinc-400">
+                Teléfono
+              </label>
+            </div>
+          </div>
+
+          {/* Fila 5: Calle + Número */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            <FloatingInput
+              label="Calle"
+              value={addressValue}
+              onChange={(e) => {
+                setAddressValue(e.target.value);
+                setValue("address", e.target.value, { shouldValidate: true });
+              }}
+              name="address"
+            />
+            <FloatingInput
+              label="Número"
+              value={numberValue}
+              onChange={(e) => {
+                setNumberValue(e.target.value);
+                setValue("number", e.target.value, { shouldValidate: true });
+              }}
+              name="number"
+            />
+          </div>
+
+          {/* Fila 6: CP + Estado + Ciudad */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <FloatingInput
+              label="Código Postal"
+              value={zipCodeValue}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 5);
+                setZipCodeValue(value);
+                setValue("zipCode", value, { shouldValidate: true });
+              }}
+              name="zipCode"
+              maxLength={5}
+            />
+            <div className="relative w-full">
+              <label
+                className={cn(
+                  "absolute left-0 pointer-events-none transition-all duration-200 z-10",
+                  selectedState
+                    ? "-top-2 text-xs text-zinc-400"
+                    : "top-3 text-sm text-zinc-500",
                 )}
+              >
+                Estado
               </label>
               <Select
-                disabled
                 onValueChange={(value) => {
-                  if (!autoFilled) {
-                    setValue("gender", value || "", { shouldValidate: true });
+                  if (value) {
+                    setSelectedState(value);
+                    setValue("state", value, { shouldValidate: true });
                   }
                 }}
-                value={form.getValues("gender") || ""}
+                value={selectedState}
               >
-                <SelectTrigger
-                  disabled={autoFilled}
-                  className={cn(
-                    "bg-transparent w-full h-12 border-0 border-b-2 rounded-none",
-                    autoFilled &&
-                      "opacity-60 cursor-not-allowed pointer-events-none",
-                  )}
-                >
-                  <SelectValue
-                    placeholder={
-                      autoFilled ? form.getValues("gender") : "Selecciona"
-                    }
-                  />
+                <SelectTrigger className="bg-transparent w-full h-11 py-0 border-0 border-b-2 rounded-none text-white px-0 inline-flex items-center">
+                  <SelectValue placeholder="Selecciona" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-zinc-800 text-white max-h-60">
                   <SelectGroup>
-                    <SelectItem value="Masculino">Masculino</SelectItem>
-                    <SelectItem value="Femenino">Femenino</SelectItem>
+                    {MEXICAN_STATES.map((state) => (
+                      <SelectItem
+                        key={state.idState}
+                        value={state.name}
+                        className="text-white focus:bg-zinc-700 focus:text-white"
+                      >
+                        {state.name}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
-
-            {/* BirthDate */}
-            <div
-              className={cn(
-                "transition-all duration-300",
-                autoFilled && "animate-in fade-in slide-in-from-bottom-2",
-              )}
-            >
-              <label className="text-sm text-zinc-400 mb-1 block">
-                Fecha de nacimiento
-              </label>
-              <div
-                className={cn(
-                  "w-full bg-transparent px-0 py-1 outline-none transition-all rounded-none text-left font-normal border-0 border-b-2 flex",
-                  !form.getValues("birthDate") && "text-muted-foreground",
-                )}
-              >
-                {form.getValues("birthDate") ? (
-                  format(
-                    new Date(form.getValues("birthDate") + "T00:00:00"),
-                    "PPP",
-                    { locale: es },
-                  )
-                ) : (
-                  <span>Selecciona</span>
-                )}
-                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-              </div>
-            </div>
+            <FloatingInput
+              label="Ciudad"
+              value={cityValue}
+              onChange={(e) => {
+                setCityValue(e.target.value);
+                setValue("city", e.target.value, { shouldValidate: true });
+              }}
+              name="city"
+            />
           </div>
 
-          {/* Email */}
+          {/* Fila 7: Correo electrónico */}
           <div>
-            {/* <label className="text-sm text-zinc-400 mb-1 block">
-              Correo electrónico
-            </label> */}
             <FloatingInput
               label="Correo electrónico *"
               type="email"
@@ -497,19 +617,11 @@ export function FullFormFields({
               onChange={(e) => handleEmailChange(e.target.value)}
               name="email"
             />
-            {showDisposableAlert && <DisposableEmailAlert className="mt-2" />}
+            {showDisposableAlert && <DisposableEmailAlert className="mt-1" />}
           </div>
 
-          {/* Teléfono (readonly - del paso anterior) */}
-          <div>
-            <label className="text-sm text-zinc-400 mb-1 block">Teléfono</label>
-            <div className="w-full bg-zinc-800 px-0 py-3 text-white border-0 border-b-2">
-              {phone}
-            </div>
-          </div>
-
-          {/* Turnstile - aparece cuando el formulario es válido */}
-          {canShowTurnstile && (
+          {/* Turnstile - se muestra cuando el usuario empieza a llenar el formulario */}
+          {formState.isDirty && (
             <TurnstileWidget
               onVerify={handleTurnstileVerify}
               onError={handleTurnstileError}
@@ -522,7 +634,7 @@ export function FullFormFields({
           {/* Botón submit */}
           <Button
             type="submit"
-            disabled={!isFormValid || isPending || !turnstileReady}
+            disabled={isPending}
             className="w-full h-12 mt-4 hover:bg-orange-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? "Registrando..." : "Continuar"}

@@ -1,439 +1,257 @@
 "use client";
 
-import CardPaymentBrick from "@/app/checkout/_componentes/CardPaymentBrick";
-import ProcessingOverlay from "@/app/checkout/_componentes/LoadComp";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { checkProspectMemberStatusAction } from "@/app/actions/evoActions";
+import { syncProspectToEvoAction } from "@/app/actions/evoSyncActions";
+import { logoutAction } from "@/app/actions/logout";
+import LoadComp from "@/app/checkout/_componentes/LoadComp";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCheckoutStore } from "@/store/useCheckoutStore";
-import { Loader2, Lock, ShieldCheck } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-
-// ========================================================================
-// Types
-// ========================================================================
-
-interface PaymentResponse {
-  success?: boolean;
-  pending?: boolean;
-  rejected?: boolean;
-  challenge_required?: boolean;
-  challenge_url?: string;
-  error?: string;
-  status_detail?: string;
-  status?: string;
-  payment_id?: string;
-  order_id?: string;
-  external_reference?: string;
-  [key: string]: unknown;
-}
-
-// ========================================================================
-// Main component
-// ========================================================================
+import { AlertTriangle, Calendar, MapPin, Shield } from "lucide-react";
 
 export default function StepPayment() {
   const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { prospect } = useCheckoutStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [MemberMemberships, setMemberMemberships] = useState<any>({});
+  const [showMembershipDialog, setShowMembershipDialog] = useState(false);
+  const [memberInfo, setMemberInfo] = useState<{
+    firstName: string;
+    lastName: string;
+    planInfo: any;
+    branchName?: string | null;
+  } | null>(null);
 
-  // ========================================================================
-  // Estado para 3DS Challenge
-  // ========================================================================
-  const [showChallenge, setShowChallenge] = useState(false);
-  const [challengeUrl, setChallengeUrl] = useState<string>("");
-  const [challengeOrderId, setChallengeOrderId] = useState<string>("");
-
-  // ========================================================================
-  // Callback: Pago aprobado
-  // ========================================================================
-  const handleSuccess = useCallback(
-    (result: PaymentResponse) => {
-      console.log("Pago aprobado:", result);
-      if (result.payment_id) {
-        router.push(
-          `/checkout/success?order_id=${result.order_id}&payment_id=${result.payment_id}`,
-        );
-      } else {
-        router.push("https://station24.com.mx/");
-      }
-    },
-    [router],
-  );
-
-  // ========================================================================
-  // Callback: Pago pendiente o 3DS Challenge requerido
-  // ========================================================================
-  const handlePending = useCallback(
-    (result: PaymentResponse) => {
-      console.log("Pago pendiente / 3DS:", result);
-
-      // ========================================================================
-      // Detectar si requiere 3DS Challenge
-      // ========================================================================
-      if (result.challenge_required && result.challenge_url) {
-        // Mostrar modal con iframe del challenge
-        setChallengeUrl(result.challenge_url);
-        setChallengeOrderId(result.order_id || "");
-        setShowChallenge(true);
-        console.log("🔐 ~ 3DS Challenge requerido:", result.challenge_url);
-        return;
-      }
-
-      // Pago pendiente sin challenge - redirigir a página de espera
-      const paymentId = result.payment_id || result.id || result.preference_id;
-      const queryParams = paymentId ? `?payment_id=${paymentId}` : "";
-      router.push(`/checkout/pending${queryParams}`);
-    },
-    [router],
-  );
-
-  // ========================================================================
-  // Callback: Pago rechazado
-  // ========================================================================
-  const handleRejected = useCallback(
-    (result: PaymentResponse) => {
-      console.log("Pago rechazado:", result);
-      const paymentId = result.payment_id || result.id || result.preference_id;
-      const orderId = result.order_id || result.id;
-      const statusDetail = result.status_detail || result.error;
-
-      let queryParams = "";
-      if (paymentId && statusDetail) {
-        queryParams = `?payment_id=${paymentId}&status_detail=${encodeURIComponent(statusDetail)}`;
-      } else if (paymentId) {
-        queryParams = `?payment_id=${paymentId}`;
-      } else if (statusDetail) {
-        queryParams = `?status_detail=${encodeURIComponent(statusDetail)}`;
-      }
-
-      router.push(`/checkout/failure${queryParams}`);
-    },
-    [router],
-  );
-
-  // ========================================================================
-  // Callback: Error
-  // ========================================================================
-  const handleError = useCallback(
-    (error: unknown) => {
-      console.error("Error en pago:", error);
-      const errorMsg =
-        error instanceof Error ? error.toString() : "Error al procesar el pago";
-      toast.error(errorMsg);
-      setTimeout(() => router.refresh(), 3000);
-    },
-    [router],
-  );
-
-  // ========================================================================
-  // Listener para detectar cuando el Challenge 3DS termina
-  // ========================================================================
   useEffect(() => {
-    if (!showChallenge || !challengeOrderId) return;
+    if (!prospect?.id) {
+      setIsLoading(false);
+      router.push("/checkout");
+      return;
+    }
 
-    const handleChallengeComplete = async (event: MessageEvent) => {
-      // Mejor validación de origen
-      const allowedOrigins = [
-        "https://www.mercadopago.com.mx",
-        "https://mercadopago.com.mx",
-      ];
-      if (!allowedOrigins.includes(event.origin)) {
-        console.warn("Origen no permitido:", event.origin);
+    let cancelled = false;
+
+    async function handleSync() {
+      // 1. Verificar si ya es miembro antes de sincronizar con Evo
+      const memberCheck = await checkProspectMemberStatusAction(prospect!.id);
+
+      if (cancelled) return;
+
+      if (
+        memberCheck.isMember &&
+        (memberCheck.MemberMemberships as any)?.statusMemberMembership === 1
+      ) {
+        setMemberInfo({
+          firstName: memberCheck.firstName!,
+          lastName: memberCheck.lastName!,
+          planInfo: memberCheck.planInfo,
+          branchName: memberCheck.branchName,
+        });
+        if (memberCheck.MemberMemberships) {
+          console.log(
+            "🚀 ~ handleSync ~ memberCheck:",
+            memberCheck.MemberMemberships,
+          );
+          setMemberMemberships(memberCheck.MemberMemberships);
+        }
+        setShowMembershipDialog(true);
+        setIsLoading(false);
         return;
       }
 
-      // Verificar que el mensaje sea del iframe de 3DS
-      const status = event.data?.status || event.data?.type;
-      if (status === "COMPLETE") {
-        console.log("🔐 ~ 3DS Challenge completado, consultando estado...");
+      try {
+        const result = await syncProspectToEvoAction(prospect!.id);
 
-        // Cerrar modal
-        setShowChallenge(false);
+        if (cancelled) return;
 
-        try {
-          // Consultar estado de la orden
-          const response = await fetch(
-            `/api/payment/mercadopago/order/${challengeOrderId}`,
-          );
-          console.log("🚀 ~ handleChallengeComplete ~ response:", response);
-          const result = await response.json();
-
-          console.log("📋 ~ Estado después del challenge:", result);
-          console.log("📋 ~ Estado después del challenge:", result.success);
-
-          if (result.success || result.processed) {
-            // Pago aprobado
-            toast.success("Pago aprobado");
-            handleSuccess(result);
-          } else if (result.rejected) {
-            // Pago rechazado
-            toast.error(result.error || "Pago rechazado");
-            handleRejected(result);
-          } else if (result.pending) {
-            // Todavía pendiente - puede requerir otro challenge
-            toast.info("Validación en proceso");
-            handlePending(result);
-          } else {
-            // Error desconocido
-            toast.error(result.error || "Error al verificar el pago");
-            handleError(result);
-          }
-        } catch (error) {
-          console.error("Error consultando orden:", error);
-          toast.error("Error al verificar el estado del pago");
-          handleError(error);
+        if (result.success && result.cartCheckoutLink) {
+          // Redirect externo al checkout de Evo/MP
+          window.location.href = result.cartCheckoutLink;
+        } else if (result.skipped) {
+          toast.warning("Sincronización deshabilitada, redirigiendo...");
+          router.push("/checkout");
+        } else {
+          toast.error(result.error || "No se pudo obtener el link de pago");
+          router.push("/checkout");
+        }
+      } catch {
+        if (!cancelled) {
+          toast.error("Error al sincronizar con Evo");
+          router.push("/checkout");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
         }
       }
-    };
+    }
 
-    // Agregar listener
-    window.addEventListener("message", handleChallengeComplete);
+    handleSync();
 
-    // Cleanup
     return () => {
-      window.removeEventListener("message", handleChallengeComplete);
+      cancelled = true;
     };
-  }, [
-    showChallenge,
-    challengeOrderId,
-    handleSuccess,
-    handleRejected,
-    handlePending,
-    handleError,
-  ]);
+  }, [prospect?.id, router]);
 
-  // ========================================================================
-  // Polling de seguridad (40 minutos max) - si no hay respuesta del iframe
-  // ========================================================================
-  useEffect(() => {
-    if (!showChallenge || !challengeOrderId) return;
-
-    // Timeout de 40 minutos (mismo que Mercado Pago)
-    const timeout = setTimeout(
-      () => {
-        console.log("⏰ ~ Timeout 3DS - consultando estado...");
-        setShowChallenge(false);
-        handlePending({
-          status: "expired",
-          status_detail: "expired",
-          error: "Tiempo de autenticación agotado",
-        });
-      },
-      40 * 60 * 1000,
-    );
-
-    return () => clearTimeout(timeout);
-  }, [showChallenge, challengeOrderId, handlePending]);
-
-  // Obtener datos del plan y voucher desde el store
-  const { prospect, plan, voucherDiscount } = useCheckoutStore();
-  console.log("🚀 ~ StepPayment ~ plan:", plan);
-  if (!plan) {
-    throw new Error("Plan no encontrado");
-  }
-  if (!prospect) {
-    throw new Error("Prospect no encontrado");
-  }
-
-  // Calcular amount con descuento de voucher
-  const basePromo = Number(plan?.valuePromotionalPeriod ?? 0);
-  const basePrice = Number(plan?.value ?? 0);
-  const baseAmount = basePromo > 0 ? basePromo : basePrice;
-
-  // Aplicar descuento del voucher si existe
-  const finalAmount = voucherDiscount
-    ? Math.round(voucherDiscount.totalFinalValue * 100) / 100
-    : baseAmount;
-
-  const description = plan?.description ? plan?.description : plan?.displayName;
-  const email =
-    process.env.MP_ENV === "test"
-      ? "test_user_mx@testuser.com"
-      : prospect?.email;
-
-  // ✅ Memorizar userData — solo cambia si prospect cambia
-  const userData = useMemo(
-    () => ({
-      phone: prospect.phone,
-      area: prospect.areaCode,
-      email: email,
-      curp: prospect.curp,
-      firstName: prospect.firstName,
-      lastName: prospect.lastName,
-    }),
-    [
-      prospect.phone,
-      prospect.areaCode,
-      prospect.email,
-      prospect.curp,
-      prospect.firstName,
-      prospect.lastName,
-    ],
-  );
-
-  const externalReference = plan?.idBranch + "_" + userData.phone;
-  const recurrence = plan?.membershipType?.includes("recurrence");
-
-  // ✅ Memorizar planData — solo cambia si plan o descuento cambia
-  const planData = useMemo(() => {
-    const basePromo = Number(plan.valuePromotionalPeriod ?? 0);
-    const basePrice = Number(plan.value ?? 0);
-    const baseAmount = basePromo > 0 ? basePromo : basePrice;
-    const finalAmount = voucherDiscount
-      ? Math.round(voucherDiscount.totalFinalValue * 100) / 100
-      : baseAmount;
-
-    return {
-      id: String(plan.idMembership),
-      description: plan.description ?? plan.nameMembership,
-      amount: finalAmount,
-      currency: "MXN",
-      recurrent: plan.membershipType?.includes("recurrence") ?? false,
-      displayName: plan.displayName ?? plan.nameMembership,
-      branch: String(plan.idBranch),
-      externalReference: `${plan.idBranch}_${prospect.phone}`,
-    };
-  }, [plan, voucherDiscount, prospect.phone]);
+  const plan = memberInfo?.planInfo;
+  const planName =
+    plan?.displayName || plan?.nameMembership || plan?.name || "N/A";
+  const membershipType = plan?.membershipType || "N/A";
+  const duration = plan?.duration
+    ? `${plan.duration} ${plan.durationType || "meses"}`
+    : "N/A";
 
   return (
     <>
-      {/* ======================================================================== */}
-      {/* Componente unificado CardPaymentBrick - detecta automáticamente */}
-      {/* si es Order o Suscripción basado en planData.recurrent */}
-      {/* ======================================================================== */}
-
-      {/* <div key={brickKey} className="px-3 py-4"> */}
-      <CardPaymentBrick
-        planData={planData}
-        userData={userData}
-        onSuccess={handleSuccess}
-        onError={handleError}
-        onPending={handlePending}
-        onRejected={handleRejected}
-        onProcessingChange={setIsProcessing}
+      <LoadComp
+        isVisible={isLoading}
+        title="Preparando tu pago"
+        description="Conectando, por favor espera..."
       />
-      {/* </div> */}
 
-      {/* Loader overlay mientras procesa el pago */}
-      {isProcessing && <ProcessingOverlay isVisible={isProcessing} />}
-
-      {/* ======================================================================== */}
-      {/* Modal 3DS Challenge - autenticación bancaria */}
-      {/* ======================================================================== */}
       <Dialog
-        open={showChallenge}
+        open={showMembershipDialog}
         onOpenChange={(open) => {
-          if (!open && challengeOrderId) {
-            toast.warning(
-              "Debes completar la verificación de seguridad para continuar",
-            );
-            return;
-          }
-          setShowChallenge(open);
+          // No permitir cerrar por clic fuera, Escape, etc.
+          // Solo se cierra al navegar a /checkout
+          if (!open) return;
+          setShowMembershipDialog(open);
         }}
+        disablePointerDismissal
       >
-        <DialogContent className="max-w-lg h-[85vh] sm:max-w-xl bg-[#1a1a1a] border border-zinc-800">
-          <DialogHeader className="text-center space-y-2 pb-2">
-            {/* Header con gradiente de Station24 */}
-            <div className="mx-auto size-15 rounded-2xl bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/25">
-              <ShieldCheck className="size-9 text-white" />
-            </div>
+        <DialogContent
+          showCloseButton={false}
+          className="bg-linear-to-br from-zinc-900 via-zinc-900 to-zinc-800 text-white border-zinc-700 max-h-[90vh] overflow-y-auto rounded-2xl p-0 gap-0 w-lg"
+        >
+          {/* Barra decorativa superior */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-orange-500 via-orange-400 to-orange-600 rounded-t-2xl" />
 
-            <DialogTitle className="text-2xl font-bold text-white tracking-tight">
-              Verificación de seguridad
-            </DialogTitle>
-
-            <DialogDescription className="text-zinc-400 text-sm max-w-xs mx-auto">
-              Confirma tu identidad con tu banco para completar el pago de
-              manera segura
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Panel del iframe con borde estilo Station24 */}
-          <div className="flex-1 min-h-0 rounded-xl border-2 border-zinc-800 overflow-hidden bg-zinc-900/50">
-            {/* Barra de estado con indicador animado */}
-            <div className="bg-zinc-800/50 px-4 py-3 flex items-center justify-between border-b border-zinc-700">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-xs font-medium text-zinc-300">
-                  Conexión segura
-                </span>
+          {/* Header con icono de alerta */}
+          <div className="relative p-4 pb-2 border-b border-zinc-800">
+            <DialogHeader className="flex flex-col items-center text-center">
+              <div className="w-14 h-14 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-7 h-7 text-orange-400" />
               </div>
-              <div className="flex items-center justify-center gap-1 text-xs text-zinc-500">
-                <Lock className="w-3 h-3" />
-                <span>3D Secure</span>
-              </div>
-            </div>
-
-            {challengeUrl ? (
-              <iframe
-                src={challengeUrl}
-                className="w-full h-full min-h-87.5 bg-white"
-                allow="clipboard-read; clipboard-write"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                title="3DS Verification"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full min-h-87.5 gap-4">
-                <Loader2 className="w-12 h-12 text-orange-500 animate-spin" />
-                <p className="text-zinc-400 text-sm font-medium">
-                  Preparando verificación segura...
-                </p>
-                <p className="text-zinc-500 text-xs">
-                  Esto solo toma un momento
-                </p>
-              </div>
-            )}
+              <DialogTitle className="text-xl font-bold pr-8">
+                Ya tienes una membresía activa
+              </DialogTitle>
+              {/* <p className="text-sm text-zinc-400 mt-2">
+                El usuario{" "}
+                <span className="text-white font-medium">
+                  {memberInfo?.firstName} {memberInfo?.lastName}
+                </span>{" "}
+                ya cuenta con una membresía activa en Station24.
+              </p> */}
+            </DialogHeader>
           </div>
 
-          {/* Footer con badges de seguridad */}
-          <div className="space-y-4 pt-3">
-            <div className="flex items-center justify-center gap-6">
-              <div className="flex items-center gap-2 text-zinc-500">
-                <div className="w-6 h-6 rounded-md bg-zinc-800 flex items-center justify-center">
-                  <svg
-                    className="w-3.5 h-3.5 text-green-500"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.133-3.801 10.279-9 11.62-5.176-1.341-9-6.486-9-11.62 0-.68.055-1.352.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+          {/* Contenido del diálogo */}
+          <div className="p-6 space-y-4">
+            {/* Tarjeta de información del plan */}
+            <div className="bg-zinc-800/40 rounded-xl border border-zinc-700/50 overflow-hidden">
+              {/* Nombre del plan */}
+              <div className="p-4 border-b border-zinc-700/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
+                    <Shield className="w-4 h-4 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                      Plan actual
+                    </p>
+                    <p className="text-base font-semibold text-white">
+                      {planName}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-xs font-medium">SSL</span>
               </div>
-              <div className="w-px h-4 bg-zinc-700" />
-              <div className="flex items-center gap-2 text-zinc-500">
-                <div className="w-6 h-6 rounded-md bg-zinc-800 flex items-center justify-center">
-                  <svg
-                    className="w-3.5 h-3.5 text-orange-500"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.133-3.801 10.279-9 11.62-5.176-1.341-9-6.486-9-11.62 0-.68.055-1.352.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+
+              {/* Tipo y duración */}
+              <div className="grid grid-cols-2 divide-x divide-zinc-700/50">
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                      Tipo
+                    </p>
+                  </div>
+                  <p className="text-sm text-zinc-200 font-medium">
+                    {membershipType}
+                  </p>
                 </div>
-                <span className="text-xs font-medium">3D Secure</span>
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                      Duración
+                    </p>
+                  </div>
+                  <p className="text-sm text-zinc-200 font-medium">
+                    {duration}
+                  </p>
+                </div>
+              </div>
+
+              {/* Sucursal */}
+              <div className="grid grid-cols-2 divide-x divide-zinc-700/50">
+                {memberInfo?.branchName && (
+                  <div className="p-4 border-t border-zinc-700/50">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-zinc-500" />
+                      <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                        Sucursal
+                      </p>
+                    </div>
+                    <p className="text-sm text-zinc-200 font-medium mt-1">
+                      {memberInfo.branchName}
+                    </p>
+                  </div>
+                )}
+                {MemberMemberships.membershipEnd && (
+                  <div className="p-4 border-t border-zinc-700/50">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                      <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                        Terminacion
+                      </p>
+                    </div>
+                    <p className="text-sm text-zinc-200 font-medium mt-1">
+                      {MemberMemberships.membershipEnd.split("T")[0]}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <p className="text-zinc-500 text-xs text-center">
-              Tiempo límite: 40 minutos • Contacta a tu banco si no puedes
-              completar la verificación
-            </p>
+            {/* Mensaje informativo */}
+            <div className="bg-zinc-800/30 rounded-xl p-4 border border-zinc-700/30">
+              <p className="text-sm text-zinc-400 text-center">
+                No es posible realizar una nueva compra mientras tengas una
+                membresía activa. Si necesitas ayuda, contacta a soporte.
+              </p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="sticky bottom-0 p-4 bg-zinc-900 border-t border-zinc-800">
+            <Button
+              onClick={async () => {
+                await logoutAction();
+                router.push("/");
+              }}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold h-10 rounded-xl transition-all duration-200"
+            >
+              Volver al inicio
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
