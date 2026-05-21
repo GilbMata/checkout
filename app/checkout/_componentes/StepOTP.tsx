@@ -63,14 +63,15 @@ export default function StepOTP() {
         return;
       }
       toast.success("Acceso correcto");
+      setStep("payment");
 
       // If needs CURP, redirect to curp step, otherwise go to payment
-      if (needsCurp) {
-        setNeedsCurp(false); // Reset the flag after consuming it
-        setStep("curp");
-      } else {
-        setStep("payment");
-      }
+      // if (needsCurp) {
+      //   setNeedsCurp(false); // Reset the flag after consuming it
+      //   setStep("curp");
+      // } else {
+      //   setStep("payment");
+      // }
     } catch (error: any) {
       console.error("OTP error:", error);
     } finally {
