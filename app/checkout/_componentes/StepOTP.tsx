@@ -248,7 +248,7 @@ export default function StepOTP() {
                 onError={handleResendTurnstileError}
                 onExpired={handleResendTurnstileExpired}
                 action="resend-otp"
-                className="min-h-[50px]"
+                className="min-h-12.5"
               />
               <Button
                 onClick={handleResendWithTurnstile}

@@ -88,8 +88,9 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
 
     try {
       // Buscar miembro en Evo API
-      const member = await getEvoMemberbyPhoneAction(phoneNor);
-      console.log("🚀 ~ PhoneForm ~ member:", member);
+      const members = await getEvoMemberbyPhoneAction(phoneNor);
+      const member = members[0] ?? null;
+      console.log("🚀 ~ PhoneForm2 ~ members:", members);
 
       if (member) {
         // Miembro encontrado en Evo

@@ -1,5 +1,4 @@
 import { PlanNotFound } from "@/components/ui/plan-not-found";
-import { getSession } from "@/lib/auth/session";
 import { logger } from "@/lib/logger/logger";
 import { getBranchAction, getMembershipAction } from "../actions/evoActions";
 import CheckoutClient from "./_componentes/CheckoutClient";
@@ -64,7 +63,8 @@ export default async function CheckoutPage({
     });
     return <PlanNotFound />;
   }
-  const session = await getSession();
+  let session = null;
+  // session = await getSession();
 
   return (
     <CheckoutClient

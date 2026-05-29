@@ -7,6 +7,65 @@ const auth = Buffer.from(
   `${process.env.EVO_USER}:${process.env.EVO_PASS}`,
 ).toString("base64");
 
+// ============================================================================
+// Cache en memoria + retry para rate limiting (429)
+// ============================================================================
+
+interface CacheEntry {
+  data: unknown;
+  expiresAt: number;
+}
+
+const cache = new Map<string, CacheEntry>();
+
+/** Limpia entradas expiradas cada 60s */
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(key);
+  }
+}, 60_000);
+
+/**
+ * Cachea el resultado de un fetcher con TTL.
+ * Si hay una entrada vigente, la retorna sin ejecutar el fetcher.
+ */
+async function withCache<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  ttlMs: number,
+): Promise<T> {
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data as T;
+  }
+  const data = await fetcher();
+  cache.set(key, { data, expiresAt: Date.now() + ttlMs });
+  return data;
+}
+
+/**
+ * Ejecuta un fetch con reintento automático ante HTTP 429 (rate limit).
+ * Espera 2s entre reintentos. Máximo `retries` reintentos.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = 2,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, options);
+    if (res.status !== 429) return res;
+    console.warn(
+      `[EVO] Rate limited (429) en ${url}, reintento ${attempt + 1}/${retries}...`,
+    );
+    if (attempt < retries) {
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+  throw new Error(`EVO rate limit exceeded after ${retries + 1} attempts`);
+}
+
 // Interfaz para el miembro raw de EVO
 type EvoMemberRaw = {
   idMember: number;
@@ -150,16 +209,21 @@ export async function getMemberByEmail(email: string) {
   return normalizeEvoMember(data);
 }
 
-export async function getMemberByPhone(phone: string) {
+export async function getMemberByPhone(
+  phone: string,
+  status?: string,
+): Promise<EvoMemberNormalized[]> {
   const baseUrl = process.env.EVO_API_URL!;
   const auth = Buffer.from(
     `${process.env.EVO_USER}:${process.env.EVO_PASS}`,
   ).toString("base64");
 
   const url = new URL("/api/v2/members", baseUrl);
-  const ur = new URL(`${baseUrl}/api/v2/members`);
 
   url.searchParams.set("phone", phone);
+  if (status) {
+    url.searchParams.set("status", status);
+  }
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -173,12 +237,9 @@ export async function getMemberByPhone(phone: string) {
   }
   const rawData = await res.json();
 
-  if (!rawData || (Array.isArray(rawData) && rawData.length === 0)) {
-    return null;
-  }
-
-  const data: EvoMemberRaw = Array.isArray(rawData) ? rawData[0] : rawData;
-  return normalizeEvoMember(data);
+  if (!rawData) return [];
+  const rawList: EvoMemberRaw[] = Array.isArray(rawData) ? rawData : [rawData];
+  return rawList.map(normalizeEvoMember);
 }
 
 // ============================================================================
@@ -1209,42 +1270,134 @@ export async function getSaleById(idSale: number): Promise<unknown | null> {
 }
 
 // ============================================================================
-// ⑨ Obtener MemberMemberships  por idMember
+// ⑨ Obtener MemberMemberships por idMember
 // ============================================================================
 
+export type MemberMembershipRaw = {
+  idMember: number;
+  name: string;
+  idMembership: number;
+  nameMembership: string;
+  idMemberMemberShip: number;
+  idBranch: number;
+  numMembers: number;
+  idSale: number;
+  saleValue: number;
+  membershipStart: string;
+  membershipEnd: string;
+  registerCancelDate: string | null;
+  cancelDate: string | null;
+  reasonCancellation: string | null;
+  saleDate: string;
+  statusMemberMembership: number;
+  [key: string]: unknown;
+};
+
 /**
- * Obtiene una venta específica de Evo por su ID.
- * Retorna null si la venta no existe.
+ * Obtiene los contracts (memberships) de un miembro en Evo.
+ * @param idMember - ID del miembro
+ * @param status - Opcional: filtrar por status (1=activo, 2=cancelado)
+ * @returns Array de miembroships, vacío si no hay
  */
 export async function getMemberMemberships(
   idMember: number,
-): Promise<unknown | null> {
-  const url = new URL(`${baseUrl}/api/v3/membermembership`);
-  url.searchParams.set("idMember", String(idMember));
-  console.log("🚀 ~ getMemberMemberships ~ url:", url);
+  status?: number,
+): Promise<MemberMembershipRaw[]> {
+  const cacheKey = `membermemberships:${idMember}:${status ?? "all"}`;
+  const ttlMs = 30_000; // 30s — los status pueden cambiar
 
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    headers: { Authorization: `Basic ${auth}` },
-  });
+  return withCache(
+    cacheKey,
+    async () => {
+      const url = new URL(`${baseUrl}/api/v3/membermembership`);
+      url.searchParams.set("idMember", String(idMember));
+      if (status !== undefined) {
+        url.searchParams.set("statusMemberMembership", String(status));
+      }
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error(`[EVO] getMemberMemberships error ${res.status}:`, text);
-    throw new Error(`EVO getMemberMemberships error: ${res.status}`);
-  }
+      const res = await fetchWithRetry(url.toString(), {
+        method: "GET",
+        headers: { Authorization: `Basic ${auth}` },
+      });
 
-  const membermembership = await res.json();
-  if (membermembership.length === 0) {
-    return null;
-  }
-  const result = {
-    membershipStart: membermembership?.[0].membershipStart,
-    membershipEnd: membermembership?.[0].membershipEnd,
-    statusMemberMembership: membermembership?.[0].statusMemberMembership,
-  };
-  console.log("🚀 ~ getMemberMemberships ~ result:", result);
-  return result;
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`[EVO] getMemberMemberships error ${res.status}:`, text);
+        throw new Error(`EVO getMemberMemberships error: ${res.status}`);
+      }
+
+      const data = (await res.json()) as MemberMembershipRaw[];
+      return data ?? [];
+    },
+    ttlMs,
+  );
+}
+
+// ============================================================================
+// Branch info — Obtener datos detallados de una sucursal
+// ============================================================================
+
+export type BranchInfoRaw = {
+  idBranch: number;
+  name: string;
+  internalName: string;
+  cnpj: string;
+  address: string;
+  neighborhood: string;
+  telephone: string | null;
+  number: string;
+  idState: number;
+  state: string;
+  city: string;
+  complement: string | null;
+  zipCode: string;
+  website: string;
+  latitude: number;
+  longitude: number;
+  [key: string]: unknown;
+};
+
+/**
+ * Obtiene la información detallada de una sucursal por su ID.
+ * @param idBranch - ID de la sucursal
+ * @returns BranchInfoRaw | null si no encuentra
+ */
+export async function getBranchInfo(
+  idBranch: number,
+): Promise<BranchInfoRaw | null> {
+  const cacheKey = `branchinfo:${idBranch}`;
+  const ttlMs = 300_000; // 5 min — las sucursales casi no cambian
+
+  return withCache(
+    cacheKey,
+    async () => {
+      const url = new URL(`${baseUrl}/api/v1/configuration`);
+      url.searchParams.set("idBranch", String(idBranch));
+
+      const res = await fetchWithRetry(url.toString(), {
+        method: "GET",
+        headers: { Authorization: `Basic ${auth}` },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`[EVO] getBranchInfo error ${res.status}:`, text);
+        throw new Error(`EVO getBranchInfo error: ${res.status}`);
+      }
+
+      const rawData = await res.json();
+
+      // La API puede devolver array u objeto único
+      if (Array.isArray(rawData) && rawData.length > 0) {
+        return rawData[0] as BranchInfoRaw;
+      }
+      if (rawData && !Array.isArray(rawData)) {
+        return rawData as BranchInfoRaw;
+      }
+      return null;
+    },
+    ttlMs,
+  );
 }
 
 // ============================================================================

@@ -75,12 +75,14 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
     toast.loading("Validando telefono...", { id: "phone-validation" });
 
     const phoneNor = phoneClean.slice(2); // Quitar "52" → "3345678988"
+    console.log("🚀 ~ PhoneForm ~ phoneNor:", phoneNor);
     const phoneArea = phoneClean.slice(0, 2); // "52"
 
     try {
       // Buscar miembro en Evo API
-      const member = await getEvoMemberbyPhoneAction(phoneNor);
-      console.log("🚀 ~ PhoneForm ~ member:", member);
+      const members = await getEvoMemberbyPhoneAction(phoneNor);
+      const member = members[0] ?? null;
+      console.log("🚀 ~ PhoneForm ~ members:", members);
 
       if (member) {
         // Miembro encontrado en Evo

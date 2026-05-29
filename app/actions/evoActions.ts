@@ -1,9 +1,9 @@
 "use server";
 
 import { getProspectByEmail } from "@/lib/auth/prospect";
-import { prisma } from "@/lib/db/index";
 import {
   getBranchId,
+  getBranchInfo,
   getMemberByEmail,
   getMemberByPhone,
   getMemberMemberships,
@@ -94,66 +94,93 @@ export async function getVouchersAction(idBranch?: string) {
   }
 }
 
+// ============================================================================
+// Resultado de checkProspectMemberStatusAction
+// ============================================================================
+
+export interface ActiveMemberBranch {
+  name: string;
+  city: string;
+}
+
+export interface ActiveMemberResult {
+  idMember: number;
+  name: string;
+  idMembership: number;
+  nameMembership: string;
+  membershipStart: string;
+  membershipEnd: string;
+  idBranch: number;
+  branch: ActiveMemberBranch | null;
+}
+
 /**
- * Verifica si un prospecto ya tiene un ID de miembro y estatus "member" en BD.
- * Si es miembro, consulta la información del plan vía Evo.
+ * Busca todos los miembros activos por teléfono en todas las sucursales.
+ *
+ * 1. Obtiene todos los miembros por teléfono (getMemberByPhone)
+ * 2. Para cada miembro, obtiene sus memberships activas (status=1)
+ * 3. Para cada membership activa, obtiene info de la sucursal
+ * 4. Retorna solo los que tienen status activo
+ *
+ * @param phone - Número de teléfono (sin código de área)
+ * @returns Array de miembros activos con info de plan y sucursal
  */
-export async function checkProspectMemberStatusAction(prospectId: string) {
-  const prospect = await prisma.prospects.findUnique({
-    where: { id: prospectId },
-    select: {
-      idMember: true,
-      status: true,
-      planId: true,
-      firstName: true,
-      lastName: true,
-    },
-  });
+export async function checkProspectMemberStatusAction(
+  phone: string,
+): Promise<ActiveMemberResult[]> {
+  // 1. Obtener todos los miembros por teléfono
+  const members = await getMemberByPhone(phone, "1");
+  if (members.length === 0) return [];
 
-  if (!prospect || !prospect.idMember || prospect.status !== "member") {
-    return { isMember: false as const };
-  }
+  const results: ActiveMemberResult[] = [];
 
-  let planInfo = null;
-  let MemberMemberships = null;
-  let branchName: string | null = null;
-
-  if (prospect.planId) {
+  // 2. Para cada miembro, obtener memberships activas
+  for (const member of members) {
     try {
-      planInfo = await getMembership(prospect.planId);
-      planInfo = planInfo?.list?.[0];
+      const memberships = await getMemberMemberships(member.idMember, 1); // solo activas
 
-      // Obtener nombre de sucursal desde el plan
-      const idBranch = planInfo?.idBranch;
-      if (idBranch) {
+      if (memberships.length === 0) continue;
+
+      for (const membership of memberships) {
+        // 3. Obtener info de la sucursal
+        let branchInfo: ActiveMemberBranch | null = null;
         try {
-          const branchData = await getBranchId(String(idBranch));
-          if (Array.isArray(branchData) && branchData.length > 0) {
-            branchName =
-              branchData[0]?.name || branchData[0]?.branchName || null;
-          } else if (branchData?.branch && Array.isArray(branchData.branch)) {
-            branchName =
-              branchData.branch[0]?.name ||
-              branchData.branch[0]?.branchName ||
-              null;
+          const branch = await getBranchInfo(membership.idBranch);
+          if (branch) {
+            branchInfo = {
+              name: branch.name,
+              city: branch.city,
+            };
           }
         } catch (error) {
-          console.error("Error getBranchId:", error);
+          console.error(
+            `[checkProspectMemberStatus] Error getBranchInfo(${membership.idBranch}):`,
+            error,
+          );
         }
-      }
 
-      MemberMemberships = await getMemberMemberships(prospect.idMember);
+        results.push({
+          idMember: membership.idMember,
+          name: member.firstName
+            ? `${member.firstName} ${member.lastName ?? ""}`.trim()
+            : membership.name,
+          idMembership: membership.idMembership,
+          nameMembership: membership.nameMembership,
+          membershipStart: membership.membershipStart,
+          membershipEnd: membership.membershipEnd,
+          idBranch: membership.idBranch,
+          branch: branchInfo,
+        });
+      }
     } catch (error) {
-      console.error("Error en getMembership:", error);
+      console.error(
+        `[checkProspectMemberStatus] Error getMemberMemberships(${member.idMember}):`,
+        error,
+      );
+      // Continuar con el siguiente miembro
+      continue;
     }
   }
 
-  return {
-    isMember: true as const,
-    firstName: prospect.firstName,
-    lastName: prospect.lastName,
-    planInfo,
-    branchName,
-    MemberMemberships,
-  };
+  return results;
 }

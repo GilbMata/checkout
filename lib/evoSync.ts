@@ -133,7 +133,8 @@ export async function syncProspectToEvo(
         console.log(
           `🔍 [EvoSync] idMember ${prospect.idMember} no encontrado, buscando por phone...`,
         );
-        member = await getMemberByPhone(prospect.phone);
+        const memberByPhone = await getMemberByPhone(prospect.phone);
+        member = memberByPhone[0] ?? null;
       }
 
       // 1c. ¿Existe el miembro?
@@ -291,7 +292,8 @@ export async function syncProspectToEvo(
     );
 
     // Buscar miembro existente en Evo por teléfono
-    const existingMember = await getMemberByPhone(prospect.phone);
+    const membersByPhone = await getMemberByPhone(prospect.phone);
+    const existingMember = membersByPhone[0] ?? null;
 
     if (existingMember && existingMember.idMember) {
       // Ya existe como miembro en Evo
