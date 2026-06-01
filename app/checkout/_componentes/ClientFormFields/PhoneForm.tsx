@@ -6,12 +6,17 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { getEvoMemberbyPhoneAction } from "@/app/actions/evoActions";
+import {
+  checkProspectMemberStatusAction,
+  getEvoMemberbyPhoneAction,
+  type ActiveMemberResult,
+} from "@/app/actions/evoActions";
 import {
   createProspectAction,
   getProspectByPhoneAction,
 } from "@/app/actions/prospects";
 import { sendOTP } from "@/app/actions/send-otp";
+import ActiveMemberDialog from "@/app/checkout/_componentes/ActiveMemberDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { FloatingInput } from "@/components/ui/FloatingInput";
@@ -44,6 +49,8 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isVerifying, setIsVerifying] = useState(false);
+  const [activeMembers, setActiveMembers] = useState<ActiveMemberResult[]>([]);
+  const [showMembershipDialog, setShowMembershipDialog] = useState(false);
 
   const { setStep, setProspect, setPhone, setNeedsCurp, plan } =
     useCheckoutStore();
@@ -61,6 +68,8 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
 
   // Ref para evitar múltiples submissions
   const isSubmittingRef = useRef(false);
+  // Ref para evitar que el finally reseteé flags cuando se muestra el diálogo
+  const isShowingDialogRef = useRef(false);
 
   const handleSubmitPhone = useCallback(async () => {
     // Prevenir múltiples submissions
@@ -141,6 +150,16 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
         setProspect(prospect);
         setPhone(phoneValue);
 
+        // Check si ya tiene membresías activas antes de enviar OTP
+        const active = await checkProspectMemberStatusAction(phoneNor);
+        if (active.length > 0) {
+          isShowingDialogRef.current = true;
+          setActiveMembers(active);
+          setShowMembershipDialog(true);
+          toast.dismiss("phone-validation");
+          return;
+        }
+
         await sendOTP({ prospectId: prospect.id });
 
         toast.dismiss("phone-validation");
@@ -163,6 +182,16 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
         setProspect(localProspect as unknown as Prospect);
         setPhone(phoneValue);
 
+        // Check si ya tiene membresías activas antes de enviar OTP
+        const active = await checkProspectMemberStatusAction(phoneNor);
+        if (active.length > 0) {
+          isShowingDialogRef.current = true;
+          setActiveMembers(active);
+          setShowMembershipDialog(true);
+          toast.dismiss("phone-validation");
+          return;
+        }
+
         await sendOTP({ prospectId: localProspect.id });
 
         toast.dismiss("phone-validation");
@@ -179,8 +208,10 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
       toast.dismiss("phone-validation");
       toast.error("Error al procesar. Intenta de nuevo.");
     } finally {
-      setIsVerifying(false);
-      isSubmittingRef.current = false;
+      if (!isShowingDialogRef.current) {
+        setIsVerifying(false);
+        isSubmittingRef.current = false;
+      }
     }
   }, [
     phoneValue,
@@ -272,6 +303,12 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
           </p>
         </form>
       </FormProvider>
+
+      <ActiveMemberDialog
+        open={showMembershipDialog}
+        members={activeMembers}
+        onGoHome={() => router.push("/")}
+      />
     </Card>
   );
 }

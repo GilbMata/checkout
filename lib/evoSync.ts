@@ -1,13 +1,14 @@
 /**
  * Evo Sync — Orquestación Prospect → Member en Evo (Flow basado en Carts)
  *
- * Flujo idempotente: verifica el estado actual antes de crear recursos.
+ * Flujo: si el miembro tiene un cart, lo forfeitea y crea uno nuevo.
+ * idMembership e idBranch vienen de los params de la página, NO de la DB.
  *
  * 1. Si tiene idMember en DB:
  *    a. Buscar miembro por idMember, si no encuentra buscar por phone
  *    b. Si existe → verificar si tiene cart
- *       - Si tiene cart → guardar en DB → devolver checkoutLink
- *       - Si NO tiene cart → crear cart → guardar en DB → devolver checkoutLink
+ *       - Si tiene cart → forfeit → crear nuevo cart → guardar → devolver checkoutLink
+ *       - Si NO tiene cart → crear cart → guardar → devolver checkoutLink
  *    c. Si NO existe → crear prospecto → convertir a member → crear cart → devolver checkoutLink
  *
  * 2. Si NO tiene idMember:
@@ -23,6 +24,7 @@ import {
   createCart,
   createProspectInEvo,
   findProspectInEvoByPhone,
+  forfeitCart,
   getCartByMember,
   getMemberById,
   getMemberByPhone,
@@ -39,6 +41,11 @@ const EVO_SYNC_ENABLED = process.env.EVO_SYNC_ENABLED === "true";
 // Tipos de retorno
 // ============================================================================
 
+export interface SyncOptions {
+  idMembership: number;
+  idBranch: number;
+}
+
 export interface SyncResult {
   success: boolean;
   idMember?: number;
@@ -54,13 +61,19 @@ export interface SyncResult {
 // ============================================================================
 
 /**
- * Sincroniza un prospecto local con Evo de forma idempotente.
- * Retorna: { success, idMember, idCartToken, cartCheckoutLink }
+ * Sincroniza un prospecto local con Evo.
+ *
+ * 1. Si el miembro tiene cart → lo forfeitea y crea uno nuevo.
+ * 2. Si no tiene cart → lo crea directamente.
+ * 3. `options.idMembership` e `options.idBranch` vienen de los params de
+ *    la página (plan), NO de la base de datos.
  *
  * @param prospectId - UUID del prospecto en BD local
+ * @param options - { idMembership, idBranch } desde la página de checkout
  */
 export async function syncProspectToEvo(
   prospectId: string,
+  options: SyncOptions,
 ): Promise<SyncResult> {
   // ① Feature flag
   if (!EVO_SYNC_ENABLED) {
@@ -149,37 +162,19 @@ export async function syncProspectToEvo(
         console.log("🚀 ~ syncProspectToEvo ~ existingCart:", existingCart);
 
         if (existingCart && existingCart.idCartToken) {
-          // Ya tiene cart → guardar en DB y devolver
+          // Tiene cart → forfeitear y crear uno nuevo
           console.log(
-            `✅ [EvoSync] Miembro ya tiene cart: idCartToken=${existingCart.idCartToken}`,
+            `🗑️ [EvoSync] Miembro tiene cart, forfeiteando: idCartToken=${existingCart.idCartToken}`,
           );
-          cartToken = existingCart.idCartToken;
-          checkoutLink = existingCart.checkoutLink;
-
-          await prisma.prospects.update({
-            where: { id: prospectId },
-            data: {
-              syncEvoIdCartToken: cartToken,
-              syncEvoCartCheckoutLink: checkoutLink,
-              syncEvoStatus: "synced",
-              syncEvoError: null,
-            },
-          });
-
-          return {
-            success: true,
-            idMember: idMemberEvo,
-            idCartToken: cartToken,
-            cartCheckoutLink: checkoutLink,
-          };
+          await forfeitCart(existingCart.idCartToken);
         }
 
-        // NO tiene cart → crear uno nuevo
-        console.log(`🛒 [EvoSync] Miembro NO tiene cart, creando nuevo...`);
+        // Crear nuevo cart
+        console.log(`🛒 [EvoSync] Creando nuevo cart...`);
         const cartParams: CreateCartParams = {
           idMember: idMemberEvo,
-          idMembership: Number(prospect.planId),
-          idBranch: prospect.idBranch,
+          idMembership: options.idMembership,
+          idBranch: options.idBranch,
         };
 
         const newCart = await createCart(cartParams);
@@ -248,8 +243,8 @@ export async function syncProspectToEvo(
       console.log(`🛒 [EvoSync] Creando cart para nuevo miembro...`);
       const cartParams: CreateCartParams = {
         idMember: idMemberEvo,
-        idMembership: Number(prospect.planId),
-        idBranch: prospect.idBranch,
+        idMembership: options.idMembership,
+        idBranch: options.idBranch,
       };
 
       const newCart = await createCart(cartParams);
@@ -312,37 +307,19 @@ export async function syncProspectToEvo(
       const existingCart = await getCartByMember(idMemberEvo);
 
       if (existingCart && existingCart.idCartToken) {
-        // Ya tiene cart
+        // Tiene cart → forfeitear y crear uno nuevo
         console.log(
-          `✅ [EvoSync] Miembro ya tiene cart: idCartToken=${existingCart.idCartToken}`,
+          `🗑️ [EvoSync] Miembro tiene cart, forfeiteando: idCartToken=${existingCart.idCartToken}`,
         );
-        cartToken = existingCart.idCartToken;
-        checkoutLink = existingCart.checkoutLink;
-
-        await prisma.prospects.update({
-          where: { id: prospectId },
-          data: {
-            syncEvoIdCartToken: cartToken,
-            syncEvoCartCheckoutLink: checkoutLink,
-            syncEvoStatus: "synced",
-            syncEvoError: null,
-          },
-        });
-
-        return {
-          success: true,
-          idMember: idMemberEvo,
-          idCartToken: cartToken,
-          cartCheckoutLink: checkoutLink,
-        };
+        await forfeitCart(existingCart.idCartToken);
       }
 
-      // NO tiene cart → crear uno
-      console.log(`🛒 [EvoSync] Miembro NO tiene cart, creando nuevo...`);
+      // Crear nuevo cart
+      console.log(`🛒 [EvoSync] Creando nuevo cart...`);
       const cartParams: CreateCartParams = {
         idMember: idMemberEvo,
-        idMembership: Number(prospect.planId),
-        idBranch: prospect.idBranch,
+        idMembership: options.idMembership,
+        idBranch: options.idBranch,
       };
 
       const newCart = await createCart(cartParams);
@@ -414,8 +391,8 @@ export async function syncProspectToEvo(
     console.log(`🛒 [EvoSync] Creando cart para nuevo miembro...`);
     const cartParams: CreateCartParams = {
       idMember: idMemberEvo,
-      idMembership: Number(prospect.planId),
-      idBranch: prospect.idBranch,
+      idMembership: options.idMembership,
+      idBranch: options.idBranch,
     };
 
     const newCart = await createCart(cartParams);
@@ -466,6 +443,8 @@ export async function syncProspectToEvo(
             idBranch: prospect.idBranch,
             idMembership: prospect.planId,
             phone: prospect.phone,
+            optionsIdBranch: options.idBranch,
+            optionsIdMembership: options.idMembership,
           },
           stack: error?.stack,
         },

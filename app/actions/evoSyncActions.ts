@@ -4,10 +4,15 @@ import { syncProspectToEvo } from "@/lib/evoSync";
 
 /**
  * Server Action — Sincroniza un prospecto local con Evo.
- * Crea el prospecto en Evo y lo convierte en miembro.
  *
  * @param prospectId - UUID del prospecto en BD local
+ * @param idMembership - ID de la membresía (del plan, desde la página)
+ * @param idBranch - ID de la sucursal (del plan, desde la página)
  */
-export async function syncProspectToEvoAction(prospectId: string) {
-  return await syncProspectToEvo(prospectId);
+export async function syncProspectToEvoAction(
+  prospectId: string,
+  idMembership: number,
+  idBranch: number,
+) {
+  return await syncProspectToEvo(prospectId, { idMembership, idBranch });
 }

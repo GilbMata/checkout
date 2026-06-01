@@ -2,9 +2,7 @@
 
 import {
   clearOldOTP,
-  generateMagicToken,
   generateOTP,
-  saveMagicToken,
   saveOTP,
 } from "@/lib/auth/otp";
 import { prisma } from "@/lib/db/index";
@@ -51,11 +49,6 @@ export async function sendOTP(params: SendOTPParams): Promise<{
     await clearOldOTP(userId);
     await saveOTP(userId, otp);
 
-    const token = generateMagicToken();
-    await saveMagicToken(userId, token);
-
-    const magicLink = `${process.env.APP_URL}/api/auth/magic-link?token=${token}`;
-
     if (method === "whatsapp") {
       if (process.env.PLATICA === "false") {
         // logger.debug({
@@ -75,7 +68,7 @@ export async function sendOTP(params: SendOTPParams): Promise<{
       }
       return { success: true, method: "whatsapp" };
     } else {
-      await sendOtpEmail(prospect.email, otp, magicLink);
+      await sendOtpEmail(prospect.email, otp);
       return { success: true, method: "email" };
     }
   } catch (error) {

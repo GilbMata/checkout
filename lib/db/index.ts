@@ -6,11 +6,6 @@ export { default as prisma } from "./prisma";
 // Type exports for Prisma
 export type {
   EmailValidationLogs,
-  MagicLinks,
   OtpRequests,
-  Orders,
-  OrderPayments,
-  OrderStatus,
-  PaymentStatus,
   Prospects,
 } from "@/src/generated/prisma";

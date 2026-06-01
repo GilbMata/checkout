@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db/index";
-import crypto from "crypto";
 
 export function generateOTP() {
   // Genera OTP 6 digitos aleatorios
@@ -20,7 +19,7 @@ export async function saveOTP(userId: string, otp: string) {
 }
 
 export async function verifyOTP(userId: string, otp: string) {
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV === "development" || process.env.OTP_BYPASS === "true") {
     if (otp === "123456") {
       return true;
     }
@@ -73,51 +72,4 @@ export async function clearOldOTP(userId: string) {
   });
 }
 
-export function generateMagicToken() {
-  return crypto.randomBytes(32).toString("hex");
-}
 
-export async function saveMagicToken(
-  userId: string,
-  token: string,
-  type?: string,
-  subscriptionId?: string,
-) {
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-  try {
-    await prisma.magicLinks.create({
-      data: {
-        token,
-        userId,
-        type,
-        subscriptionId,
-        expiresAt,
-      },
-    });
-  } catch (error) {
-    console.log(error);
-  }
-}
-
-export async function getUserFromToken(token: string) {
-  const now = new Date();
-  console.log("🚀 ~ getUserFromToken ~ now:", now);
-
-  const record = await prisma.magicLinks.findFirst({
-    where: {
-      token,
-      expiresAt: { gt: now },
-    },
-  });
-  console.log("🚀 ~ getUserFromToken ~ record:", record);
-
-  const subscriptionId = record?.subscriptionId || null;
-
-  if (!record) return null;
-
-  const user = await prisma.prospects.findUnique({
-    where: { id: record.userId },
-  });
-
-  return { user, subscriptionId };
-}

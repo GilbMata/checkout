@@ -49,6 +49,7 @@ export default function StepOTP() {
   };
 
   const handleVerify = async (otp: string) => {
+    console.log("🚀 ~ handleVerify ~ otp:", otp);
     if (loading) return;
     if (!customerId) {
       toast.error("Error: no se pudo obtener el ID");
@@ -148,7 +149,6 @@ export default function StepOTP() {
   return (
     <Card className=" mx-auto border-none shadow-none bg-[#1e1e1e] p-5">
       {/* <Card className="w-full max-w-md border-none bg-transparent shadow-none"> */}
-
       {/* Header */}
       <CardHeader className="text-center space-y-2">
         <CardTitle className="text-3xl font-bold text-white pb-2">
@@ -222,7 +222,6 @@ export default function StepOTP() {
             </InputOTPGroup>
           </InputOTP>
         </div>
-
         {/* Button */}
         <Button
           disabled={isPending}
@@ -230,7 +229,6 @@ export default function StepOTP() {
         >
           {isPending ? "Verificando..." : "Verificar código"}
         </Button>
-
         {/* Resend */}
         <div className="text-center space-y-3">
           {isActive ? (

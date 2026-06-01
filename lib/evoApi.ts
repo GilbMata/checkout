@@ -192,7 +192,7 @@ export async function getMemberByEmail(email: string) {
   const url = new URL("/api/v2/members", baseUrl);
   url.searchParams.set("email", email);
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchWithRetry(url.toString(), {
     headers: {
       Authorization: `Basic ${auth}`,
     },
@@ -225,7 +225,7 @@ export async function getMemberByPhone(
     url.searchParams.set("status", status);
   }
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchWithRetry(url.toString(), {
     headers: {
       Authorization: `Basic ${auth}`,
     },
@@ -250,7 +250,7 @@ export async function getMemberById(idMember: number) {
   const url = new URL("/api/v2/members", baseUrl);
   url.searchParams.set("idsMembers", String(idMember));
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchWithRetry(url.toString(), {
     headers: {
       Authorization: `Basic ${auth}`,
     },
@@ -340,6 +340,35 @@ export async function getCartByMember(
     checkoutLink: data.cartCheckoutLink ?? "",
     items: data.items ?? [],
   };
+}
+
+/**
+ * Abandona (forfeit) un cart existente por su idCartToken.
+ * PATCH /api/v1/carts/forfeit
+ */
+export async function forfeitCart(idCartToken: string): Promise<boolean> {
+  const url = new URL("/api/v1/carts/forfeit", baseUrl);
+  url.searchParams.set("idCartToken", idCartToken);
+
+  console.log(
+    `[EVO] forfeitCart → PATCH ${url.toString()}`,
+  );
+
+  const res = await fetch(url.toString(), {
+    method: "PATCH",
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[EVO] forfeitCart error ${res.status}:`, text);
+    throw new Error(`EVO forfeitCart error: ${res.status}`);
+  }
+
+  console.log(`[EVO] forfeitCart → success: idCartToken=${idCartToken}`);
+  return true;
 }
 
 /**
