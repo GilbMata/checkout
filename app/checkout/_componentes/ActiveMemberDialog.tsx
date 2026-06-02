@@ -8,7 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Calendar, MapPin, Shield, MessageCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Calendar,
+  MapPin,
+  MessageCircle,
+  Shield,
+} from "lucide-react";
 
 interface ActiveMemberDialogProps {
   open: boolean;
@@ -17,8 +23,7 @@ interface ActiveMemberDialogProps {
 }
 
 /**
- * Diálogo modal que se muestra cuando el usuario ya tiene una membresía activa.
- * Se usa tanto en PhoneForm (antes de enviar OTP) como en StepPayment.
+ * Diálogo modal que se muestra cuando un prospecto local tiene membresías activas.
  */
 export default function ActiveMemberDialog({
   open,
@@ -118,15 +123,16 @@ export default function ActiveMemberDialog({
               </div>
             </div>
           ))}
-
         </div>
 
         {/* Bloque fijo — mensaje + WhatsApp */}
         <div className="shrink-0 border-t border-zinc-800 px-6 py-4">
           <div className="rounded-xl border border-zinc-700/30 bg-zinc-800/30 p-4">
             <p className="mb-4 text-center text-sm text-zinc-400">
-              No es posible realizar una nueva compra mientras tengas una
-              membresía activa.
+              No es posible realizar la compra o renovación en línea debido a
+              que su cuenta registra una membresía activa. <br />
+              Para recibir asistencia, por favor contáctenos y con gusto
+              revisaremos su caso.
             </p>
             <a
               href="https://api.whatsapp.com/send/?phone=523315840335&text=Hola%2C+inicie+la+compra+de+mi+membres%C3%ADa+en+la+web+y+quiero+completarla"

@@ -11,12 +11,10 @@ import {
   getEvoMemberbyPhoneAction,
   type ActiveMemberResult,
 } from "@/app/actions/evoActions";
-import {
-  createProspectAction,
-  getProspectByPhoneAction,
-} from "@/app/actions/prospects";
+import { getProspectByPhoneAction } from "@/app/actions/prospects";
 import { sendOTP } from "@/app/actions/send-otp";
 import ActiveMemberDialog from "@/app/checkout/_componentes/ActiveMemberDialog";
+import MemberDialog from "@/app/checkout/_componentes/MemberDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { FloatingInput } from "@/components/ui/FloatingInput";
@@ -49,6 +47,7 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isVerifying, setIsVerifying] = useState(false);
+  const [activeMember, setActiveMember] = useState(false);
   const [activeMembers, setActiveMembers] = useState<ActiveMemberResult[]>([]);
   const [showMembershipDialog, setShowMembershipDialog] = useState(false);
 
@@ -95,77 +94,72 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
 
       if (member) {
         // Miembro encontrado en Evo
-        let prospect: Prospect;
-
-        const existingProspect = await getProspectByPhoneAction(phoneNor);
-
-        if (existingProspect) {
-          prospect = existingProspect as Prospect;
-          // Check if prospect already has CURP, if not set needsCurp flag
-          const hasValidCurp =
-            existingProspect.curp &&
-            existingProspect.curp.startsWith("TEMP_") === false;
-          if (!hasValidCurp) {
-            setNeedsCurp(true);
-          }
-        } else {
-          // Check if member has a valid CURP
-          const hasValidCurp = member.curp && member.curp.length > 5;
-
-          // Generate placeholder CURP if missing (to satisfy DB constraint)
-          const curpValue = hasValidCurp
-            ? member.curp
-            : `TEMP_${Date.now()}_${phoneNor}`;
-
-          const newProspect = await createProspectAction({
-            email: member.email,
-            curp: curpValue,
-            firstName: member.firstName,
-            lastName: member.lastName,
-            gender: member.gender,
-            birthDate: member.birthDate,
-            areaCode: phoneArea,
-            phone: phoneNor,
-            planId: String(plan?.idMembership),
-            idMember: member.idMember,
-            idBranch: member.idBranch,
-            branchName: member.branchName,
-            accessBlocked: member.accessBlocked,
-            blockedReason: member.blockedReason,
-            documentType: member.documentType,
-            documentNumber: member.documentNumber,
-            documentId: member.documentId,
-            status: member.status,
-            membershipStatus: member.membershipStatus,
-          });
-
-          prospect = newProspect as unknown as Prospect;
-
-          // Set needsCurp flag if member didn't have valid CURP
-          if (!hasValidCurp) {
-            setNeedsCurp(true);
-          }
-        }
-
-        setProspect(prospect);
-        setPhone(phoneValue);
-
-        // Check si ya tiene membresías activas antes de enviar OTP
-        const active = await checkProspectMemberStatusAction(phoneNor);
-        if (active.length > 0) {
-          isShowingDialogRef.current = true;
-          setActiveMembers(active);
-          setShowMembershipDialog(true);
-          toast.dismiss("phone-validation");
-          return;
-        }
-
-        await sendOTP({ prospectId: prospect.id });
-
-        toast.dismiss("phone-validation");
-        toast.success("Código enviado correctamente");
-        setStep("otp");
-        return;
+        // isShowingDialogRef.current = true;
+        // setActiveMember(true);
+        // setShowMembershipDialog(true);
+        // toast.dismiss("phone-validation");
+        // return;
+        // let prospect: Prospect;
+        // const existingProspect = await getProspectByPhoneAction(phoneNor);
+        // if (existingProspect) {
+        //   prospect = existingProspect as Prospect;
+        //   // Check if prospect already has CURP, if not set needsCurp flag
+        //   const hasValidCurp =
+        //     existingProspect.curp &&
+        //     existingProspect.curp.startsWith("TEMP_") === false;
+        //   if (!hasValidCurp) {
+        //     setNeedsCurp(true);
+        //   }
+        // } else {
+        //   // Check if member has a valid CURP
+        //   const hasValidCurp = member.curp && member.curp.length > 5;
+        //   // Generate placeholder CURP if missing (to satisfy DB constraint)
+        //   const curpValue = hasValidCurp
+        //     ? member.curp
+        //     : `TEMP_${Date.now()}_${phoneNor}`;
+        //   const newProspect = await createProspectAction({
+        //     email: member.email,
+        //     curp: curpValue,
+        //     firstName: member.firstName,
+        //     lastName: member.lastName,
+        //     gender: member.gender,
+        //     birthDate: member.birthDate,
+        //     areaCode: phoneArea,
+        //     phone: phoneNor,
+        //     planId: String(plan?.idMembership),
+        //     idMember: member.idMember,
+        //     idBranch: member.idBranch,
+        //     branchName: member.branchName,
+        //     accessBlocked: member.accessBlocked,
+        //     blockedReason: member.blockedReason,
+        //     documentType: member.documentType,
+        //     documentNumber: member.documentNumber,
+        //     documentId: member.documentId,
+        //     status: member.status,
+        //     membershipStatus: member.membershipStatus,
+        //   });
+        //   prospect = newProspect as unknown as Prospect;
+        //   // Set needsCurp flag if member didn't have valid CURP
+        //   if (!hasValidCurp) {
+        //     setNeedsCurp(true);
+        //   }
+        // }
+        // setProspect(prospect);
+        // setPhone(phoneValue);
+        // // Check si ya tiene membresías activas antes de enviar OTP
+        // const active = await checkProspectMemberStatusAction(phoneNor);
+        // if (active.length > 0) {
+        //   isShowingDialogRef.current = true;
+        //   setActiveMembers(active);
+        //   setShowMembershipDialog(true);
+        //   toast.dismiss("phone-validation");
+        //   return;
+        // }
+        // await sendOTP({ prospectId: prospect.id });
+        // toast.dismiss("phone-validation");
+        // toast.success("Código enviado correctamente");
+        // setStep("otp");
+        // return;
       }
 
       // Si no hay miembro, buscar prospecto local
@@ -187,6 +181,12 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
         if (active.length > 0) {
           isShowingDialogRef.current = true;
           setActiveMembers(active);
+          setShowMembershipDialog(true);
+          toast.dismiss("phone-validation");
+          return;
+        } else if (member) {
+          isShowingDialogRef.current = true;
+          setActiveMember(true);
           setShowMembershipDialog(true);
           toast.dismiss("phone-validation");
           return;
@@ -304,8 +304,12 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
         </form>
       </FormProvider>
 
+      <MemberDialog
+        open={showMembershipDialog && activeMember}
+        onGoHome={() => router.push("/")}
+      />
       <ActiveMemberDialog
-        open={showMembershipDialog}
+        open={showMembershipDialog && activeMembers.length > 0}
         members={activeMembers}
         onGoHome={() => router.push("/")}
       />
