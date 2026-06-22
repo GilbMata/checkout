@@ -219,6 +219,11 @@ export async function syncProspectToEvo(
         gender: prospect.gender ?? null,
         idBranch: prospect.idBranch,
         curp: prospect.curp,
+        address: prospect.address,
+        number: prospect.number,
+        city: prospect.city,
+        state: prospect.state,
+        zipCode: prospect.zipCode,
       });
       idProspectEvo = prospectResult.idProspect;
       action = "created";
@@ -368,6 +373,11 @@ export async function syncProspectToEvo(
       gender: prospect.gender ?? null,
       idBranch: prospect.idBranch,
       curp: prospect.curp,
+      address: prospect.address,
+      number: prospect.number,
+      city: prospect.city,
+      state: prospect.state,
+      zipCode: prospect.zipCode,
     });
     console.log("🚀 ~ syncProspectToEvo ~ prospectResult:", prospectResult);
     idProspectEvo = prospectResult.idProspect;
@@ -473,6 +483,50 @@ interface ProspectResult {
   action: "created" | "updated";
 }
 
+// ============================================================================
+// Mapping: nombre de estado mexicano → idState de Evo
+// ============================================================================
+
+export const MEXICAN_STATE_TO_ID: Record<string, number> = {
+  Aguascalientes: 52,
+  "Baja California": 53,
+  "Baja California Sur": 54,
+  Campeche: 55,
+  Chiapas: 56,
+  Chihuahua: 57,
+  Coahuila: 58,
+  Colima: 59,
+  "Ciudad de México": 60,
+  Durango: 61,
+  Guanajuato: 62,
+  Guerrero: 63,
+  Hidalgo: 64,
+  Jalisco: 65,
+  "Estado de México": 66,
+  Michoacán: 67,
+  Morelos: 68,
+  Nayarit: 69,
+  "Nuevo León": 70,
+  Oaxaca: 71,
+  Puebla: 72,
+  Querétaro: 73,
+  "Quintana Roo": 74,
+  "San Luis Potosí": 75,
+  Sinaloa: 76,
+  Sonora: 77,
+  Tabasco: 78,
+  Tamaulipas: 79,
+  Tlaxcala: 80,
+  Veracruz: 81,
+  Yucatán: 82,
+  Zacatecas: 83,
+};
+
+export function stateToId(state: string | null): number | undefined {
+  if (!state) return undefined;
+  return MEXICAN_STATE_TO_ID[state] ?? undefined;
+}
+
 /**
  * Busca o crea un prospecto en Evo.
  * Si ya existe, actualiza sus datos.
@@ -487,6 +541,11 @@ async function ensureProspectInEvo(prospect: {
   gender: string | null;
   idBranch: number;
   curp: string;
+  address: string | null;
+  number: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
 }): Promise<ProspectResult> {
   const genderMap: Record<string, string> = {
     male: "M",
@@ -520,6 +579,11 @@ async function ensureProspectInEvo(prospect: {
       birthday: prospect.birthDate?.toISOString() ?? undefined,
       gender: evoGender,
       idBranch: prospect.idBranch,
+      address: prospect.address ?? undefined,
+      number: prospect.number ?? undefined,
+      city: prospect.city ?? undefined,
+      idState: stateToId(prospect.state),
+      zipCode: prospect.zipCode ?? undefined,
     });
 
     console.log(
@@ -545,6 +609,11 @@ async function ensureProspectInEvo(prospect: {
     ddi: prospect.areaCode ?? undefined,
     birthday: prospect.birthDate?.toISOString() ?? undefined,
     gender: evoGender,
+    address: prospect.address ?? undefined,
+    number: prospect.number ?? undefined,
+    city: prospect.city ?? undefined,
+    idState: stateToId(prospect.state),
+    zipCode: prospect.zipCode ?? undefined,
   });
 
   console.log(

@@ -16,7 +16,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio --url=postgresql://postgres:000@localhost:5432/station24",
-    "db:reset": "prisma migrate reset "
+    "db:reset": "prisma migrate reset ",
+    "preview:prospect": "tsx scripts/preview-prospect-payload.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -81,6 +82,7 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "prisma": "^7.7.0",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "5.9.3",
     "vitest": "^4.1.4"
   },

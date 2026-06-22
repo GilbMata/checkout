@@ -930,6 +930,11 @@ export interface UpdateProspectInEvoParams {
   birthday?: string;
   gender?: string;
   idBranch?: number;
+  address?: string;
+  number?: string;
+  city?: string;
+  idState?: number;
+  zipCode?: string;
 }
 
 export interface UpdateProspectInEvoResponse {
@@ -962,6 +967,11 @@ export async function updateProspectInEvo(
   if (data.birthday !== undefined) body.birthday = data.birthday;
   if (data.gender !== undefined) body.gender = data.gender;
   if (data.idBranch !== undefined) body.idBranch = data.idBranch;
+  if (data.address !== undefined) body.address = data.address;
+  if (data.number !== undefined) body.number = data.number;
+  if (data.city !== undefined) body.city = data.city;
+  if (data.idState !== undefined) body.idState = data.idState;
+  if (data.zipCode !== undefined) body.zipCode = data.zipCode;
 
   const res = await fetch(`${baseUrl}/api/v1/prospects`, {
     method: "PUT",
@@ -995,6 +1005,11 @@ export interface CreateProspectInEvoParams {
   ddi?: string;
   birthday?: string;
   gender?: string;
+  address?: string;
+  number?: string;
+  city?: string;
+  idState?: number;
+  zipCode?: string;
 }
 
 export interface CreateProspectInEvoResponse {
@@ -1029,6 +1044,11 @@ export async function createProspectInEvo(
   if (data.ddi) body.ddi = data.ddi;
   if (data.birthday) body.birthday = data.birthday;
   if (data.gender) body.gender = data.gender;
+  if (data.address) body.address = data.address;
+  if (data.number) body.number = data.number;
+  if (data.city) body.city = data.city;
+  if (data.idState) body.idState = data.idState;
+  if (data.zipCode) body.zipCode = data.zipCode;
 
   const res = await fetch(`${baseUrl}/api/v1/prospects`, {
     method: "POST",
