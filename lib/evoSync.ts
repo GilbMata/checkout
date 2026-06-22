@@ -30,6 +30,7 @@ import {
   getMemberByPhone,
   type CreateCartParams,
 } from "@/lib/evoApi";
+import { genderToEvo } from "@/lib/gender";
 
 // ============================================================================
 // Feature Flag
@@ -547,14 +548,7 @@ async function ensureProspectInEvo(prospect: {
   state: string | null;
   zipCode: string | null;
 }): Promise<ProspectResult> {
-  const genderMap: Record<string, string> = {
-    male: "M",
-    female: "F",
-    other: "P",
-  };
-  const evoGender = prospect.gender
-    ? (genderMap[prospect.gender] ?? "P")
-    : undefined;
+  const evoGender = genderToEvo(prospect.gender);
 
   // Buscar prospecto en Evo por teléfono
   console.log(

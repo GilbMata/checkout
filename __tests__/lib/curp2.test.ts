@@ -86,14 +86,14 @@ describe("lib/curp2.ts", () => {
     it("should parse valid CURP", () => {
       const result = parseCURP("MAMC990101HNLRRR01");
       expect(result.birthDate).toBeInstanceOf(Date);
-      expect(result.gender).toBe("Masculino");
+      expect(result.gender).toBe("male");
       expect(result.state).toBe("Nuevo León");
       expect(result.rfcBase).toBe("MAMC990101");
     });
 
     it("should handle female gender", () => {
       const result = parseCURP("MAMC990101MNLRRR01");
-      expect(result.gender).toBe("Femenino");
+      expect(result.gender).toBe("female");
     });
 
     it("should return unknown state for invalid code", () => {

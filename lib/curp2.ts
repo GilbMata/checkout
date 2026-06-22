@@ -129,7 +129,7 @@ export function parseCURP(curp: string) {
     birthDate,
     birthDateString: `${fullYear}-${month}-${day}`,
     // age: calculateAge(birthDate),
-    gender: genderCode === "H" ? "Masculino" : "Femenino",
+    gender: genderCode === "H" ? "male" : "female",
     stateCode,
     state: CURP_STATES[stateCode] ?? "Desconocido",
     rfcBase: upper.substring(0, 10)

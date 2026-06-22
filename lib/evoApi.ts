@@ -1,5 +1,6 @@
 // lib/evo.ts
 import "server-only";
+import { genderFromEvo, type GenderCanonical } from "./gender";
 import { evoRequest } from "./evoRequest";
 
 const baseUrl = process.env.EVO_API_URL!;
@@ -100,7 +101,7 @@ export interface EvoMemberNormalized {
   curp: string;
   firstName: string;
   lastName: string;
-  gender: string;
+  gender: GenderCanonical | null;
   birthDate: string;
   areaCode: string;
   phone?: string;
@@ -137,12 +138,8 @@ function normalizeEvoMember(data: EvoMemberRaw): EvoMemberNormalized {
   const emailContact = data.contacts?.find((c) => c.contactType === "E-mail");
   const email = (emailContact?.description || "").toLowerCase().trim();
 
-  // Normalizar género
-  const genderMap: Record<string, string> = {
-    Male: "Masculino",
-    Female: "Femenino",
-  };
-  const gender = data.gender ?? "";
+  // Normalizar género desde Evo al formato canónico
+  const gender = genderFromEvo(data.gender);
 
   const birthDate = data.birthDate ? data.birthDate.split("T")[0] : "";
 

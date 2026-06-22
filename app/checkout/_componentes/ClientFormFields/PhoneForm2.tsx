@@ -121,7 +121,7 @@ export function PhoneForm({ onNotFound }: PhoneFormProps) {
             curp: curpValue,
             firstName: member.firstName,
             lastName: member.lastName,
-            gender: member.gender,
+            gender: member.gender ?? undefined,
             birthDate: member.birthDate,
             areaCode: phoneArea,
             phone: phoneNor,

@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { normalizeCURP, parseCURP } from "@/lib/curp2";
+import { genderLabel } from "@/lib/gender";
 import { cn } from "@/lib/utils";
 import {
   registrationSchema,
@@ -283,11 +284,6 @@ export function FullFormFields({
     setLastNameValue(capitalized);
   };
 
-  const handleGenderChange = (value: string) => {
-    setValue("gender", value, { shouldValidate: true, shouldDirty: true });
-    setGenderValue(value);
-  };
-
   const handleBirthDateChange = (value: string) => {
     setValue("birthDate", value, { shouldValidate: true, shouldDirty: true });
     setBirthDateValue(value);
@@ -497,9 +493,8 @@ export function FullFormFields({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <FloatingInput
               label="Género"
-              value={genderValue}
-              onChange={(e) => handleGenderChange(e.target.value)}
-              name="gender"
+              value={genderLabel(genderValue)}
+              readOnly
             />
             <FloatingInput
               label="Fecha de nacimiento"

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db/index";
 import { assertNotDisposableEmail } from "@/lib/email/disposable-email";
+import { normalizeGender } from "@/lib/gender";
 import { DocumentType, Gender, MembershipStatus } from "@/src/generated/prisma";
 
 type CreateProspectData = {
@@ -50,11 +51,8 @@ export async function createProspectAction(data: CreateProspectData) {
           : new Date(data.birthDate);
     }
 
-    // Convertir gender En un prisma
-    const rawGender = data.gender?.toLowerCase().trim();
-    const gender: Gender = Object.values(Gender).includes(rawGender as Gender)
-      ? (rawGender as Gender)
-      : Gender.other;
+    // Normalizar género al enum Prisma
+    const gender: Gender = normalizeGender(data.gender) ?? Gender.other;
 
     // Convertir documentType a enum Prisma
     const rawDocType = data.documentType?.toUpperCase().trim();

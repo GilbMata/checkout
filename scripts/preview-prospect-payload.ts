@@ -1,12 +1,7 @@
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma";
-
-const GENDER_MAP: Record<string, string> = {
-  male: "M",
-  female: "F",
-  other: "P",
-};
+import { genderToEvo } from "@/lib/gender";
 
 const MEXICAN_STATE_TO_ID: Record<string, number> = {
   Aguascalientes: 52,
@@ -80,9 +75,7 @@ async function main() {
       process.exit(1);
     }
 
-    const evoGender = prospect.gender
-      ? (GENDER_MAP[prospect.gender] ?? "P")
-      : undefined;
+    const evoGender = genderToEvo(prospect.gender);
 
     const createPayload = {
       name: prospect.firstName,
